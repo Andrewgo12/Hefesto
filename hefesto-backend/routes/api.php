@@ -4,13 +4,25 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\SolicitudAdministrativaController;
 use App\Http\Controllers\Api\SolicitudHistoriaClinicaController;
+use App\Http\Controllers\Api\AuthController;
 
 // Ruta pública para pruebas
 Route::get('/ping', function () {
     return response()->json(['message' => 'pong', 'timestamp' => now()]);
 });
 
-// Rutas públicas (sin autenticación por ahora)
+// Rutas de autenticación (públicas)
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/verificar-credencial-firma', [AuthController::class, 'verificarCredencialFirma']);
+
+// Rutas protegidas con autenticación (opcional por ahora)
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me']);
+});
+
+// Rutas de solicitudes (sin auth por ahora para desarrollo)
 Route::prefix('solicitudes')->group(function () {
     
     // Solicitudes Administrativas

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, ChevronRight } from "lucide-react";
 import {
@@ -67,6 +67,20 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedMenu, setExpandedMenu] = useState<string | null>("Registro");
   const location = useLocation();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+  };
 
   return (
     <div className="flex h-screen bg-slate-50">
@@ -186,17 +200,22 @@ export default function Layout({ children }: LayoutProps) {
             "flex items-center gap-3 px-3 py-2",
             !sidebarOpen && "justify-center"
           )}>
-            <div className="w-7 h-7 bg-slate-700 rounded-full flex-shrink-0" />
+            <div className="w-7 h-7 bg-blue-600 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold">
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
             {sidebarOpen && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">Admin User</p>
-                <p className="text-xs text-slate-500 truncate">admin@hospital</p>
+                <p className="text-xs font-medium truncate">{user?.name || 'Usuario'}</p>
+                <p className="text-xs text-slate-500 truncate">{user?.email || 'No autenticado'}</p>
               </div>
             )}
           </div>
-          <button className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors text-sm">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-slate-400 hover:bg-red-900 hover:text-white transition-colors text-sm"
+          >
             <LogOut size={16} className="flex-shrink-0" />
-            {sidebarOpen && <span>Salir</span>}
+            {sidebarOpen && <span>Cerrar Sesión</span>}
           </button>
         </div>
       </aside>
