@@ -8,6 +8,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import Registro from "./pages/Registro";
+import RegistroAdministrativo from "./pages/RegistroAdministrativo";
+import RegistroHistoriaClinica from "./pages/RegistroHistoriaClinica";
 import Control from "./pages/Control";
 import Configuracion from "./pages/Configuracion";
 import Perfil from "./pages/Perfil";
@@ -23,6 +25,10 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+
+          {/* Nuevos formularios compactos estilo Excel */}
+          <Route path="/registro/administrativo" element={<RegistroAdministrativo />} />
+          <Route path="/registro/historia-clinica" element={<RegistroHistoriaClinica />} />
 
           {/* Registro routes */}
           <Route path="/registro" element={<Navigate to="/registro/administrativo" replace />} />
