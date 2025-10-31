@@ -22,8 +22,10 @@
   },
   "dependencies": {
     "@types/xlsx": "^0.0.36",
+    "axios": "^1.13.1",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
+    "react-signature-canvas": "1.1.0-alpha.2",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
@@ -66,6 +68,7 @@
     "@types/node": "^24.2.1",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
+    "@types/react-signature-canvas": "^1.0.7",
     "@types/three": "^0.176.0",
     "@vitejs/plugin-react-swc": "^4.0.0",
     "autoprefixer": "^10.4.21",
