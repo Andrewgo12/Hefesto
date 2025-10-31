@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
-import Login from "./pages/Login";
+import LoginV0 from "./pages/LoginV0";
 import Registro from "./pages/Registro";
 import RegistroAdministrativo from "./pages/RegistroAdministrativo";
 import RegistroHistoriaClinica from "./pages/RegistroHistoriaClinica";
@@ -36,7 +36,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           {/* Ruta pública de login */}
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<LoginV0 />} />
 
           {/* Rutas protegidas */}
           <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
