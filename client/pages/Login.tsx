@@ -50,7 +50,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 overflow-hidden">
-      {/* Panel izquierdo con animación de fondo */}
+      {/* Panel izquierdo con animación de fondo - Solo desktop */}
       <motion.div
         className="relative hidden lg:flex flex-col items-center justify-center p-8 bg-blue-700 overflow-hidden"
         initial={{ opacity: 0 }}
@@ -98,20 +98,20 @@ export default function Login() {
         </div>
       </motion.div>
 
-      {/* Panel derecho */}
-      <div className="flex flex-col items-center justify-center p-8 bg-white">
+      {/* Panel derecho - Responsivo */}
+      <div className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 bg-white min-h-screen overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="w-full max-w-sm space-y-8"
+          className="w-full max-w-sm space-y-6 sm:space-y-8 my-auto"
         >
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">HEFESTO</h1>
-            <h2 className="text-xl text-gray-600">Bienvenido de vuelta</h2>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">HEFESTO</h1>
+            <h2 className="text-lg sm:text-xl text-gray-600">Bienvenido de vuelta</h2>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             <div className="space-y-2">
               <label className="text-sm text-gray-500" htmlFor="email">
                 Usuario o Correo
@@ -123,7 +123,7 @@ export default function Login() {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="Ingresa tu usuario"
                 required
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-all hover:scale-105"
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-all"
               />
             </div>
 
@@ -138,7 +138,7 @@ export default function Login() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 placeholder="••••••••"
                 required
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-all hover:scale-105"
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-all"
               />
               <div className="text-right">
                 <Link
@@ -187,19 +187,19 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <p className="text-center text-sm text-gray-500 font-medium">Acceso rápido (prueba)</p>
+            <div className="space-y-2 sm:space-y-3">
+              <p className="text-center text-xs sm:text-sm text-gray-500 font-medium">Acceso rápido (prueba)</p>
               {usuariosPrueba.map((user, idx) => (
                 <motion.button
                   key={idx}
                   type="button"
                   onClick={() => loginRapido(user.email, user.password)}
-                  whileHover={{ scale: 1.03, x: 5 }}
+                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all shadow-sm hover:shadow-md"
+                  className="w-full text-left px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all shadow-sm hover:shadow-md"
                 >
-                  <p className="font-semibold text-gray-700 text-sm">{user.rol}</p>
-                  <p className="text-xs text-gray-500">{user.email}</p>
+                  <p className="font-semibold text-gray-700 text-xs sm:text-sm">{user.rol}</p>
+                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
                 </motion.button>
               ))}
             </div>
