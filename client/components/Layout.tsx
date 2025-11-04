@@ -1,5 +1,10 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { 
+  HiUser as HiUserIcon, HiUserAdd as HiUserAddIcon, HiClipboardList as HiClipboardListIcon,
+  HiShieldCheck as HiShieldCheckIcon, HiIdentification as HiIdentificationIcon,
+  HiAdjustments as HiAdjustmentsIcon, HiLockClosed as HiLockClosedIcon
+} from 'react-icons/hi';
 import { Menu, X, ChevronRight } from "lucide-react";
 import {
   LayoutDashboard,
@@ -20,7 +25,7 @@ interface NavItem {
   label: string;
   href?: string;
   icon: React.ComponentType<any>;
-  submenu?: Array<{ label: string; href: string }>;
+  submenu?: Array<{ label: string; href: string; icon?: React.ComponentType<any> }>;
 }
 
 const navigationItems: NavItem[] = [
@@ -29,44 +34,43 @@ const navigationItems: NavItem[] = [
     label: "Registro",
     icon: FileText,
     submenu: [
-      { label: "Usuario Administrativo", href: "/registro/administrativo" },
-      { label: "Usuario Médico", href: "/registro/medico" },
-      { label: "Mis Solicitudes", href: "/registro/seguimiento" },
+      { label: "Usuario Administrativo", href: "/registro/administrativo", icon: HiUserIcon },
+      { label: "Usuario Médico", href: "/registro/historia-clinica", icon: HiUserAddIcon },
+      { label: "Solicitud de Proceso", href: "/registro/proceso", icon: HiClipboardListIcon },
     ],
   },
   {
     label: "Control",
     icon: LayoutDashboard,
     submenu: [
-      { label: "Aprobación de Solicitudes", href: "/control/aprobacion" },
-      { label: "Gestión de Usuarios", href: "/control/usuarios" },
-      { label: "Cambio de Permisos", href: "/control/permisos" },
+      { label: "Aprobación de Solicitudes", href: "/control/aprobacion", icon: HiClipboardListIcon },
+      { label: "Gestión de Usuarios", href: "/control/usuarios", icon: HiUserAddIcon },
+      { label: "Cambio de Permisos", href: "/control/permisos", icon: HiShieldCheckIcon },
     ],
   },
   {
     label: "Configuración",
     icon: Settings,
     submenu: [
-      { label: "Gestión de Roles", href: "/configuracion/roles" },
-      { label: "Credenciales", href: "/configuracion/credenciales" },
-      { label: "Parámetros del Sistema", href: "/configuracion/parametros" },
+      { label: "Movimientos del Sistema", href: "/configuracion/movimientos", icon: HiAdjustmentsIcon },
     ],
   },
   {
     label: "Perfil",
     icon: Users,
     submenu: [
-      { label: "Información Personal", href: "/perfil/personal" },
-      { label: "Registro de Actividad", href: "/perfil/actividad" },
-      { label: "Seguridad", href: "/perfil/seguridad" },
+      { label: "Información Personal", href: "/perfil/personal", icon: HiUserIcon },
+      { label: "Registro de Actividad", href: "/perfil/actividad", icon: HiClipboardListIcon },
+      { label: "Seguridad", href: "/perfil/seguridad", icon: HiLockClosedIcon },
     ],
   },
 ];
 
 export default function Layout({ children }: LayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expandedMenu, setExpandedMenu] = useState<string | null>("Registro");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -75,6 +79,24 @@ export default function Layout({ children }: LayoutProps) {
       setUser(JSON.parse(userData));
     }
   }, []);
+
+  // Cargar estado persistido del sidebar
+  useEffect(() => {
+    try {
+      const savedOpen = localStorage.getItem('layout_sidebar_open');
+      const savedExpanded = localStorage.getItem('layout_expanded_menu');
+      if (savedOpen !== null) setSidebarOpen(savedOpen === 'true');
+      if (savedExpanded !== null) setExpandedMenu(savedExpanded || null);
+    } catch {}
+  }, []);
+
+  // Guardar estado al cambiar
+  useEffect(() => {
+    try {
+      localStorage.setItem('layout_sidebar_open', String(sidebarOpen));
+      localStorage.setItem('layout_expanded_menu', expandedMenu || '');
+    } catch {}
+  }, [sidebarOpen, expandedMenu]);
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
@@ -125,11 +147,17 @@ export default function Layout({ children }: LayoutProps) {
 
             if (!hasSubmenu) {
               return (
-                <Link
+                <button
                   key={item.label}
-                  to={item.href!}
+                  onClick={() => {
+                    if (!sidebarOpen) {
+                      setSidebarOpen(true);
+                    } else if (item.href) {
+                      navigate(item.href);
+                    }
+                  }}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-md transition-colors truncate text-sm",
+                    "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors truncate text-sm text-left",
                     isMainActive
                       ? "bg-blue-600 text-white font-medium"
                       : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
@@ -138,14 +166,21 @@ export default function Layout({ children }: LayoutProps) {
                 >
                   <Icon size={18} className="flex-shrink-0" />
                   {sidebarOpen && <span className="truncate">{item.label}</span>}
-                </Link>
+                </button>
               );
             }
 
             return (
               <div key={item.label}>
                 <button
-                  onClick={() => setExpandedMenu(isExpanded ? null : item.label)}
+                  onClick={() => {
+                    if (!sidebarOpen) {
+                      setSidebarOpen(true);
+                      setExpandedMenu(item.label);
+                    } else {
+                      setExpandedMenu(isExpanded ? null : item.label);
+                    }
+                  }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm",
                     isSubmenuActive
@@ -171,6 +206,7 @@ export default function Layout({ children }: LayoutProps) {
                   <div className="mt-1 ml-2 pl-2 border-l border-slate-700 space-y-0.5">
                     {item.submenu.map((submenu) => {
                       const isSubActive = location.pathname === submenu.href;
+                      const SubIcon = submenu.icon;
                       return (
                         <Link
                           key={submenu.href}
@@ -182,7 +218,7 @@ export default function Layout({ children }: LayoutProps) {
                               : "text-slate-400 hover:bg-slate-700 hover:text-slate-200"
                           )}
                         >
-                          <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                          {SubIcon && <SubIcon size={14} className="flex-shrink-0" />}
                           <span className="truncate">{submenu.label}</span>
                         </Link>
                       );
@@ -196,20 +232,24 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Footer */}
         <div className="border-t border-slate-800 p-3 space-y-2">
-          <div className={cn(
-            "flex items-center gap-3 px-3 py-2",
-            !sidebarOpen && "justify-center"
-          )}>
+          <button
+            onClick={() => navigate('/perfil/personal')}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800 transition-colors",
+              !sidebarOpen && "justify-center"
+            )}
+            title="Ver mi perfil"
+          >
             <div className="w-7 h-7 bg-blue-600 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold">
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             {sidebarOpen && (
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{user?.name || 'Usuario'}</p>
-                <p className="text-xs text-slate-500 truncate">{user?.email || 'No autenticado'}</p>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-xs font-medium truncate text-white">{user?.name || 'Usuario'}</p>
+                <p className="text-xs text-slate-400 truncate">{user?.email || 'admin@hefesto.local'}</p>
               </div>
             )}
-          </div>
+          </button>
           <button 
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-slate-400 hover:bg-red-900 hover:text-white transition-colors text-sm"

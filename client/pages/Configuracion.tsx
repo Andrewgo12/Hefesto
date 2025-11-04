@@ -1,8 +1,11 @@
-import Layout from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Settings, Key, Database, HardDrive, Trash2, Pencil } from "lucide-react";
 import { useState } from "react";
+import { toast } from "@/lib/toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useParams } from "react-router-dom";
 
 interface Role {
@@ -21,6 +24,25 @@ interface Parameter {
 
 export default function Configuracion() {
   const { view = "roles" } = useParams<{ view: string }>();
+
+  // Estados para modales
+  const [showNewRoleModal, setShowNewRoleModal] = useState(false);
+  const [showEditRoleModal, setShowEditRoleModal] = useState(false);
+  const [showDeleteRoleModal, setShowDeleteRoleModal] = useState(false);
+  const [showCredentialModal, setShowCredentialModal] = useState(false);
+  const [showEditParamModal, setShowEditParamModal] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+
+  // Estados para inputs
+  const [newRoleName, setNewRoleName] = useState("");
+  const [editRoleName, setEditRoleName] = useState("");
+  const [roleToEdit, setRoleToEdit] = useState<Role | null>(null);
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [credentialType, setCredentialType] = useState("");
+  const [credentialValue, setCredentialValue] = useState("");
+  const [paramToEdit, setParamToEdit] = useState<Parameter | null>(null);
+  const [paramNewValue, setParamNewValue] = useState("");
+
   const [roles, setRoles] = useState<Role[]>([
     {
       id: 1,
@@ -67,8 +89,7 @@ export default function Configuracion() {
   ]);
 
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-
-  const systemParameters: Parameter[] = [
+  const [parameters, setParameters] = useState<Parameter[]>([
     {
       name: "Política de Contraseña",
       value: "Mínimo 8 caracteres, mayúscula y número",
@@ -94,7 +115,128 @@ export default function Configuracion() {
       value: "Activada",
       description: "Registro de todos los cambios en el sistema",
     },
-  ];
+  ]);
+
+  // Handlers para roles
+  const handleNuevoRol = () => {
+    setNewRoleName("");
+    setShowNewRoleModal(true);
+  };
+  
+  const confirmNewRole = () => {
+    if (!newRoleName.trim()) {
+      toast.error('Nombre requerido', 'Debe ingresar un nombre para el rol');
+      return;
+    }
+    
+    const nuevoRol: Role = {
+      id: Date.now(),
+      name: newRoleName,
+      description: 'Nuevo rol creado',
+      usersCount: 0,
+      permissions: []
+    };
+    
+    setRoles(prev => [...prev, nuevoRol]);
+    setShowNewRoleModal(false);
+    toast.success('Rol creado', `El rol "${newRoleName}" ha sido creado exitosamente`);
+  };
+  
+  const handleEditarRol = (role: Role) => {
+    setRoleToEdit(role);
+    setEditRoleName(role.name);
+    setShowEditRoleModal(true);
+  };
+  
+  const confirmEditRole = () => {
+    if (!editRoleName.trim() || !roleToEdit) {
+      toast.error('Nombre requerido', 'Debe ingresar un nombre para el rol');
+      return;
+    }
+    
+    setRoles(prev => prev.map(r => 
+      r.id === roleToEdit.id ? { ...r, name: editRoleName } : r
+    ));
+    setShowEditRoleModal(false);
+    toast.success('Rol actualizado', 'El rol ha sido actualizado correctamente');
+  };
+  
+  const handleEliminarRol = (role: Role) => {
+    setRoleToDelete(role);
+    setShowDeleteRoleModal(true);
+  };
+  
+  const confirmDeleteRole = () => {
+    if (!roleToDelete) return;
+    
+    setRoles(prev => prev.filter(r => r.id !== roleToDelete.id));
+    setSelectedRole(null);
+    setShowDeleteRoleModal(false);
+    toast.success('Rol eliminado', 'El rol ha sido eliminado correctamente');
+  };
+  
+  const handleGuardarCambiosRol = () => {
+    if (!selectedRole) return;
+    toast.success('Cambios guardados', 'Los cambios del rol han sido guardados correctamente');
+  };
+  
+  // Handlers para credenciales
+  const handleConfigurarCredencial = (cargo: string) => {
+    setCredentialType(cargo);
+    setCredentialValue("");
+    setShowCredentialModal(true);
+  };
+  
+  const confirmCredential = () => {
+    if (!credentialValue.trim()) {
+      toast.error('Valor requerido', 'Debe ingresar un valor para la credencial');
+      return;
+    }
+    
+    setShowCredentialModal(false);
+    toast.success('Credencial actualizada', `La credencial para "${credentialType}" ha sido actualizada`);
+  };
+  
+  // Handlers para parámetros
+  const handleEditarParametro = (param: Parameter) => {
+    setParamToEdit(param);
+    setParamNewValue(param.value);
+    setShowEditParamModal(true);
+  };
+  
+  const confirmEditParam = () => {
+    if (!paramNewValue.trim() || !paramToEdit) {
+      toast.error('Valor requerido', 'Debe ingresar un valor para el parámetro');
+      return;
+    }
+    
+    setParameters(prev => prev.map(p => 
+      p.name === paramToEdit.name ? { ...p, value: paramNewValue } : p
+    ));
+    setShowEditParamModal(false);
+    toast.success('Parámetro actualizado', `${paramToEdit.name} ha sido actualizado`);
+  };
+  
+  // Handlers para respaldos
+  const handleCrearRespaldo = () => {
+    toast.loading('Creando respaldo...');
+    setTimeout(() => {
+      toast.success('Respaldo creado', 'El respaldo se ha creado exitosamente');
+    }, 1500);
+  };
+  
+  const handleRestaurarRespaldo = () => {
+    setShowRestoreModal(true);
+  };
+  
+  const confirmRestore = () => {
+    setShowRestoreModal(false);
+    toast.loading('Restaurando respaldo...');
+    setTimeout(() => {
+      toast.success('Respaldo restaurado', 'El sistema ha sido restaurado correctamente');
+    }, 1500);
+  };
+  
 
   const getTitle = () => {
     switch (view) {
@@ -110,8 +252,7 @@ export default function Configuracion() {
   };
 
   return (
-    <Layout>
-      <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold text-slate-900">
             {getTitle()}
@@ -126,7 +267,7 @@ export default function Configuracion() {
         {/* Roles Management */}
         {view === "roles" && (
           <>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleNuevoRol} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Rol
             </Button>
@@ -176,10 +317,20 @@ export default function Configuracion() {
                         </p>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEditarRol(selectedRole)}
+                          title="Editar rol"
+                        >
                           <Pencil className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleEliminarRol(selectedRole)}
+                          title="Eliminar rol"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -213,7 +364,10 @@ export default function Configuracion() {
                       <p className="text-xs text-slate-600 mb-3">
                         Usuarios con este rol: <strong>{selectedRole.usersCount}</strong>
                       </p>
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                      <Button 
+                        onClick={handleGuardarCambiosRol}
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                      >
                         Guardar Cambios
                       </Button>
                     </div>
@@ -241,31 +395,43 @@ export default function Configuracion() {
                 <p className="text-sm text-slate-600 mb-4">
                   Permite que usuarios cambien su contraseña de forma segura
                 </p>
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => handleConfigurarCredencial('Recuperación de Contraseña')}
+                >
                   Configurar
                 </Button>
               </div>
 
               <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <h4 className="text-sm font-medium text-slate-900 mb-3">
-                  Autenticación de Dos Pasos
+                  Autenticación de Dos Factores
                 </h4>
                 <p className="text-sm text-slate-600 mb-4">
                   Aumenta la seguridad requiriendo verificación adicional
                 </p>
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => handleConfigurarCredencial('Autenticación 2FA')}
+                >
                   Configurar
                 </Button>
               </div>
 
               <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <h4 className="text-sm font-medium text-slate-900 mb-3">
-                  Expiración de Sesiones
+                  Expiración de Sesión
                 </h4>
                 <p className="text-sm text-slate-600 mb-4">
                   Configura el tiempo máximo de sesión activa
                 </p>
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => handleConfigurarCredencial('Expiración de Sesión')}
+                >
                   Configurar
                 </Button>
               </div>
@@ -277,7 +443,11 @@ export default function Configuracion() {
                 <p className="text-sm text-slate-600 mb-4">
                   Bloquea o desbloquea usuarios del sistema
                 </p>
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => handleConfigurarCredencial('Bloqueo de Usuarios')}
+                >
                   Configurar
                 </Button>
               </div>
@@ -312,7 +482,7 @@ export default function Configuracion() {
                     </tr>
                   </thead>
                   <tbody>
-                    {systemParameters.map((param, idx) => (
+                    {parameters.map((param, idx) => (
                       <tr
                         key={idx}
                         className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
@@ -329,7 +499,12 @@ export default function Configuracion() {
                           {param.description}
                         </td>
                         <td className="py-3 px-3">
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditarParametro(param)}
+                            title="Editar parámetro"
+                          >
                             <Pencil className="w-4 h-4" />
                           </Button>
                         </td>
@@ -346,26 +521,33 @@ export default function Configuracion() {
               </h3>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <div>
-                    <p className="font-medium text-slate-900 text-sm">
-                      Último Respaldo
-                    </p>
-                    <p className="text-xs text-slate-600">
-                      01/15/2024 - 02:30 AM
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    Ver Detalles
-                  </Button>
+                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="font-medium text-slate-900 text-sm">
+                    Último Respaldo
+                  </p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    01/15/2024 - 02:30 AM
+                  </p>
                 </div>
 
                 <div className="flex gap-3">
-                  <Button variant="outline" className="flex-1">
-                    Realizar Respaldo Ahora
+                  <Button 
+                    onClick={handleCrearRespaldo}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Crear Respaldo
                   </Button>
-                  <Button variant="outline" className="flex-1">
-                    Programar Respaldo
+                  <Button 
+                    variant="outline"
+                    onClick={handleRestaurarRespaldo}
+                  >
+                    Restaurar Último
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={handleRestaurarRespaldo}
+                  >
+                    Descargar
                   </Button>
                 </div>
               </div>
@@ -373,6 +555,5 @@ export default function Configuracion() {
           </div>
         )}
       </div>
-    </Layout>
   );
 }

@@ -1,11 +1,13 @@
-import Layout from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Mail } from "lucide-react";
-import { useState } from "react";
+import { Mail, Lock, User, Activity, Save } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
+import { toast } from "@/lib/toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useApp } from "@/contexts/AppContext";
 
 interface ActivityLog {
   id: number;
@@ -17,57 +19,59 @@ interface ActivityLog {
 
 export default function Perfil() {
   const { view = "personal" } = useParams<{ view: string }>();
+  const { actividades } = useApp();
+  
+  // Datos editables del usuario
+  const [userData, setUserData] = useState({
+    nombre: "Carlos Mendoza",
+    email: "carlos.mendoza@hefesto.com",
+    telefono: "3001234567",
+    cargo: "Técnico / Administrador",
+    departamento: "Tecnología"
+  });
+  
+  const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+  
+  // Preferencias de notificaciones (editables)
+  const [notifications, setNotifications] = useState({
+    solicitudesNuevas: true,
+    aprobaciones: true,
+    rechazos: false,
+    cambiosConfiguracion: true,
+    reportesDiarios: false,
+    alertasSeguridad: true
+  });
+  
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
 
-  const activityLog: ActivityLog[] = [
-    {
-      id: 1,
-      action: "Acceso",
-      description: "Ingreso al sistema",
-      timestamp: "01/15/2024 09:30 AM",
-      module: "Autenticación",
-    },
-    {
-      id: 2,
-      action: "Aprobación",
-      description: "Aprobó solicitud de usuario: Juan Pérez García",
-      timestamp: "01/15/2024 10:15 AM",
-      module: "Control",
-    },
-    {
-      id: 3,
-      action: "Visualización",
-      description: "Consultó reportes del sistema",
-      timestamp: "01/15/2024 11:00 AM",
-      module: "Reportes",
-    },
-    {
-      id: 4,
-      action: "Modificación",
-      description: "Cambió configuración de rol: Médico Consulta",
-      timestamp: "01/14/2024 03:45 PM",
-      module: "Configuración",
-    },
-    {
-      id: 5,
-      action: "Registro",
-      description: "Creó nueva solicitud de usuario administrativo",
-      timestamp: "01/14/2024 02:20 PM",
-      module: "Registro",
-    },
-    {
-      id: 6,
-      action: "Descarga",
-      description: "Descargó reporte de solicitudes pendientes",
-      timestamp: "01/13/2024 04:10 PM",
-      module: "Reportes",
-    },
-  ];
+  // Handlers para edición de datos personales
+  const handleUserDataChange = (field: string, value: string) => {
+    setUserData(prev => ({ ...prev, [field]: value }));
+  };
+  
+  const handleSaveUserData = () => {
+    setIsEditing(false);
+    toast.success('Datos actualizados', 'Su información personal ha sido actualizada correctamente');
+  };
+  
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Restaurar datos originales si se cancela
+    setUserData({
+      nombre: "Carlos Mendoza",
+      email: "carlos.mendoza@hefesto.com",
+      telefono: "3001234567",
+      cargo: "Técnico / Administrador",
+      departamento: "Tecnología"
+    });
+  };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPasswordData({
@@ -78,12 +82,29 @@ export default function Perfil() {
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("Las contraseñas no coinciden");
+    
+    if (!passwordData.currentPassword) {
+      toast.error("Contraseña actual requerida", "Debe ingresar su contraseña actual");
       return;
     }
-    alert("Contraseña actualizada correctamente");
+    
+    if (passwordData.newPassword.length < 8) {
+      toast.error("Contraseña muy corta", "La contraseña debe tener al menos 8 caracteres");
+      return;
+    }
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Las contraseñas no coinciden", "Por favor, verifique que ambas contraseñas sean idénticas");
+      return;
+    }
+    
+    toast.success("Contraseña actualizada", "Su contraseña ha sido cambiada exitosamente");
     setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  };
+  
+  // Handler para notificaciones
+  const handleNotificationChange = (key: string) => {
+    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const getTitle = () => {
@@ -100,7 +121,6 @@ export default function Perfil() {
   };
 
   return (
-    <Layout>
       <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold text-slate-900">
@@ -170,135 +190,187 @@ export default function Perfil() {
 
           {/* Content Area */}
           <div className="lg:col-span-3">
-            {/* Personal Information */}
+            {/* Personal Information - DISEÑO 1: Card con Avatar y Grid */}
             {view === "personal" && (
-              <Card className="p-4 md:p-6">
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700">
-                        Nombre Completo
-                      </Label>
-                      <Input
-                        value="Admin User"
-                        readOnly
-                        className="mt-2 bg-slate-50"
-                      />
+              <div className="space-y-6">
+                {/* Header Card con Avatar */}
+                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                  <div className="p-6 flex items-center gap-6">
+                    <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg">
+                      {userData.nombre.charAt(0).toUpperCase()}
                     </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700">
-                        Cédula de Identidad
-                      </Label>
-                      <Input
-                        value="1234567890"
-                        readOnly
-                        className="mt-2 bg-slate-50"
-                      />
+                    <div className="flex-1">
+                      <h2 className="text-2xl font-bold text-slate-900">{userData.nombre}</h2>
+                      <p className="text-slate-600 mt-1">{userData.cargo}</p>
+                      <p className="text-sm text-slate-500 mt-1">{userData.email}</p>
                     </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700">
-                        Correo Institucional
-                      </Label>
-                      <Input
-                        value="admin@hospital.local"
-                        readOnly
-                        className="mt-2 bg-slate-50"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700">
-                        Teléfono
-                      </Label>
-                      <Input
-                        value="+1 (555) 123-4567"
-                        readOnly
-                        className="mt-2 bg-slate-50"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700">
-                        Cargo
-                      </Label>
-                      <Input
-                        value="Administrador del Sistema"
-                        readOnly
-                        className="mt-2 bg-slate-50"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-sm font-medium text-slate-700">
-                        Tipo de Rol
-                      </Label>
-                      <Input
-                        value="Técnico / Administrador"
-                        readOnly
-                        className="mt-2 bg-slate-50"
-                      />
-                    </div>
+                    {!isEditing ? (
+                      <Button 
+                        onClick={() => setIsEditing(true)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <User className="w-4 h-4 mr-2" />
+                        Editar Perfil
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button 
+                          onClick={handleSaveUserData}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <Save className="w-4 h-4 mr-2" />
+                          Guardar
+                        </Button>
+                      </div>
+                    )}
                   </div>
+                </Card>
 
-                  <div className="pt-6 border-t border-slate-200">
-                    <Button variant="outline">
-                      Solicitar Actualización de Datos
-                    </Button>
-                  </div>
+                {/* Información en Cards Individuales */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="p-4 hover:shadow-md transition-shadow">
+                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Nombre Completo
+                    </Label>
+                    <Input
+                      value={userData.nombre}
+                      onChange={(e) => handleUserDataChange('nombre', e.target.value)}
+                      readOnly={!isEditing}
+                      className={`mt-2 border-0 px-0 text-lg font-medium ${!isEditing ? 'bg-transparent' : 'bg-white border'}`}
+                    />
+                  </Card>
+
+                  <Card className="p-4 hover:shadow-md transition-shadow">
+                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Correo Electrónico
+                    </Label>
+                    <Input
+                      value={userData.email}
+                      onChange={(e) => handleUserDataChange('email', e.target.value)}
+                      readOnly={!isEditing}
+                      className={`mt-2 border-0 px-0 text-lg font-medium ${!isEditing ? 'bg-transparent' : 'bg-white border'}`}
+                    />
+                  </Card>
+
+                  <Card className="p-4 hover:shadow-md transition-shadow">
+                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Teléfono
+                    </Label>
+                    <Input
+                      value={userData.telefono}
+                      onChange={(e) => handleUserDataChange('telefono', e.target.value)}
+                      readOnly={!isEditing}
+                      className={`mt-2 border-0 px-0 text-lg font-medium ${!isEditing ? 'bg-transparent' : 'bg-white border'}`}
+                    />
+                  </Card>
+
+                  <Card className="p-4 hover:shadow-md transition-shadow">
+                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Cargo
+                    </Label>
+                    <Input
+                      value={userData.cargo}
+                      onChange={(e) => handleUserDataChange('cargo', e.target.value)}
+                      readOnly={!isEditing}
+                      className={`mt-2 border-0 px-0 text-lg font-medium ${!isEditing ? 'bg-transparent' : 'bg-white border'}`}
+                    />
+                  </Card>
+
+                  <Card className="p-4 hover:shadow-md transition-shadow md:col-span-2">
+                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Departamento
+                    </Label>
+                    <Input
+                      value={userData.departamento}
+                      onChange={(e) => handleUserDataChange('departamento', e.target.value)}
+                      readOnly={!isEditing}
+                      className={`mt-2 border-0 px-0 text-lg font-medium ${!isEditing ? 'bg-transparent' : 'bg-white border'}`}
+                    />
+                  </Card>
                 </div>
-              </Card>
+              </div>
             )}
 
-            {/* Activity Log */}
+            {/* Activity Log - DISEÑO 2: Timeline Vertical */}
             {view === "actividad" && (
-              <Card className="p-4 md:p-6">
-                <div className="space-y-3">
-                  {activityLog.map((log) => (
-                    <div
-                      key={log.id}
-                      className="flex gap-4 p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex-shrink-0 mt-1">
-                        <div className="w-2 h-2 bg-slate-400 rounded-full mt-2" />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-slate-900 text-sm">
-                            {log.action}
-                          </p>
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-xs rounded font-medium">
-                            {log.module}
-                          </span>
-                        </div>
-
-                        <p className="text-sm text-slate-600 mt-1">
-                          {log.description}
-                        </p>
-
-                        <p className="text-xs text-slate-500 mt-2">
-                          {log.timestamp}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-bold text-slate-900">Registro de Actividad</h3>
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <Activity className="w-4 h-4" />
+                    <span>{actividades.length} actividades</span>
+                  </div>
                 </div>
-              </Card>
+
+                {actividades.length === 0 ? (
+                  <Card className="p-12">
+                    <div className="text-center text-slate-500">
+                      <Activity className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                      <p className="text-lg font-medium">No hay actividades registradas</p>
+                      <p className="text-sm mt-2">Las acciones que realices aparecer\u00e1n aqu\u00ed</p>
+                    </div>
+                  </Card>
+                ) : (
+                  <div className="relative">
+                    {/* L\u00ednea vertical del timeline */}
+                    <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-blue-500 via-purple-500 to-pink-500" />
+                    
+                    <div className="space-y-6">
+                      {actividades.slice().reverse().map((log, index) => (
+                        <div key={log.id} className="relative flex gap-6">
+                          {/* Punto del timeline */}
+                          <div className="relative z-10 flex-shrink-0">
+                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                              <Activity className="w-8 h-8 text-white" />
+                            </div>
+                          </div>
+
+                          {/* Contenido */}
+                          <Card className="flex-1 p-5 hover:shadow-lg transition-all hover:-translate-y-1">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-bold text-lg text-slate-900">{log.accion}</h4>
+                                <span className="inline-block mt-1 px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                                  {log.modulo}
+                                </span>
+                              </div>
+                              <span className="text-xs text-slate-500 font-medium">{log.timestamp}</span>
+                            </div>
+                            <p className="text-slate-600 leading-relaxed">{log.descripcion}</p>
+                          </Card>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
-            {/* Security */}
+            {/* Security - DISEÑO 3: Dashboard en 2 Columnas */}
             {view === "seguridad" && (
-              <Card className="p-4 md:p-6">
-                {/* Change Password */}
-                <div className="mb-8 pb-8 border-b border-slate-200">
-                  <h4 className="font-medium text-slate-900 mb-4 flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    Cambiar Contraseña
-                  </h4>
+              <div className="space-y-6">
+                <h3 className="text-2xl font-bold text-slate-900">Configuración de Seguridad</h3>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Columna 1: Cambiar Contraseña */}
+                  <Card className="p-6 bg-gradient-to-br from-red-50 to-orange-50 border-red-200">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-12 h-12 bg-red-600 rounded-lg flex items-center justify-center">
+                        <Lock className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-lg text-slate-900">Cambiar Contraseña</h4>
+                        <p className="text-sm text-slate-600">Actualiza tu contraseña periódicamente</p>
+                      </div>
+                    </div>
 
-                  <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                    <form onSubmit={handlePasswordSubmit} className="space-y-4">
                     <div>
                       <Label htmlFor="currentPassword" className="text-sm font-medium text-slate-700">
                         Contraseña Actual
@@ -360,47 +432,43 @@ export default function Perfil() {
                       </label>
                     </div>
 
-                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                    <Button type="submit" className="bg-red-600 hover:bg-red-700 w-full">
+                      <Lock className="w-4 h-4 mr-2" />
                       Actualizar Contraseña
                     </Button>
                   </form>
-                </div>
+                  </Card>
 
-                {/* Notifications */}
-                <div>
-                  <h4 className="font-medium text-slate-900 mb-4 flex items-center gap-2">
-                    <Mail className="w-4 h-4" />
-                    Notificaciones de Seguridad
-                  </h4>
+                  {/* Columna 2: Notificaciones */}
+                  <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                        <Mail className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-lg text-slate-900">Notificaciones</h4>
+                        <p className="text-sm text-slate-600">Gestiona tus preferencias</p>
+                      </div>
+                    </div>
 
-                  <div className="space-y-3">
+                    <div className="space-y-2">
                     {[
-                      {
-                        label: "Alertas de acceso desde nuevas ubicaciones",
-                        checked: true,
-                      },
-                      {
-                        label: "Cambios en permisos y roles",
-                        checked: true,
-                      },
-                      {
-                        label: "Intentos de acceso fallidos",
-                        checked: true,
-                      },
-                      {
-                        label: "Modificaciones administrativas",
-                        checked: false,
-                      },
-                    ].map((notif, idx) => (
+                      { key: 'solicitudesNuevas', label: "Solicitudes nuevas" },
+                      { key: 'aprobaciones', label: "Aprobaciones de solicitudes" },
+                      { key: 'rechazos', label: "Rechazos de solicitudes" },
+                      { key: 'cambiosConfiguracion', label: "Cambios en configuración" },
+                      { key: 'reportesDiarios', label: "Reportes diarios" },
+                      { key: 'alertasSeguridad', label: "Alertas de seguridad" },
+                    ].map((notif) => (
                       <label
-                        key={idx}
+                        key={notif.key}
                         className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded cursor-pointer"
                       >
                         <input
                           type="checkbox"
-                          checked={notif.checked}
-                          readOnly
-                          className="w-4 h-4"
+                          checked={notifications[notif.key as keyof typeof notifications]}
+                          onChange={() => handleNotificationChange(notif.key)}
+                          className="w-4 h-4 text-blue-600 rounded"
                         />
                         <span className="text-sm text-slate-700">
                           {notif.label}
@@ -409,17 +477,71 @@ export default function Perfil() {
                     ))}
                   </div>
 
-                  <div className="mt-6">
-                    <Button variant="outline">
-                      Guardar Preferencias
-                    </Button>
-                  </div>
+                  <Button 
+                    onClick={() => setShowPreferencesModal(true)}
+                    className="bg-green-600 hover:bg-green-700 w-full mt-6"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Guardar Preferencias
+                  </Button>
+                  </Card>
                 </div>
-              </Card>
+              </div>
             )}
           </div>
         </div>
+
+        {/* Modal de Actualización de Datos */}
+        <Dialog open={showUpdateModal} onOpenChange={setShowUpdateModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Solicitar Actualización de Datos</DialogTitle>
+              <DialogDescription>
+                Su solicitud será enviada al administrador para revisión y actualización de sus datos personales.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowUpdateModal(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowUpdateModal(false);
+                  toast.success('Solicitud enviada', 'Su solicitud ha sido enviada al administrador');
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Enviar Solicitud
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Guardar Preferencias */}
+        <Dialog open={showPreferencesModal} onOpenChange={setShowPreferencesModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Guardar Preferencias</DialogTitle>
+              <DialogDescription>
+                ¿Desea guardar las preferencias de notificación seleccionadas?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPreferencesModal(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowPreferencesModal(false);
+                  toast.success('Preferencias guardadas', 'Sus preferencias han sido actualizadas correctamente');
+                }}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Guardar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-    </Layout>
   );
 }

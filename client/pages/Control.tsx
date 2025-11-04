@@ -1,4 +1,3 @@
-import Layout from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +5,10 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle2, XCircle, Eye, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { toast } from "@/lib/toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useApp } from "@/contexts/AppContext";
 
 interface PendingRequest {
   id: number;
@@ -29,77 +32,44 @@ interface UserPermission {
 
 export default function Control() {
   const { view = "aprobacion" } = useParams<{ view: string }>();
+  const { solicitudes, usuarios } = useApp();
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Estado para vista de permisos
+  const [selectedUser, setSelectedUser] = useState("");
+  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  
+  // Estados para modales
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [pendingActionId, setPendingActionId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
-  const pendingApprovals: PendingRequest[] = [
-    {
-      id: 1,
-      name: "Juan Pérez García",
-      type: "Médico",
-      department: "Cardiología",
-      requestedBy: "Dr. Carlos López",
-      date: "2024-01-15",
-      cedula: "1234567890",
-    },
-    {
-      id: 2,
-      name: "María González López",
-      type: "Administrativo",
-      department: "Recursos Humanos",
-      requestedBy: "Jefe de RH",
-      date: "2024-01-14",
-      cedula: "0987654321",
-    },
-    {
-      id: 3,
-      name: "Carlos Martín Ruiz",
-      type: "Médico",
-      department: "Urgencias",
-      requestedBy: "Director Médico",
-      date: "2024-01-13",
-      cedula: "1122334455",
-    },
-  ];
+  // Convertir solicitudes del contexto al formato de la vista
+  const pendingApprovals: PendingRequest[] = solicitudes
+    .filter(sol => sol.estado === 'Pendiente')
+    .map(sol => ({
+      id: sol.id,
+      name: sol.nombreCompleto,
+      type: sol.tipo === 'Administrativo' ? 'Administrativo' : 'Médico',
+      department: sol.cargo || sol.especialidad || 'N/A',
+      requestedBy: sol.solicitadoPor,
+      date: sol.fechaSolicitud,
+      cedula: sol.cedula
+    }));
 
-  const userPermissions: UserPermission[] = [
-    {
-      id: 1,
-      username: "jgarcia",
-      name: "Juan García",
-      type: "Administrativo",
-      department: "Facturación",
-      status: "Activo",
-      lastModified: "2024-01-10",
-    },
-    {
-      id: 2,
-      username: "drodriguez",
-      name: "Dr. Diego Rodríguez",
-      type: "Médico",
-      department: "Cirugía",
-      status: "Activo",
-      lastModified: "2024-01-12",
-    },
-    {
-      id: 3,
-      username: "alopez",
-      name: "Ana López",
-      type: "Administrativo",
-      department: "Admisiones",
-      status: "Activo",
-      lastModified: "2024-01-08",
-    },
-    {
-      id: 4,
-      username: "jmartinez",
-      name: "Dr. Juan Martínez",
-      type: "Médico",
-      department: "Pediatría",
-      status: "Inactivo",
-      lastModified: "2024-01-01",
-    },
-  ];
+  // Convertir usuarios del contexto al formato de la vista
+  const userPermissions: UserPermission[] = usuarios.map(user => ({
+    id: user.id,
+    username: user.username,
+    name: user.nombre,
+    type: user.rol,
+    department: 'N/A',
+    status: user.estado,
+    lastModified: user.fechaCreacion
+  }));
 
   const filteredRequests = pendingApprovals.filter(
     (req) =>
@@ -107,13 +77,79 @@ export default function Control() {
       req.cedula.includes(searchTerm)
   );
 
-  const handleApprove = (id: number) => {
-    alert(`Solicitud ${id} aprobada. El usuario recibirá sus credenciales.`);
+  const handleApprove = async (id: number) => {
+    setPendingActionId(id);
+    setShowApproveModal(true);
+  };
+  
+  const confirmApprove = async () => {
+    if (!pendingActionId) return;
+    
+    setShowApproveModal(false);
+    toast.loading('Aprobando solicitud...');
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      toast.success('Solicitud aprobada', `El usuario recibirá sus credenciales por correo electrónico.`);
+      setPendingActionId(null);
+    } catch (error) {
+      console.error('Error al aprobar:', error);
+      toast.error('Error al aprobar la solicitud', 'Por favor, inténtelo nuevamente');
+    }
   };
 
-  const handleReject = (id: number) => {
-    alert(
-      `Solicitud ${id} rechazada. El solicitante será notificado de los motivos.`
+  const handleReject = async (id: number) => {
+    setPendingActionId(id);
+    setRejectReason("");
+    setShowRejectModal(true);
+  };
+  
+  const confirmReject = async () => {
+    if (!pendingActionId || !rejectReason.trim()) {
+      toast.error('Motivo requerido', 'Debe ingresar un motivo para el rechazo');
+      return;
+    }
+    
+    setShowRejectModal(false);
+    toast.loading('Rechazando solicitud...');
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      toast.success('Solicitud rechazada', 'El solicitante será notificado del rechazo.');
+      setPendingActionId(null);
+      setRejectReason("");
+    } catch (error) {
+      console.error('Error al rechazar:', error);
+      toast.error('Error al rechazar la solicitud', 'Por favor, inténtelo nuevamente');
+    }
+  };
+
+  const handleSavePermissions = async () => {
+    if (!selectedUser || !selectedRole) {
+      toast.error('Campos requeridos', 'Debe seleccionar un usuario y un rol');
+      return;
+    }
+    
+    toast.loading('Guardando permisos...');
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      toast.success('Permisos actualizados', `Se han actualizado los permisos del usuario correctamente`);
+      // Limpiar selección
+      setSelectedUser('');
+      setSelectedRole('');
+      setSelectedServices([]);
+    } catch (error) {
+      console.error('Error al guardar permisos:', error);
+      toast.error('Error al actualizar permisos', 'Por favor, inténtelo nuevamente');
+    }
+  };
+
+  const toggleService = (service: string) => {
+    setSelectedServices(prev => 
+      prev.includes(service) 
+        ? prev.filter(s => s !== service)
+        : [...prev, service]
     );
   };
 
@@ -131,8 +167,7 @@ export default function Control() {
   };
 
   return (
-    <Layout>
-      <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold text-slate-900">
             {getTitle()}
@@ -377,9 +412,11 @@ export default function Control() {
                 </Label>
                 <select
                   id="user-select"
+                  value={selectedUser}
+                  onChange={(e) => setSelectedUser(e.target.value)}
                   className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option>Selecciona un usuario...</option>
+                  <option value="">Selecciona un usuario...</option>
                   {userPermissions.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.name} ({user.username})
@@ -394,14 +431,16 @@ export default function Control() {
                 </Label>
                 <select
                   id="role-select"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
                   className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option>Selecciona un rol...</option>
-                  <option>Administrativo - Entrada de Datos</option>
-                  <option>Administrativo - Supervisor</option>
-                  <option>Médico - Consulta</option>
-                  <option>Médico - Cirugía</option>
-                  <option>Técnico - Sistema</option>
+                  <option value="">Selecciona un rol...</option>
+                  <option value="admin-datos">Administrativo - Entrada de Datos</option>
+                  <option value="admin-supervisor">Administrativo - Supervisor</option>
+                  <option value="medico-consulta">Médico - Consulta</option>
+                  <option value="medico-cirugia">Médico - Cirugía</option>
+                  <option value="tecnico-sistema">Técnico - Sistema</option>
                 </select>
               </div>
 
@@ -424,6 +463,8 @@ export default function Control() {
                     >
                       <input
                         type="checkbox"
+                        checked={selectedServices.includes(service)}
+                        onChange={() => toggleService(service)}
                         className="w-4 h-4 text-blue-600 rounded"
                       />
                       <span className="text-sm text-slate-700">{service}</span>
@@ -433,14 +474,69 @@ export default function Control() {
               </div>
 
               <div className="md:col-span-2 pt-4">
-                <Button className="bg-blue-600 hover:bg-blue-700">
+                <Button 
+                  onClick={handleSavePermissions}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
                   Guardar Cambios
                 </Button>
               </div>
             </div>
           </Card>
         )}
+
+        {/* Modal de Aprobación */}
+        <Dialog open={showApproveModal} onOpenChange={setShowApproveModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar Aprobación</DialogTitle>
+              <DialogDescription>
+                ¿Está seguro de aprobar esta solicitud? El usuario recibirá sus credenciales por correo electrónico.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowApproveModal(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={confirmApprove} className="bg-green-600 hover:bg-green-700">
+                Aprobar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Rechazo */}
+        <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rechazar Solicitud</DialogTitle>
+              <DialogDescription>
+                Ingrese el motivo del rechazo. El solicitante será notificado.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <Label htmlFor="motivo">Motivo del Rechazo</Label>
+                <Textarea
+                  id="motivo"
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Ingrese el motivo..."
+                  className="mt-2"
+                  rows={4}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={confirmReject} className="bg-red-600 hover:bg-red-700">
+                Rechazar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-    </Layout>
   );
 }

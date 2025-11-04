@@ -1,14 +1,15 @@
-import Layout from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Eye, Search, Filter } from "lucide-react";
-import { useState, useEffect } from "react";
-import { solicitudesAdministrativas, solicitudesHistoriaClinica } from "@/lib/api";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useState } from "react";
+import { toast } from "@/lib/toast";
+import { useApp } from "@/contexts/AppContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+const USE_API = import.meta.env.VITE_USE_API === 'true';
 
 interface Solicitud {
   id: number;
@@ -24,94 +25,53 @@ interface Solicitud {
 }
 
 export default function ControlAprobacion() {
-  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { solicitudes: todasSolicitudes, actualizarEstadoSolicitud } = useApp();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("Pendiente");
-  const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null);
+  const [selectedSolicitud, setSelectedSolicitud] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [accion, setAccion] = useState<'aprobar' | 'rechazar'>('aprobar');
   const [comentario, setComentario] = useState('');
   const [loginAsignado, setLoginAsignado] = useState('');
   const [procesando, setProcesando] = useState(false);
-
-  useEffect(() => {
-    cargarSolicitudes();
-  }, [filtroEstado]);
-
-  const cargarSolicitudes = async () => {
-    setLoading(true);
-    try {
-      const params = { 
-        estado: filtroEstado,
-        per_page: 50 
-      };
-
-      const [resAdmin, resHC] = await Promise.all([
-        solicitudesAdministrativas.getAll(params),
-        solicitudesHistoriaClinica.getAll(params),
-      ]);
-
-      const solsAdmin = (resAdmin.data.data || []).map((s: any) => ({
-        ...s,
-        tipo: 'Administrativo' as const,
-      }));
-      
-      const solsHC = (resHC.data.data || []).map((s: any) => ({
-        ...s,
-        tipo: 'Historia Clínica' as const,
-      }));
-
-      setSolicitudes([...solsAdmin, ...solsHC].sort((a, b) => 
-        new Date(b.fecha_solicitud).getTime() - new Date(a.fecha_solicitud).getTime()
-      ));
-    } catch (error) {
-      console.error('Error cargando solicitudes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [showDetalles, setShowDetalles] = useState(false);
 
   const handleAccion = async () => {
     if (!selectedSolicitud) return;
 
     setProcesando(true);
     try {
-      const api = selectedSolicitud.tipo === 'Administrativo' 
-        ? solicitudesAdministrativas 
-        : solicitudesHistoriaClinica;
-
-      const data: any = { comentario };
-      if (accion === 'aprobar' && loginAsignado) {
-        data.login_asignado = loginAsignado;
-      }
-
-      if (accion === 'aprobar') {
-        await api.aprobar(selectedSolicitud.id, data);
-      } else {
-        await api.rechazar(selectedSolicitud.id, data);
-      }
-
-      alert(`Solicitud ${accion === 'aprobar' ? 'aprobada' : 'rechazada'} correctamente`);
+      const nuevoEstado = accion === 'aprobar' ? 'Aprobado' : 'Rechazado';
+      
+      // Actualizar en contexto global
+      actualizarEstadoSolicitud(selectedSolicitud.id, nuevoEstado, comentario);
+      
+      toast.success(
+        `Solicitud ${accion === 'aprobar' ? 'aprobada' : 'rechazada'}`,
+        `La solicitud ha sido ${accion === 'aprobar' ? 'aprobada' : 'rechazada'} correctamente`
+      );
+      
       setShowModal(false);
       setComentario('');
-      setLoginAsignado('');
-      cargarSolicitudes();
+      setSelectedSolicitud(null);
     } catch (error: any) {
       console.error('Error:', error);
-      alert('Error al procesar solicitud: ' + (error.response?.data?.message || error.message));
+      toast.error('Error al procesar solicitud', error.message);
     } finally {
       setProcesando(false);
     }
   };
 
-  const solicitudesFiltradas = solicitudes.filter((sol) => {
+  // Filtrar solicitudes del contexto
+  const solicitudesFiltradas = todasSolicitudes.filter((sol) => {
     const search = searchTerm.toLowerCase();
-    return (
-      sol.nombre_completo.toLowerCase().includes(search) ||
-      sol.cedula.includes(search) ||
-      (sol.area_servicio && sol.area_servicio.toLowerCase().includes(search))
-    );
+    const matchesSearch = sol.nombreCompleto.toLowerCase().includes(search) ||
+      sol.cedula.includes(search);
+    
+    const matchesEstado = filtroEstado === 'Todos' || sol.estado === filtroEstado;
+    
+    return matchesSearch && matchesEstado;
   });
 
   const getStatusBadge = (estado: string) => {
@@ -125,8 +85,7 @@ export default function ControlAprobacion() {
   };
 
   return (
-    <Layout>
-      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Control de Aprobaciones</h1>
           <p className="text-sm text-slate-600">Gestión de solicitudes de usuarios</p>
@@ -177,13 +136,7 @@ export default function ControlAprobacion() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-500">
-                      Cargando...
-                    </td>
-                  </tr>
-                ) : solicitudesFiltradas.length === 0 ? (
+                {solicitudesFiltradas.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-500">
                       No hay solicitudes {filtroEstado.toLowerCase()}
@@ -194,14 +147,14 @@ export default function ControlAprobacion() {
                     <tr key={`${sol.tipo}-${sol.id}`} className="border-b hover:bg-slate-50">
                       <td className="p-3">
                         <div>
-                          <p className="text-sm font-medium text-slate-900">{sol.nombre_completo}</p>
+                          <p className="text-sm font-medium text-slate-900">{sol.nombreCompleto}</p>
                           <p className="text-xs text-slate-500">CC: {sol.cedula}</p>
                         </div>
                       </td>
                       <td className="p-3 text-xs">{sol.tipo}</td>
-                      <td className="p-3 text-xs">{sol.cargo || sol.perfil || '-'}</td>
-                      <td className="p-3 text-xs">{sol.area_servicio || sol.especialidad || '-'}</td>
-                      <td className="p-3 text-xs">{new Date(sol.fecha_solicitud).toLocaleDateString('es-CO')}</td>
+                      <td className="p-3 text-xs">{sol.cargo || sol.especialidad || '-'}</td>
+                      <td className="p-3 text-xs">{sol.especialidad || '-'}</td>
+                      <td className="p-3 text-xs">{new Date(sol.fechaSolicitud).toLocaleDateString('es-CO')}</td>
                       <td className="p-3">
                         <Badge className={`text-xs ${getStatusBadge(sol.estado)}`}>
                           {sol.estado}
@@ -243,7 +196,7 @@ export default function ControlAprobacion() {
                             className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                             onClick={() => {
                               setSelectedSolicitud(sol);
-                              // TODO: Abrir modal de detalles
+                              setShowDetalles(true);
                             }}
                           >
                             <Eye className="w-4 h-4" />
@@ -265,11 +218,16 @@ export default function ControlAprobacion() {
               <DialogTitle>
                 {accion === 'aprobar' ? 'Aprobar' : 'Rechazar'} Solicitud
               </DialogTitle>
+              <DialogDescription>
+                {accion === 'aprobar' 
+                  ? 'Confirme la aprobación de esta solicitud. El usuario recibirá sus credenciales.'
+                  : 'Confirme el rechazo de esta solicitud. El solicitante será notificado.'}
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4">
               <div>
-                <p className="text-sm"><strong>Solicitante:</strong> {selectedSolicitud?.nombre_completo}</p>
+                <p className="text-sm"><strong>Solicitante:</strong> {selectedSolicitud?.nombreCompleto}</p>
                 <p className="text-sm"><strong>Tipo:</strong> {selectedSolicitud?.tipo}</p>
               </div>
 
@@ -313,7 +271,94 @@ export default function ControlAprobacion() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Modal de detalles completos */}
+        <Dialog open={showDetalles} onOpenChange={setShowDetalles}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Detalles Completos de la Solicitud</DialogTitle>
+              <DialogDescription>
+                Información detallada de la solicitud seleccionada
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedSolicitud && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-slate-600 font-medium">Nombre Completo</p>
+                    <p className="text-sm text-slate-900 mt-1">{selectedSolicitud.nombre_completo}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 font-medium">Cédula</p>
+                    <p className="text-sm text-slate-900 mt-1">{selectedSolicitud.cedula}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 font-medium">Tipo</p>
+                    <p className="text-sm text-slate-900 mt-1">{selectedSolicitud.tipo}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 font-medium">Estado</p>
+                    <Badge className={`text-xs ${getStatusBadge(selectedSolicitud.estado)}`}>
+                      {selectedSolicitud.estado}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 font-medium">Cargo/Perfil</p>
+                    <p className="text-sm text-slate-900 mt-1">{selectedSolicitud.cargo || selectedSolicitud.perfil || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-600 font-medium">Área/Servicio</p>
+                    <p className="text-sm text-slate-900 mt-1">{selectedSolicitud.area_servicio || selectedSolicitud.especialidad || '-'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-xs text-slate-600 font-medium">Fecha de Solicitud</p>
+                    <p className="text-sm text-slate-900 mt-1">
+                      {new Date(selectedSolicitud.fecha_solicitud).toLocaleString('es-CO')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <p className="text-xs text-slate-600 font-medium mb-2">Información Adicional</p>
+                  <p className="text-sm text-slate-700">
+                    ID: #{selectedSolicitud.id} | Tipo: {selectedSolicitud.tipo}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDetalles(false)}>
+                Cerrar
+              </Button>
+              {selectedSolicitud?.estado === 'Pendiente' && (
+                <>
+                  <Button
+                    onClick={() => {
+                      setShowDetalles(false);
+                      setAccion('aprobar');
+                      setShowModal(true);
+                    }}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    Aprobar
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setShowDetalles(false);
+                      setAccion('rechazar');
+                      setShowModal(true);
+                    }}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Rechazar
+                  </Button>
+                </>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
-    </Layout>
   );
 }

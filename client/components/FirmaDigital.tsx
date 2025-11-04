@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pencil, Trash2, Check } from 'lucide-react';
+import { validarCredencial, getInfoCredencial } from '@/lib/credenciales';
 
 interface FirmaDigitalProps {
   cargo: string;
@@ -21,22 +22,10 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
   const [error, setError] = useState('');
   const [modoFirma, setModoFirma] = useState<'canvas' | 'texto'>('canvas');
 
-  // Credenciales estáticas por cargo (en producción vendrían del backend)
-  const credencialesValidas: Record<string, string> = {
-    'Jefe inmediato': 'JEFE2024',
-    'Jefe de Talento Humano': 'TALENTO2024',
-    'Jefe de Gestión de la Información': 'GESTION2024',
-    'Coordinador de Facturación o Subgerente Financiero': 'FINANZAS2024',
-    'Capacitador de historia clínica': 'CAPACITAHC2024',
-    'Capacitador de epidemiología': 'CAPACITAEPI2024',
-    'Aval institucional': 'AVAL2024',
-  };
-
   const handleGuardarFirma = () => {
-    // Validar credencial si es requerida
+    // Validar credencial si es requerida (usando sistema centralizado)
     if (credencialRequerida) {
-      const credencialCorrecta = credencialesValidas[credencialRequerida];
-      if (credencial !== credencialCorrecta) {
+      if (!validarCredencial(credencialRequerida, credencial)) {
         setError('Credencial incorrecta');
         return;
       }

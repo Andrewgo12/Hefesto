@@ -54,12 +54,13 @@ const sidebarItems: SidebarItem[] = [
 export default function AdvancedSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [user] = useState(() => {
     const userData = localStorage.getItem('user');
     return userData ? JSON.parse(userData) : null;
   });
+
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
@@ -71,6 +72,13 @@ export default function AdvancedSidebar() {
     setOpenMenus(prev => ({ ...prev, [label]: !prev[label] }));
   };
 
+  const openFromIcon = (label: string, hasSubItems: boolean) => {
+    setIsOpen(true);
+    if (hasSubItems) {
+      setOpenMenus(prev => ({ ...prev, [label]: true }));
+    }
+  };
+
   const isActive = (path?: string) =>
     path ? location.pathname === path || location.pathname.startsWith(path + '/') : false;
 
@@ -79,23 +87,51 @@ export default function AdvancedSidebar() {
       {/* Toggle mobile */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-50 bg-gradient-to-r from-blue-500 to-purple-600 text-white p-2 rounded-xl shadow-lg hover:scale-110 transition-transform"
+        className="fixed top-4 left-4 z-50 bg-[#006837] text-white p-2 rounded-xl shadow-lg hover:brightness-110 transition"
       >
         {isOpen ? <HiX className="w-6 h-6" /> : <HiMenu className="w-6 h-6" />}
       </button>
 
+      {/* Rail (visible cuando está cerrado) */}
+      {!isOpen && (
+        <div className="fixed left-0 top-0 h-full w-16 z-40 bg-slate-900 text-white list-none [&_*]:list-none [&_*]:marker:hidden border-r border-slate-800">
+          <div className="p-3 flex flex-col items-center gap-4">
+            <div className="w-10 h-10 bg-[#006837] rounded-lg flex items-center justify-center font-bold">H</div>
+            <div className="h-px w-8 bg-slate-800" />
+            <nav className="flex-1 flex flex-col items-center gap-2">
+              {sidebarItems.map(item => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={`rail-${item.label}`}
+                    onClick={() => openFromIcon(item.label, !!item.subItems)}
+                    className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-slate-800 text-slate-300 hover:text-white"
+                    title={item.label}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-full z-40 bg-gradient-to-b from-slate-900 to-slate-800 text-white shadow-2xl transition-all duration-300 ${isOpen ? 'w-64' : 'w-20'}`}
+        className={`fixed left-0 top-0 h-full z-40 bg-slate-900 text-white shadow-2xl w-64 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} list-none [&_*]:list-none [&_*]:marker:hidden`}
+        aria-hidden={!isOpen}
+        role="dialog"
+        aria-modal="true"
       >
         {/* Logo */}
         <div className="p-4 border-b border-slate-700 flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg hover:scale-110 transition-transform">H</div>
-          {isOpen && <span className="font-bold text-xl bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent transition-all">HEFESTO</span>}
+          <div className="w-12 h-12 bg-[#006837] rounded-xl flex items-center justify-center font-bold text-xl shadow-lg">H</div>
+          <span className="font-bold text-xl text-white">HEFESTO</span>
         </div>
 
         {/* Navigation */}
-        <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
+        <nav className="p-3 space-y-1 flex-1 overflow-y-auto list-none [&_*]:list-none [&_*]:marker:hidden">
           {sidebarItems.map(item => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -103,35 +139,34 @@ export default function AdvancedSidebar() {
             return (
               <div key={item.label}>
                 <button
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300
-                    ${active ? 'bg-blue-600 shadow-lg text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white hover:shadow-lg'}
-                    ${!isOpen && 'justify-center'}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200
+                    ${active ? 'bg-[#006837] text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}
                   `}
                   onClick={() => item.subItems ? toggleMenu(item.label) : item.path && navigate(item.path)}
-                  title={!isOpen ? item.label : ''}
+                  title={item.label}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${active ? 'text-white' : ''} hover:scale-125 transition-transform`} />
-                    {isOpen && <span className="font-medium text-sm">{item.label}</span>}
+                    <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-slate-300'}`} />
+                    <span className="font-medium text-sm">{item.label}</span>
                   </div>
                   {item.subItems && <HiChevronDown className={`w-5 h-5 transform transition-transform ${openMenus[item.label] ? 'rotate-180' : ''}`} />}
                 </button>
 
                 {/* Submenu */}
                 {item.subItems && (
-                  <div className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ml-6 ${openMenus[item.label] ? 'max-h-96' : 'max-h-0'}`}>
+                  <div className={`overflow-hidden transition-[max-height] duration-200 ease-in-out ml-6 ${openMenus[item.label] ? 'max-h-96' : 'max-h-0'} list-none marker:hidden`}>
                     {item.subItems.map(sub => {
                       const SubIcon = sub.icon;
                       return (
                         <button
                           key={sub.label}
                           onClick={() => sub.path && navigate(sub.path)}
-                          className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all duration-200
-                            ${isActive(sub.path) ? 'bg-blue-500 text-white' : 'hover:bg-slate-700 hover:text-white'}
+                          className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all duration-150 appearance-none
+                            ${isActive(sub.path) ? 'bg-[#006837] text-white' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}
                           `}
                         >
-                          <SubIcon className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                          <span>{sub.label}</span>
+                          <SubIcon className={`w-4 h-4 flex-shrink-0 ${isActive(sub.path) ? 'text-white' : 'text-gray-300'}`} />
+                          <span className="leading-none">{sub.label}</span>
                         </button>
                       );
                     })}

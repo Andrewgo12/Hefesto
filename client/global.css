@@ -11,6 +11,68 @@
   font-family: 'Dancing Script', cursive;
 }
 
+/* Print styles: clean, borders visible, hide interactive-only UI */
+@media print {
+  html, body, #root {
+    height: auto;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* Remove shadows and background tints */
+  .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl,
+  .shadow-inner, .drop-shadow, .drop-shadow-sm, .drop-shadow-md,
+  .drop-shadow-lg, .drop-shadow-xl, .drop-shadow-2xl {
+    box-shadow: none !important;
+    filter: none !important;
+  }
+
+  /* Cards and sections: white background, solid borders */
+  .bg-white, .bg-slate-50, .bg-amber-50, .bg-blue-50, .bg-purple-50, .bg-green-50,
+  .bg-red-50, .bg-indigo-50, .bg-orange-50 {
+    background: #fff !important;
+  }
+  .border, .border-slate-200, .border-slate-300 {
+    border-color: #000 !important;
+  }
+
+  /* Text color to black for clarity */
+  * { color: #000 !important; }
+
+  /* Inputs: remove outlines, show values clearly */
+  input, select, textarea, button {
+    outline: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide elements that are not useful in print */
+  .no-print, [data-no-print="true"], nav, footer, .btn, .button,
+  .shadcn-dialog, .radix-dialog, .ToastViewport, .ToastRoot {
+    display: none !important;
+  }
+
+  /* Tables: tighter spacing for print */
+  table { page-break-inside: auto; }
+  tr    { page-break-inside: avoid; page-break-after: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+
+  /* Page margins */
+  @page {
+    size: A4;
+    margin: 16mm 12mm;
+  }
+}
+
+/* Fuerza que el documento no haga scroll global; el scroll será interno a las vistas */
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+}
+
 @layer base {
   /**
    * Tailwind CSS theme

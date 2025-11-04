@@ -1,4 +1,3 @@
-import Layout from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +7,21 @@ import FirmaDigital from "@/components/FirmaDigital";
 import { Send } from "lucide-react";
 import { useState } from "react";
 import { solicitudesHistoriaClinica } from "@/lib/api";
+import { toast } from "@/lib/toast";
+import { useApp } from "@/contexts/AppContext";
+import { useNavigate } from "react-router-dom";
 import type { FormularioHistoriaClinica } from "@shared/types/formularios";
+ 
 
 export default function RegistroHistoriaClinica() {
+  const { agregarSolicitud } = useApp();
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState<Partial<FormularioHistoriaClinica>>({
     codigoFormato: 'FOR-GDI-SIS-003',
     version: '2',
     fechaEmision: '18/08/2021',
-    fechaSolicitud: new Date().toLocaleDateString('es-CO'),
+    fechaSolicitud: new Date().toLocaleString('es-CO', { hour12: false }),
     nombreCompleto: '',
     cedula: '',
     celular: '',
@@ -41,6 +47,21 @@ export default function RegistroHistoriaClinica() {
   });
 
   const [loading, setLoading] = useState(false);
+  // Fecha/hora controlada (solo hoy)
+  const now = new Date();
+  const yyyy = String(now.getFullYear());
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mi = String(now.getMinutes()).padStart(2, '0');
+  const todayDate = `${yyyy}-${mm}-${dd}`;
+  const [fechaDT, setFechaDT] = useState<string>(`${todayDate}T${hh}:${mi}`);
+  // Diligenciamiento - Datos del usuario logueado (NO EDITABLES)
+  const userDataStr = localStorage.getItem('user');
+  const userData = userDataStr ? JSON.parse(userDataStr) : { email: 'admin@hefesto.local', name: 'Usuario Admin' };
+  const loginUsuario = userData.email || 'admin@hefesto.local';
+  const nombreDiligencia = userData.name || 'Usuario Admin';
+  const fechaRegistro = new Date().toLocaleString('es-CO', { hour12: false });
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -60,41 +81,79 @@ export default function RegistroHistoriaClinica() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    const fechaFinal = fechaDT ? new Date(fechaDT) : new Date();
+    const ahora = fechaFinal.toLocaleString('es-CO', { hour12: false });
+    const payload: any = {
+      ...formData,
+      fechaSolicitud: ahora,
+      loginUsuario,
+      nombreDiligencia,
+      fechaRegistro,
+    };
     if (!formData.aceptaResponsabilidad) {
-      alert('Debe aceptar la responsabilidad');
+      toast.warning('Debe aceptar la responsabilidad', 'Por favor, marque la casilla de aceptación antes de continuar');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await solicitudesHistoriaClinica.create(formData);
-      alert('Solicitud creada exitosamente');
-      console.log('Respuesta:', response.data);
+      // Guardar en contexto global (siempre)
+      agregarSolicitud({
+        tipo: 'Historia Clínica',
+        nombreCompleto: formData.nombreCompleto || '',
+        cedula: formData.cedula || '',
+        especialidad: formData.especialidad,
+        estado: 'Pendiente',
+        solicitadoPor: 'Usuario actual',
+        datos: payload
+      });
+      
+      // Intentar enviar al backend (opcional)
+      try {
+        const response = await solicitudesHistoriaClinica.create(payload);
+        console.log('Respuesta backend:', response.data);
+      } catch (apiError) {
+        console.log('Backend no disponible, guardado solo en local');
+      }
+      
+      toast.success('Solicitud creada exitosamente', 'La solicitud de historia clínica ha sido enviada para aprobación');
+      
+      // Redirigir al dashboard
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
     } catch (error: any) {
       console.error('Error:', error);
-      alert('Error al crear solicitud: ' + (error.response?.data?.message || error.message));
+      toast.error('Error al crear solicitud', error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Layout>
-      <div className="p-4 max-w-7xl mx-auto">
+    <div className="h-[calc(100vh-120px)] overflow-auto p-4 max-w-7xl mx-auto">
         <div className="mb-4">
           <h1 className="text-xl font-bold">FORMATO CREACIÓN DE USUARIOS HISTORIA CLÍNICA ELECTRÓNICA</h1>
           <p className="text-xs text-slate-600">FOR-GDI-SIS-003 | Versión 2 | Fecha emisión: 18/08/2021</p>
         </div>
-
         <form onSubmit={handleSubmit}>
-          <Card className="p-0 overflow-hidden">
-            <table className="w-full border-collapse text-xs">
+          <Card className="p-3 md:p-4 overflow-hidden rounded-lg border border-slate-200 shadow-sm">
+            <table className="w-full border-collapse text-[12px] [&_td]:p-1.5 [&_th]:p-2">
               <tbody>
                 {/* Encabezado */}
                 <tr className="bg-slate-100 border-b">
                   <td className="border p-2 font-semibold w-48">Fecha de solicitud:</td>
-                  <td className="border p-2">{formData.fechaSolicitud}</td>
+                  <td className="border p-2">
+                    <input
+                      type="datetime-local"
+                      value={fechaDT}
+                      onChange={(e) => setFechaDT(e.target.value)}
+                      min={`${todayDate}T00:00`}
+                      max={`${todayDate}T23:59`}
+                      className="h-7 text-[11px] border border-slate-300 rounded px-2"
+                      required
+                    />
+                  </td>
                 </tr>
 
                 {/* Datos del solicitante */}
@@ -190,65 +249,58 @@ export default function RegistroHistoriaClinica() {
                   </td>
                 </tr>
 
-                {/* Perfil */}
+                {/* Perfil + Nota + Autor */}
                 <tr className="bg-green-50">
-                  <td colSpan={2} className="border p-2 font-bold text-center">PERFIL (marcar X)</td>
+                  <td colSpan={2} className="border p-2 font-bold text-center">PERFIL Y AUTORIZACIÓN</td>
                 </tr>
                 <tr>
                   <td colSpan={2} className="border p-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        'Médico especialista',
-                        'Médico residente',
-                        'Médico general',
-                        'Auditor',
-                        'Enfermero jefe',
-                        'Auxiliar de enfermería',
-                        'Terapeuta',
-                        'Otro',
-                      ].map((perfil) => (
-                        <label key={perfil} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="perfil"
-                            checked={formData.perfil === perfil}
-                            onChange={() => handleInputChange('perfil', perfil)}
-                            className="w-4 h-4"
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <div className="font-semibold text-xs mb-2">Perfil (marcar X)</div>
+                        <div className="grid grid-cols-1 gap-2">
+                          {['Médico General','Especialista','Enfermero Jefe','Auxiliar de Enfermería','Terapeuta','Otro'].map((perfil) => (
+                            <label key={perfil} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={formData.perfil === perfil}
+                                onChange={() => handleInputChange('perfil', perfil)}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-xs">{perfil}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {formData.perfil === 'Otro' && (
+                          <Input
+                            value={formData.perfilOtro || ''}
+                            onChange={(e) => handleInputChange('perfilOtro', e.target.value)}
+                            className="h-7 text-xs mt-2"
+                            placeholder="Especificar otro perfil"
                           />
-                          <span className="text-xs">{perfil}</span>
-                        </label>
-                      ))}
-                    </div>
-                    {formData.perfil === 'Otro' && (
-                      <Input
-                        value={formData.perfilOtro}
-                        onChange={(e) => handleInputChange('perfilOtro', e.target.value)}
-                        className="h-7 text-xs mt-2"
-                        placeholder="Especificar otro perfil"
-                      />
-                    )}
-                  </td>
-                </tr>
-
-                {/* Tipo de vinculación */}
-                <tr className="bg-yellow-50">
-                  <td colSpan={2} className="border p-2 font-bold text-center">TIPO DE VINCULACIÓN (marcar X)</td>
-                </tr>
-                <tr>
-                  <td colSpan={2} className="border p-2">
-                    <div className="flex gap-6">
-                      {['Interno', 'Externo'].map((tipo) => (
-                        <label key={tipo} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="vinculacion"
-                            checked={formData.tipoVinculacion === tipo}
-                            onChange={() => handleInputChange('tipoVinculacion', tipo)}
-                            className="w-4 h-4"
-                          />
-                          <span className="text-xs">{tipo}</span>
-                        </label>
-                      ))}
+                        )}
+                      </div>
+                      <div className="text-xs bg-slate-50 p-2 rounded border border-slate-200">
+                        <strong>Nota:</strong> Solo será autorizado el usuario que cuente con el aval de la Subgerencia o de la Coordinadora respectiva.
+                      </div>
+                      <div>
+                        <div className="font-semibold text-xs mb-2">Autor</div>
+                        <div className="flex flex-col gap-2">
+                          {['Interno','Externo'].map((tipo) => (
+                            <label key={tipo} className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="autor"
+                                checked={formData.tipoVinculacion === tipo}
+                                onChange={() => handleInputChange('tipoVinculacion', tipo)}
+                                className="w-4 h-4"
+                              />
+                              <span className="text-xs">{tipo}</span>
+                            </label>
+                          ))}
+                          {/* Solo Interno/Externo por tipado */}
+                        </div>
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -275,7 +327,7 @@ export default function RegistroHistoriaClinica() {
                     </div>
                     {formData.terminalAsignado === 'Otro' && (
                       <Input
-                        value={formData.terminalOtro}
+                        value={formData.terminalOtro || ''}
                         onChange={(e) => handleInputChange('terminalOtro', e.target.value)}
                         className="h-7 text-xs mt-2"
                         placeholder="Especificar otro terminal"
@@ -284,12 +336,12 @@ export default function RegistroHistoriaClinica() {
                   </td>
                 </tr>
 
-                {/* Capacitación Historia Clínica */}
+                {/* Capacitaciones */}
                 <tr className="bg-orange-50">
                   <td colSpan={2} className="border p-2 font-bold text-center">CAPACITACIÓN EN HISTORIA CLÍNICA ELECTRÓNICA</td>
                 </tr>
                 <tr>
-                  <td className="border p-1 font-semibold">Capacitación realizada:</td>
+                  <td className="border p-1 font-semibold">¿Realizó la capacitación?</td>
                   <td className="border p-2">
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2">
@@ -318,37 +370,48 @@ export default function RegistroHistoriaClinica() {
                     </div>
                   </td>
                 </tr>
-                {formData.capacitacionHistoriaClinica?.capacitacionRealizada && (
-                  <>
-                    <tr>
-                      <td className="border p-1 font-semibold">Nombre del capacitador:</td>
-                      <td className="border p-0">
-                        <Input
-                          value={formData.capacitacionHistoriaClinica?.nombreCapacitador}
-                          onChange={(e) => handleInputChange('capacitacionHistoriaClinica', {
-                            ...formData.capacitacionHistoriaClinica,
-                            nombreCapacitador: e.target.value,
-                          })}
-                          className="border-0 rounded-none h-7 text-xs"
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="border p-1 font-semibold">Fecha de capacitación:</td>
-                      <td className="border p-0">
-                        <Input
-                          type="date"
-                          value={formData.capacitacionHistoriaClinica?.fechaCapacitacion}
-                          onChange={(e) => handleInputChange('capacitacionHistoriaClinica', {
-                            ...formData.capacitacionHistoriaClinica,
-                            fechaCapacitacion: e.target.value,
-                          })}
-                          className="border-0 rounded-none h-7 text-xs"
-                        />
-                      </td>
-                    </tr>
-                  </>
-                )}
+                <tr>
+                  <td className="border p-1 font-semibold">Nombre del capacitador:</td>
+                  <td className="border p-0">
+                    <Input
+                      value={formData.capacitacionHistoriaClinica?.nombreCapacitador || ''}
+                      onChange={(e) => handleInputChange('capacitacionHistoriaClinica', {
+                        ...formData.capacitacionHistoriaClinica,
+                        nombreCapacitador: e.target.value,
+                      })}
+                      disabled={formData.capacitacionHistoriaClinica?.capacitacionRealizada !== true}
+                      className={`border-0 rounded-none h-8 text-sm ${formData.capacitacionHistoriaClinica?.capacitacionRealizada ? '' : 'opacity-50'}`}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-1 font-semibold">Fecha de la capacitación:</td>
+                  <td className="border p-0">
+                    <Input
+                      type="date"
+                      value={formData.capacitacionHistoriaClinica?.fechaCapacitacion || ''}
+                      onChange={(e) => handleInputChange('capacitacionHistoriaClinica', {
+                        ...formData.capacitacionHistoriaClinica,
+                        fechaCapacitacion: e.target.value,
+                      })}
+                      disabled={formData.capacitacionHistoriaClinica?.capacitacionRealizada !== true}
+                      className={`border-0 rounded-none h-8 text-sm ${formData.capacitacionHistoriaClinica?.capacitacionRealizada ? '' : 'opacity-50'}`}
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-1 font-semibold">Firma del capacitador:</td>
+                  <td className="border p-1">
+                    <div className={formData.capacitacionHistoriaClinica?.capacitacionRealizada ? '' : 'opacity-50 pointer-events-none'}>
+                      <FirmaDigital
+                        cargo="Capacitador historia clínica"
+                        credencialRequerida="Capacitador de historia clínica"
+                        onFirmaCompleta={(f,u) => handleFirma('capacitadorHistoriaClinica', f, u)}
+                        firmaActual={(formData.firmas as any)?.capacitadorHistoriaClinica}
+                      />
+                    </div>
+                  </td>
+                </tr>
 
                 {/* Capacitación Epidemiología (solo para médicos) */}
                 {necesitaEpidemiologia && (
@@ -386,49 +449,60 @@ export default function RegistroHistoriaClinica() {
                         </div>
                       </td>
                     </tr>
-                    {formData.capacitacionEpidemiologia?.capacitacionRealizada && (
-                      <>
-                        <tr>
-                          <td className="border p-1 font-semibold">Nombre del capacitador:</td>
-                          <td className="border p-0">
-                            <Input
-                              value={formData.capacitacionEpidemiologia?.nombreCapacitador}
-                              onChange={(e) => handleInputChange('capacitacionEpidemiologia', {
-                                ...formData.capacitacionEpidemiologia,
-                                nombreCapacitador: e.target.value,
-                              })}
-                              className="border-0 rounded-none h-7 text-xs"
-                            />
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="border p-1 font-semibold">Fecha de capacitación:</td>
-                          <td className="border p-0">
-                            <Input
-                              type="date"
-                              value={formData.capacitacionEpidemiologia?.fechaCapacitacion}
-                              onChange={(e) => handleInputChange('capacitacionEpidemiologia', {
-                                ...formData.capacitacionEpidemiologia,
-                                fechaCapacitacion: e.target.value,
-                              })}
-                              className="border-0 rounded-none h-7 text-xs"
-                            />
-                          </td>
-                        </tr>
-                      </>
-                    )}
+                    <tr>
+                      <td className="border p-1 font-semibold">Nombre del capacitador:</td>
+                      <td className="border p-0">
+                        <Input
+                          value={formData.capacitacionEpidemiologia?.nombreCapacitador || ''}
+                          onChange={(e) => handleInputChange('capacitacionEpidemiologia', {
+                            ...formData.capacitacionEpidemiologia,
+                            nombreCapacitador: e.target.value,
+                          })}
+                          disabled={formData.capacitacionEpidemiologia?.capacitacionRealizada !== true}
+                          className={`border-0 rounded-none h-8 text-sm ${formData.capacitacionEpidemiologia?.capacitacionRealizada ? '' : 'opacity-50'}`}
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-1 font-semibold">Fecha de la capacitación:</td>
+                      <td className="border p-0">
+                        <Input
+                          type="date"
+                          value={formData.capacitacionEpidemiologia?.fechaCapacitacion || ''}
+                          onChange={(e) => handleInputChange('capacitacionEpidemiologia', {
+                            ...formData.capacitacionEpidemiologia,
+                            fechaCapacitacion: e.target.value,
+                          })}
+                          disabled={formData.capacitacionEpidemiologia?.capacitacionRealizada !== true}
+                          className={`border-0 rounded-none h-8 text-sm ${formData.capacitacionEpidemiologia?.capacitacionRealizada ? '' : 'opacity-50'}`}
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="border p-1 font-semibold">Firma del capacitador:</td>
+                      <td className="border p-1">
+                        <div className={formData.capacitacionEpidemiologia?.capacitacionRealizada ? '' : 'opacity-50 pointer-events-none'}>
+                          <FirmaDigital
+                            cargo="Capacitador epidemiología"
+                            credencialRequerida="Capacitador de epidemiología"
+                            onFirmaCompleta={(f,u) => handleFirma('capacitadorEpidemiologia', f, u)}
+                            firmaActual={(formData.firmas as any)?.capacitadorEpidemiologia}
+                          />
+                        </div>
+                      </td>
+                    </tr>
                   </>
                 )}
 
-                {/* Aval Institucional */}
+                {/* Aval y Firma */}
                 <tr className="bg-indigo-50">
-                  <td colSpan={2} className="border p-2 font-bold text-center">AVAL INSTITUCIONAL (Obligatorio)</td>
+                  <td colSpan={2} className="border p-2 font-bold text-center">AVAL Y FIRMA</td>
                 </tr>
                 <tr>
-                  <td className="border p-1 font-semibold">Avalado por:</td>
+                  <td className="border p-1 font-semibold">Avalado por (nombre completo):</td>
                   <td className="border p-0">
                     <Input
-                      value={formData.avalInstitucional?.avaladoPor}
+                      value={formData.avalInstitucional?.avaladoPor || ''}
                       onChange={(e) => handleInputChange('avalInstitucional', {
                         ...formData.avalInstitucional,
                         avaladoPor: e.target.value,
@@ -439,50 +513,7 @@ export default function RegistroHistoriaClinica() {
                   </td>
                 </tr>
                 <tr>
-                  <td className="border p-1 font-semibold">Cargo:</td>
-                  <td className="border p-0">
-                    <Input
-                      value={formData.avalInstitucional?.cargo}
-                      onChange={(e) => handleInputChange('avalInstitucional', {
-                        ...formData.avalInstitucional,
-                        cargo: e.target.value,
-                      })}
-                      className="border-0 rounded-none h-7 text-xs"
-                      required
-                    />
-                  </td>
-                </tr>
-
-                {/* Firmas */}
-                <tr className="bg-red-50">
-                  <td colSpan={2} className="border p-2 font-bold text-center">FIRMAS REQUERIDAS ({necesitaEpidemiologia ? '6' : '5'} firmas)</td>
-                </tr>
-                <tr>
-                  <td className="border p-1 font-semibold text-xs">1. Capacitador historia clínica:</td>
-                  <td className="border p-1">
-                    <FirmaDigital
-                      cargo="Capacitador historia clínica"
-                      credencialRequerida="Capacitador de historia clínica"
-                      onFirmaCompleta={(firmaData, usuario) => handleFirma('capacitadorHistoriaClinica', firmaData, usuario)}
-                      firmaActual={(formData.firmas as any)?.capacitadorHistoriaClinica}
-                    />
-                  </td>
-                </tr>
-                {necesitaEpidemiologia && (
-                  <tr>
-                    <td className="border p-1 font-semibold text-xs">2. Capacitador epidemiología:</td>
-                    <td className="border p-1">
-                      <FirmaDigital
-                        cargo="Capacitador epidemiología"
-                        credencialRequerida="Capacitador de epidemiología"
-                        onFirmaCompleta={(firmaData, usuario) => handleFirma('capacitadorEpidemiologia', firmaData, usuario)}
-                        firmaActual={(formData.firmas as any)?.capacitadorEpidemiologia}
-                      />
-                    </td>
-                  </tr>
-                )}
-                <tr>
-                  <td className="border p-1 font-semibold text-xs">{necesitaEpidemiologia ? '3' : '2'}. Aval institucional:</td>
+                  <td className="border p-1 font-semibold">Firma digital (aval):</td>
                   <td className="border p-1">
                     <FirmaDigital
                       cargo="Aval institucional"
@@ -492,37 +523,63 @@ export default function RegistroHistoriaClinica() {
                     />
                   </td>
                 </tr>
-                <tr>
-                  <td className="border p-1 font-semibold text-xs">{necesitaEpidemiologia ? '4' : '3'}. Jefe Gestión de la Información:</td>
-                  <td className="border p-1">
-                    <FirmaDigital
-                      cargo="Jefe Gestión de la Información"
-                      credencialRequerida="Jefe de Gestión de la Información"
-                      onFirmaCompleta={(firmaData, usuario) => handleFirma('jefeGestionInformacion', firmaData, usuario)}
-                      firmaActual={(formData.firmas as any)?.jefeGestionInformacion}
-                    />
+
+                {/* Términos y Condiciones */}
+                <tr className="bg-slate-50">
+                  <td colSpan={2} className="border p-2">
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={formData.aceptaResponsabilidad}
+                        onCheckedChange={(checked) => handleInputChange('aceptaResponsabilidad', checked)}
+                      />
+                      <span className="text-xs">
+                        <strong>Términos y Condiciones:</strong> Declaro que la información registrada es verídica y que cuento con las autorizaciones requeridas para ejercer mis funciones dentro de la institución.
+                      </span>
+                    </label>
                   </td>
                 </tr>
+
+                {/* Firma del usuario solicitante */}
                 <tr>
-                  <td className="border p-1 font-semibold text-xs">{necesitaEpidemiologia ? '5' : '4'}. Talento Humano/Sistemas:</td>
-                  <td className="border p-1">
-                    <FirmaDigital
-                      cargo="Talento Humano/Sistemas"
-                      credencialRequerida="Jefe de Talento Humano"
-                      onFirmaCompleta={(firmaData, usuario) => handleFirma('talentoHumanoOSistemas', firmaData, usuario)}
-                      firmaActual={(formData.firmas as any)?.talentoHumanoOSistemas}
-                    />
-                  </td>
-                </tr>
-                <tr>
-                  <td className="border p-1 font-semibold text-xs">{necesitaEpidemiologia ? '6' : '5'}. Usuario solicitante:</td>
+                  <td className="border p-1 font-semibold">Firma del usuario solicitante:</td>
                   <td className="border p-1">
                     <FirmaDigital
                       cargo="Usuario solicitante"
-                      onFirmaCompleta={(firmaData, usuario) => handleFirma('firmaUsuarioSolicitante', firmaData, usuario)}
+                      onFirmaCompleta={(f,u) => handleFirma('firmaUsuarioSolicitante', f, u)}
                       firmaActual={(formData.firmas as any)?.firmaUsuarioSolicitante}
                     />
                   </td>
+                </tr>
+
+                {/* Registro de diligenciamiento */}
+                <tr className="bg-slate-100">
+                  <td colSpan={2} className="border p-2 font-bold text-center">REGISTRO DE DILIGENCIAMIENTO</td>
+                </tr>
+                <tr>
+                  <td className="border p-1 font-semibold">Login del usuario:</td>
+                  <td className="border p-0">
+                    <Input 
+                      value={loginUsuario} 
+                      readOnly 
+                      className="border-0 rounded-none h-7 text-xs bg-slate-50 cursor-not-allowed" 
+                      title="Este campo se llena automáticamente del usuario logueado"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-1 font-semibold">Nombre de quien diligencia:</td>
+                  <td className="border p-0">
+                    <Input 
+                      value={nombreDiligencia} 
+                      readOnly 
+                      className="border-0 rounded-none h-7 text-xs bg-slate-50 cursor-not-allowed" 
+                      title="Este campo se llena automáticamente del usuario logueado"
+                    />
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border p-1 font-semibold">Fecha de registro:</td>
+                  <td className="border p-1 text-xs">{fechaRegistro}</td>
                 </tr>
 
                 {/* Declaración */}
@@ -555,6 +612,5 @@ export default function RegistroHistoriaClinica() {
           </div>
         </form>
       </div>
-    </Layout>
   );
 }

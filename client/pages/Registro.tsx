@@ -1,16 +1,15 @@
-import Layout from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Eye, Download, FileText } from "lucide-react";
-import { useState } from "react";
-import { useParams } from "react-router-dom";
-import type { FormularioAdministrativo, FormularioHistoriaClinica } from "@shared/types/formularios";
-import { exportarFormularioAdministrativo, exportarFormularioHistoriaClinica } from "@/lib/excelExporter";
+import { Eye, Download, FileText } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "@/lib/toast";
+import { useApp } from "@/contexts/AppContext";
 
 interface RegistrationRequest {
   id: number;
@@ -23,84 +22,18 @@ interface RegistrationRequest {
 
 export default function Registro() {
   const { view = "administrativo" } = useParams<{ view: string }>();
+  const { agregarSolicitud, solicitudes } = useApp();
+  const navigate = useNavigate();
   
-  const [formDataAdmin, setFormDataAdmin] = useState<Partial<FormularioAdministrativo>>({
-    nombreCompleto: "",
-    cedula: "",
-    cargo: "",
-    dependencia: "",
-    area: "",
-    correoInstitucional: "",
-    extension: "",
-    telefono: "",
-    fechaIngreso: "",
-    tipoContrato: "",
-    supervisorInmediato: "",
-    sistemasSolicitados: [],
-    nivelAcceso: "Lectura",
-    justificacionAcceso: "",
-    funcionesPrincipales: "",
-    solicitadoPor: "",
-    fechaSolicitud: new Date().toISOString().split('T')[0],
-    observaciones: "",
-  });
-
-  const [formDataMedico, setFormDataMedico] = useState<Partial<FormularioHistoriaClinica>>({
-    nombreCompleto: "",
-    cedula: "",
-    registroMedico: "",
-    especialidad: "",
-    correoInstitucional: "",
-    extension: "",
-    telefono: "",
-    celular: "",
-    tipoProfesional: "Médico General",
-    institucionFormacion: "",
-    anoGraduacion: "",
-    servicioAsignado: "",
-    areasAtencion: [],
-    turno: "",
-    modulosHistoriaClinica: [],
-    nivelAccesoHistoria: "Consulta",
-    accesoLaboratorio: false,
-    accesoImagenologia: false,
-    accesoFarmacia: false,
-    accesoQuirofano: false,
-    justificacionAcceso: "",
-    funcionesAsistenciales: "",
-    capacitacionHistoriaClinica: false,
-    fechaCapacitacion: "",
-    solicitadoPor: "",
-    fechaSolicitud: new Date().toISOString().split('T')[0],
-    observaciones: "",
-  });
-
-  const myRequests: RegistrationRequest[] = [
-    {
-      id: 1,
-      name: "Luis García",
-      type: "Administrativo",
-      department: "Recursos Humanos",
-      status: "Aprobado",
-      date: "2024-01-10",
-    },
-    {
-      id: 2,
-      name: "Dr. Carlos Martín",
-      type: "Médico",
-      department: "Cardiología",
-      status: "En revisión",
-      date: "2024-01-15",
-    },
-    {
-      id: 3,
-      name: "Ana Rodríguez",
-      type: "Administrativo",
-      department: "Facturación",
-      status: "Pendiente",
-      date: "2024-01-16",
-    },
-  ];
+  // Convertir solicitudes del contexto al formato de la vista
+  const myRequests: RegistrationRequest[] = solicitudes.map(sol => ({
+    id: sol.id,
+    name: sol.nombreCompleto,
+    type: sol.tipo === 'Administrativo' ? 'Administrativo' : 'Médico',
+    department: sol.cargo || sol.especialidad || 'N/A',
+    status: sol.estado as any,
+    date: sol.fechaSolicitud
+  }));
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -117,99 +50,297 @@ export default function Registro() {
     }
   };
 
-  const handleSubmitAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (!formDataAdmin.nombreCompleto || !formDataAdmin.cedula) {
-        alert("Por favor completa los campos obligatorios");
-        return;
-      }
-      
-      alert("Solicitud enviada correctamente");
-      await exportarFormularioAdministrativo(formDataAdmin as FormularioAdministrativo);
-    } catch (error) {
-      console.error("Error al procesar solicitud:", error);
-      alert("Error al procesar la solicitud");
-    }
-  };
-
-  const handleSubmitMedico = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (!formDataMedico.nombreCompleto || !formDataMedico.cedula) {
-        alert("Por favor completa los campos obligatorios");
-        return;
-      }
-      
-      alert("Solicitud enviada correctamente");
-      await exportarFormularioHistoriaClinica(formDataMedico as FormularioHistoriaClinica);
-    } catch (error) {
-      console.error("Error al procesar solicitud:", error);
-      alert("Error al procesar la solicitud");
-    }
-  };
-
-  const handleInputChangeAdmin = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormDataAdmin({
-      ...formDataAdmin,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleInputChangeMedico = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormDataMedico({
-      ...formDataMedico,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSelectChangeAdmin = (name: string, value: any) => {
-    setFormDataAdmin({
-      ...formDataAdmin,
-      [name]: value,
-    });
-  };
-
-  const handleSelectChangeMedico = (name: string, value: any) => {
-    setFormDataMedico({
-      ...formDataMedico,
-      [name]: value,
-    });
-  };
-
-  const handleCheckboxChangeMedico = (name: string, checked: boolean) => {
-    setFormDataMedico({
-      ...formDataMedico,
-      [name]: checked,
-    });
-  };
-
   const getTitle = () => {
     switch (view) {
-      case "administrativo":
-        return "Solicitud de Usuario Administrativo";
-      case "medico":
-        return "Solicitud de Usuario Médico";
-      case "seguimiento":
-        return "Mis Solicitudes";
+      case "proceso":
+        return "Solicitud de Proceso";
       default:
         return "Módulo de Registro";
     }
   };
 
+  // Filtros para vista proceso
+  const [phaseFilter, setPhaseFilter] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
+  const filteredRequests = useMemo(() => {
+    return myRequests.filter((r) => {
+      // Mapeo de estado a fase
+      const faseMap: Record<string, string> = {
+        'Pendiente': 'Pendiente firma(s)',
+        'En revisión': 'En revisión',
+        'Aprobado': 'Aprobado',
+        'Rechazado': 'En revisión'
+      };
+      const faseActual = faseMap[r.status] || 'En proceso';
+      const matchesPhase = phaseFilter ? faseActual === phaseFilter : true;
+      
+      const term = searchTerm.trim().toLowerCase();
+      const matchesSearch = term
+        ? r.name.toLowerCase().includes(term) || String(r.id).includes(term)
+        : true;
+      return matchesPhase && matchesSearch;
+    });
+  }, [myRequests, phaseFilter, searchTerm]);
+
+  // Estado para formulario administrativo
+  const [formDataAdmin, setFormDataAdmin] = useState({
+    nombreCompleto: "",
+    cedula: "",
+    cargo: "",
+    dependencia: "",
+    area: "",
+    correoInstitucional: "",
+    extension: "",
+    telefono: "",
+    fechaIngreso: "",
+    tipoContrato: "",
+    supervisorInmediato: "",
+    sistemasSolicitados: [] as string[],
+    nivelAcceso: "Lectura",
+    justificacionAcceso: "",
+    funcionesPrincipales: "",
+    solicitadoPor: "",
+    fechaSolicitud: new Date().toISOString().split('T')[0],
+    observaciones: "",
+  });
+
+  // Estado para formulario médico
+  const [formDataMedico, setFormDataMedico] = useState({
+    nombreCompleto: "",
+    cedula: "",
+    registroMedico: "",
+    especialidad: "",
+    correoInstitucional: "",
+    extension: "",
+    telefono: "",
+    celular: "",
+    tipoProfesional: "Médico General",
+    institucionFormacion: "",
+    anoGraduacion: "",
+    servicioAsignado: "",
+    areasAtencion: [] as string[],
+    turno: "",
+    modulosHistoriaClinica: [] as string[],
+    nivelAccesoHistoria: "Consulta",
+    accesoLaboratorio: false,
+    accesoImagenologia: false,
+    accesoFarmacia: false,
+    accesoQuirofano: false,
+    justificacionAcceso: "",
+    funcionesAsistenciales: "",
+    capacitacionHistoriaClinica: false,
+    fechaCapacitacion: "",
+    solicitadoPor: "",
+    fechaSolicitud: new Date().toISOString().split('T')[0],
+    observaciones: "",
+  });
+
+  // Handlers para formulario administrativo
+  const handleInputChangeAdmin = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormDataAdmin(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChangeAdmin = (name: string, value: string) => {
+    setFormDataAdmin(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Guardar en contexto
+    agregarSolicitud({
+      tipo: 'Administrativo',
+      nombreCompleto: formDataAdmin.nombreCompleto || '',
+      cedula: formDataAdmin.cedula || '',
+      cargo: formDataAdmin.cargo,
+      estado: 'Pendiente',
+      solicitadoPor: 'Usuario actual',
+      datos: formDataAdmin
+    });
+    
+    toast.success('Solicitud creada', 'La solicitud administrativa ha sido enviada correctamente');
+    
+    // Limpiar y redirigir
+    setFormDataAdmin({
+      nombreCompleto: "",
+      cedula: "",
+      cargo: "",
+      dependencia: "",
+      area: "",
+      correoInstitucional: "",
+      extension: "",
+      telefono: "",
+      fechaIngreso: "",
+      tipoContrato: "",
+      supervisorInmediato: "",
+      sistemasSolicitados: [],
+      nivelAcceso: "Lectura",
+      justificacionAcceso: "",
+      funcionesPrincipales: "",
+      solicitadoPor: "",
+      fechaSolicitud: new Date().toISOString().split('T')[0],
+      observaciones: "",
+    });
+    
+    setTimeout(() => navigate('/'), 1000);
+  };
+
+  // Handlers para formulario médico
+  const handleInputChangeMedico = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormDataMedico(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChangeMedico = (name: string, value: string) => {
+    setFormDataMedico(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxChangeMedico = (name: string, checked: boolean) => {
+    setFormDataMedico(prev => ({ ...prev, [name]: checked }));
+  };
+
+  const handleSubmitMedico = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Guardar en contexto
+    agregarSolicitud({
+      tipo: 'Historia Clínica',
+      nombreCompleto: formDataMedico.nombreCompleto || '',
+      cedula: formDataMedico.cedula || '',
+      especialidad: formDataMedico.especialidad,
+      estado: 'Pendiente',
+      solicitadoPor: 'Usuario actual',
+      datos: formDataMedico
+    });
+    
+    toast.success('Solicitud creada', 'La solicitud médica ha sido enviada correctamente');
+    
+    // Limpiar y redirigir
+    setFormDataMedico({
+      nombreCompleto: "",
+      cedula: "",
+      registroMedico: "",
+      especialidad: "",
+      correoInstitucional: "",
+      extension: "",
+      telefono: "",
+      celular: "",
+      tipoProfesional: "Médico General",
+      institucionFormacion: "",
+      anoGraduacion: "",
+      servicioAsignado: "",
+      areasAtencion: [],
+      turno: "",
+      modulosHistoriaClinica: [],
+      nivelAccesoHistoria: "Consulta",
+      accesoLaboratorio: false,
+      accesoImagenologia: false,
+      accesoFarmacia: false,
+      accesoQuirofano: false,
+      justificacionAcceso: "",
+      funcionesAsistenciales: "",
+      capacitacionHistoriaClinica: false,
+      fechaCapacitacion: "",
+      solicitadoPor: "",
+      fechaSolicitud: new Date().toISOString().split('T')[0],
+      observaciones: "",
+    });
+    
+    setTimeout(() => navigate('/'), 1000);
+  };
+
   return (
-    <Layout>
-      <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold text-slate-900">
             {getTitle()}
           </h1>
           <p className="text-sm text-slate-600">
-            {view === "administrativo" && "Crea una solicitud para un nuevo usuario administrativo"}
-            {view === "medico" && "Crea una solicitud para un nuevo usuario médico con acceso a historia clínica"}
-            {view === "seguimiento" && "Visualiza el estado de todas tus solicitudes"}
+            {view === "proceso" && "Visualiza y filtra el estado de tus solicitudes por fases"}
           </p>
         </div>
+
+        {/* Proceso View (fases + tabla) */}
+        {view === "proceso" && (
+          <Card className="p-4 md:p-6">
+            <div className="mb-4">
+              <p className="text-sm text-slate-600">Seguimiento por fases</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+              {[
+                { fase: 'Pendiente firma(s)', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+                { fase: 'En proceso', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+                { fase: 'En revisión', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+                { fase: 'Aprobado', color: 'bg-green-50 text-green-700 border-green-200' },
+              ].map((f, idx) => (
+                <div key={idx} className={`p-3 rounded border ${f.color} text-xs`}>{f.fase}</div>
+              ))}
+            </div>
+
+            {/* Controles */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-slate-600">Fase:</label>
+                <select className="h-8 text-sm border border-slate-300 rounded px-2" value={phaseFilter} onChange={(e)=>setPhaseFilter(e.target.value)}>
+                  <option value="">Todas</option>
+                  <option>Pendiente firma(s)</option>
+                  <option>En proceso</option>
+                  <option>En revisión</option>
+                  <option>Aprobado</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Buscar por solicitante o ID"
+                  className="h-8 text-sm border border-slate-300 rounded px-2 w-full md:w-64"
+                  value={searchTerm}
+                  onChange={(e)=>setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-2 text-slate-700 text-xs">ID</th>
+                    <th className="text-left py-2 px-2 text-slate-700 text-xs">Solicitante</th>
+                    <th className="text-left py-2 px-2 text-slate-700 text-xs">Tipo</th>
+                    <th className="text-left py-2 px-2 text-slate-700 text-xs">Fase</th>
+                    <th className="text-left py-2 px-2 text-slate-700 text-xs">Fecha</th>
+                    <th className="text-left py-2 px-2 text-slate-700 text-xs">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRequests.map((r) => (
+                    <tr key={r.id} className="border-b hover:bg-slate-50">
+                      <td className="py-2 px-2 text-xs">{r.id}</td>
+                      <td className="py-2 px-2 text-xs">{r.name}</td>
+                      <td className="py-2 px-2 text-xs">{r.type}</td>
+                      <td className="py-2 px-2 text-xs">
+                        <span className="inline-block px-2 py-1 rounded border bg-amber-50 text-amber-700 text-[11px]">
+                          Pendiente firma(s)
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-xs">{r.date}</td>
+                      <td className="py-2 px-2 text-xs">
+                        <div className="flex gap-2" data-no-print>
+                          <button className="h-7 px-2 rounded border border-slate-300 text-[11px] hover:bg-slate-50">Ver</button>
+                          <button className="h-7 px-2 rounded border border-slate-300 text-[11px] hover:bg-slate-50">Descargar</button>
+                          <button className="h-7 px-2 rounded border border-slate-300 text-[11px] hover:bg-slate-50" onClick={() => window.print()}>Imprimir</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
 
         {/* Administrative User Form */}
         {view === "administrativo" && (
@@ -231,7 +362,7 @@ export default function Registro() {
                       name="nombreCompleto"
                       value={formDataAdmin.nombreCompleto}
                       onChange={handleInputChangeAdmin}
-                      placeholder="Ej: Juan Carlos Pérez López"
+                      placeholder="Ej: Juan Pérez"
                       className="mt-2"
                       required
                     />
@@ -261,7 +392,7 @@ export default function Registro() {
                       name="cargo"
                       value={formDataAdmin.cargo}
                       onChange={handleInputChangeAdmin}
-                      placeholder="Ej: Analista Administrativo"
+                      placeholder="Ej: Analista"
                       className="mt-2"
                       required
                     />
@@ -1094,6 +1225,5 @@ export default function Registro() {
           </Card>
         )}
       </div>
-    </Layout>
   );
 }

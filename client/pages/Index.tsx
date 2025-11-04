@@ -1,10 +1,8 @@
-import Layout from "@/components/Layout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock, CheckCircle2, AlertCircle, Eye, Download, Users, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { solicitudesAdministrativas, solicitudesHistoriaClinica } from "@/lib/api";
+import { useApp } from "@/contexts/AppContext";
 
 interface Solicitud {
   id: number;
@@ -24,45 +22,7 @@ interface Estadisticas {
 }
 
 export default function Index() {
-  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
-  const [statsAdmin, setStatsAdmin] = useState<Estadisticas | null>(null);
-  const [statsHC, setStatsHC] = useState<Estadisticas | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  const cargarDatos = async () => {
-    setLoading(true);
-    try {
-      // Cargar solicitudes recientes (las primeras 5)
-      const [resAdmin, resHC, statsA, statsH] = await Promise.all([
-        solicitudesAdministrativas.getAll({ per_page: 3, estado: 'Pendiente' }),
-        solicitudesHistoriaClinica.getAll({ per_page: 3, estado: 'Pendiente' }),
-        solicitudesAdministrativas.estadisticas(),
-        solicitudesHistoriaClinica.estadisticas(),
-      ]);
-
-      // Combinar y formatear solicitudes
-      const solsAdmin = (resAdmin.data.data || []).map((s: any) => ({
-        ...s,
-        tipo: 'Administrativo' as const,
-      }));
-      const solsHC = (resHC.data.data || []).map((s: any) => ({
-        ...s,
-        tipo: 'Historia Clínica' as const,
-      }));
-
-      setSolicitudes([...solsAdmin, ...solsHC].slice(0, 5));
-      setStatsAdmin(statsA.data);
-      setStatsHC(statsH.data);
-    } catch (error) {
-      console.error('Error cargando datos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { solicitudes, estadisticas } = useApp();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -92,25 +52,11 @@ export default function Index() {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="p-4 md:p-6 max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <p className="text-slate-600">Cargando datos...</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  const totalSolicitudes = (statsAdmin?.total || 0) + (statsHC?.total || 0);
-  const totalPendientes = (statsAdmin?.pendientes || 0) + (statsHC?.pendientes || 0);
-  const totalAprobadas = (statsAdmin?.aprobadas || 0) + (statsHC?.aprobadas || 0);
+  // Mostrar solo las 5 solicitudes más recientes
+  const solicitudesRecientes = solicitudes.slice(0, 5);
 
   return (
-    <Layout>
-      <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold text-slate-900">
@@ -130,7 +76,7 @@ export default function Index() {
               </div>
               <div>
                 <p className="text-xs text-slate-600">Total Solicitudes</p>
-                <p className="text-2xl font-bold text-slate-900">{totalSolicitudes}</p>
+                <p className="text-2xl font-bold text-slate-900">{estadisticas.totalSolicitudes}</p>
               </div>
             </div>
           </Card>
@@ -141,7 +87,7 @@ export default function Index() {
               </div>
               <div>
                 <p className="text-xs text-slate-600">Pendientes</p>
-                <p className="text-2xl font-bold text-amber-600">{totalPendientes}</p>
+                <p className="text-2xl font-bold text-amber-600">{estadisticas.pendientes}</p>
               </div>
             </div>
           </Card>
@@ -152,7 +98,7 @@ export default function Index() {
               </div>
               <div>
                 <p className="text-xs text-slate-600">Aprobadas</p>
-                <p className="text-2xl font-bold text-green-600">{totalAprobadas}</p>
+                <p className="text-2xl font-bold text-green-600">{estadisticas.aprobadas}</p>
               </div>
             </div>
           </Card>
@@ -163,7 +109,7 @@ export default function Index() {
               </div>
               <div>
                 <p className="text-xs text-slate-600">Usuarios Activos</p>
-                <p className="text-2xl font-bold text-purple-600">{statsAdmin?.aprobadas || 0}</p>
+                <p className="text-2xl font-bold text-purple-600">{estadisticas.usuariosActivos}</p>
               </div>
             </div>
           </Card>
@@ -194,7 +140,7 @@ export default function Index() {
             <h2 className="text-lg font-semibold text-slate-900">
               Solicitudes Recientes Pendientes
             </h2>
-            <Button variant="ghost" size="sm" onClick={cargarDatos}>
+            <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
               Actualizar
             </Button>
           </div>
@@ -221,21 +167,21 @@ export default function Index() {
                 </tr>
               </thead>
               <tbody>
-                {solicitudes.length === 0 ? (
+                {solicitudesRecientes.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-slate-500">
-                      No hay solicitudes pendientes
+                      No hay solicitudes. Crea una nueva desde el menú Registro.
                     </td>
                   </tr>
                 ) : (
-                  solicitudes.map((sol) => (
+                  solicitudesRecientes.map((sol) => (
                     <tr
-                      key={`${sol.tipo}-${sol.id}`}
+                      key={sol.id}
                       className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                     >
                       <td className="py-3 px-3">
                         <p className="font-medium text-slate-900 text-sm">
-                          {sol.nombre_completo}
+                          {sol.nombreCompleto}
                         </p>
                       </td>
                       <td className="py-3 px-3 text-slate-700 text-sm">
@@ -251,10 +197,10 @@ export default function Index() {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-slate-600 text-sm">
-                        {new Date(sol.fecha_solicitud).toLocaleDateString('es-CO')}
+                        {new Date(sol.fechaSolicitud).toLocaleDateString('es-CO')}
                       </td>
                       <td className="py-3 px-3">
-                        <Link to={`/control/${sol.tipo.toLowerCase()}/${sol.id}`}>
+                        <Link to="/control/aprobacion">
                           <Button variant="ghost" size="sm" className="text-xs">
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -268,6 +214,5 @@ export default function Index() {
           </div>
         </Card>
       </div>
-    </Layout>
   );
 }
