@@ -8,6 +8,9 @@ import { useParams } from "react-router-dom";
 import { toast } from "@/lib/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useApp } from "@/contexts/AppContext";
+import { motion, AnimatePresence } from "framer-motion";
+import { AnimatedSection, StaggerContainer, StaggerItem } from "@/components/AnimatedSection";
+import { fadeInUp, fadeInLeft, fadeInRight } from "@/lib/animations";
 
 interface ActivityLog {
   id: number;
@@ -122,24 +125,45 @@ export default function Perfil() {
 
   return (
       <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            {getTitle()}
-          </h1>
-          <p className="text-sm text-slate-600">
-            {view === "personal" && "Visualiza y actualiza tu información personal"}
-            {view === "actividad" && "Historial completo de tus movimientos en el sistema"}
-            {view === "seguridad" && "Gestiona tu contraseña y preferencias de seguridad"}
-          </p>
-        </div>
+        <AnimatedSection variants={fadeInUp}>
+          <div className="flex flex-col gap-2">
+            <motion.h1 
+              className="text-2xl md:text-3xl font-bold text-slate-900"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              {getTitle()}
+            </motion.h1>
+            <motion.p 
+              className="text-sm text-slate-600"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              {view === "personal" && "Visualiza y actualiza tu información personal"}
+              {view === "actividad" && "Historial completo de tus movimientos en el sistema"}
+              {view === "seguridad" && "Gestiona tu contraseña y preferencias de seguridad"}
+            </motion.p>
+          </div>
+        </AnimatedSection>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Profile Card */}
-          <Card className="p-4 md:p-6">
-            <div className="flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-slate-400 to-slate-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-4">
-                AU
-              </div>
+          <AnimatedSection variants={fadeInLeft}>
+            <motion.div
+              whileHover={{ scale: 1.02, y: -5 }}
+              transition={{ type: "spring", stiffness: 300 }}
+            >
+              <Card className="p-4 md:p-6 border-2 border-transparent hover:border-blue-200 hover:shadow-xl transition-all duration-300 rounded-xl">
+              <div className="flex flex-col items-center text-center">
+                <motion.div 
+                  className="w-16 h-16 bg-gradient-to-br from-slate-400 to-slate-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-4 shadow-lg"
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  AU
+                </motion.div>
 
               <h3 className="text-lg font-semibold text-slate-900">
                 Admin User
@@ -184,56 +208,95 @@ export default function Perfil() {
                     01/15/2024 09:30 AM
                   </p>
                 </div>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          </motion.div>
+        </AnimatedSection>
 
           {/* Content Area */}
-          <div className="lg:col-span-3">
+          <motion.div 
+            className="lg:col-span-3"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
             {/* Personal Information - DISEÑO 1: Card con Avatar y Grid */}
             {view === "personal" && (
               <div className="space-y-6">
                 {/* Header Card con Avatar */}
-                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-                  <div className="p-6 flex items-center gap-6">
-                    <div className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg">
-                      {userData.nombre.charAt(0).toUpperCase()}
-                    </div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 border-2 hover:border-blue-300 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 rounded-xl">
+                    <div className="p-6 flex items-center gap-6">
+                      <motion.div 
+                        className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg"
+                        whileHover={{ scale: 1.1, rotate: 360 }}
+                        transition={{ duration: 0.6 }}
+                      >
+                        {userData.nombre.charAt(0).toUpperCase()}
+                      </motion.div>
                     <div className="flex-1">
                       <h2 className="text-2xl font-bold text-slate-900">{userData.nombre}</h2>
                       <p className="text-slate-600 mt-1">{userData.cargo}</p>
                       <p className="text-sm text-slate-500 mt-1">{userData.email}</p>
                     </div>
-                    {!isEditing ? (
-                      <Button 
-                        onClick={() => setIsEditing(true)}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <User className="w-4 h-4 mr-2" />
-                        Editar Perfil
-                      </Button>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline"
-                          onClick={handleCancelEdit}
-                        >
-                          Cancelar
-                        </Button>
-                        <Button 
-                          onClick={handleSaveUserData}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <Save className="w-4 h-4 mr-2" />
-                          Guardar
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </Card>
+                      <AnimatePresence mode="wait">
+                        {!isEditing ? (
+                          <motion.div
+                            key="edit-button"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <Button 
+                              onClick={() => setIsEditing(true)}
+                              className="bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl hover:shadow-blue-500/50 transition-all duration-300 border-2 border-blue-700 hover:border-blue-500"
+                            >
+                              <User className="w-4 h-4 mr-2" />
+                              Editar Perfil
+                            </Button>
+                          </motion.div>
+                        ) : (
+                          <motion.div 
+                            key="save-buttons"
+                            className="flex gap-2"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                          >
+                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                              <Button 
+                                variant="outline"
+                                onClick={handleCancelEdit}
+                                className="border-2 hover:border-slate-400 hover:shadow-lg transition-all duration-300"
+                              >
+                                Cancelar
+                              </Button>
+                            </motion.div>
+                            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                              <Button 
+                                onClick={handleSaveUserData}
+                                className="bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl hover:shadow-green-500/50 transition-all duration-300 border-2 border-green-700 hover:border-green-500"
+                              >
+                                <Save className="w-4 h-4 mr-2" />
+                                Guardar
+                              </Button>
+                            </motion.div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </Card>
+                </motion.div>
 
                 {/* Información en Cards Individuales */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <StaggerContainer className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="p-4 hover:shadow-md transition-shadow">
                     <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                       Nombre Completo
@@ -293,7 +356,7 @@ export default function Perfil() {
                       className={`mt-2 border-0 px-0 text-lg font-medium ${!isEditing ? 'bg-transparent' : 'bg-white border'}`}
                     />
                   </Card>
-                </div>
+                </StaggerContainer>
               </div>
             )}
 
@@ -488,7 +551,7 @@ export default function Perfil() {
                 </div>
               </div>
             )}
-          </div>
+          </motion.div>
         </div>
 
         {/* Modal de Actualización de Datos */}
