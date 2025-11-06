@@ -36,7 +36,6 @@ const navigationItems: NavItem[] = [
     submenu: [
       { label: "Usuario Administrativo", href: "/registro/administrativo", icon: HiUserIcon },
       { label: "Usuario Médico", href: "/registro/historia-clinica", icon: HiUserAddIcon },
-      { label: "Solicitud de Proceso", href: "/registro/proceso", icon: HiClipboardListIcon },
     ],
   },
   {

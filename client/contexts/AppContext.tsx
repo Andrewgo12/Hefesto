@@ -4,6 +4,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { solicitudesAdministrativas, solicitudesHistoriaClinica, usuarios as usuariosApi } from '@/lib/api';
 
 // Tipos
 interface Solicitud {
@@ -41,7 +42,7 @@ interface Actividad {
 interface AppContextType {
   // Solicitudes
   solicitudes: Solicitud[];
-  agregarSolicitud: (solicitud: Omit<Solicitud, 'id' | 'fechaSolicitud'>) => void;
+  agregarSolicitud: (solicitud: Omit<Solicitud, 'fechaSolicitud'> & { id?: number; fechaSolicitud?: string }) => void;
   actualizarEstadoSolicitud: (id: number, estado: Solicitud['estado'], comentario?: string) => void;
   obtenerSolicitud: (id: number) => Solicitud | undefined;
   
@@ -78,50 +79,188 @@ export const useApp = () => {
 // Provider
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Estado con persistencia en localStorage
-  const [solicitudes, setSolicitudes] = useState<Solicitud[]>(() => {
-    const saved = localStorage.getItem('hefesto_solicitudes');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
+  const [cargandoSolicitudes, setCargandoSolicitudes] = useState(true);
 
-  const [usuarios, setUsuarios] = useState<Usuario[]>(() => {
-    const saved = localStorage.getItem('hefesto_usuarios');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 1,
-        username: 'admin',
-        nombre: 'Admin User',
-        email: 'admin@hefesto.local',
-        rol: 'Administrador',
-        estado: 'Activo',
-        fechaCreacion: new Date().toISOString()
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [cargandoUsuarios, setCargandoUsuarios] = useState(true);
+
+  const [actividades, setActividades] = useState<Actividad[]>([]);
+
+  // Cargar datos desde la API al iniciar
+  useEffect(() => {
+    cargarSolicitudes();
+    cargarUsuarios();
+  }, []);
+
+  const cargarSolicitudes = async () => {
+    try {
+      setCargandoSolicitudes(true);
+      console.log('🔄 AppContext: Cargando solicitudes desde API...');
+      
+      // Intentar cargar desde API
+      const [respAdmin, respHistoria] = await Promise.all([
+        solicitudesAdministrativas.getAll().catch(() => ({ data: { data: [] } })),
+        solicitudesHistoriaClinica.getAll().catch(() => ({ data: { data: [] } }))
+      ]);
+      
+      console.log('📦 Respuesta Admin:', respAdmin.data);
+      console.log('📦 Respuesta Historia:', respHistoria.data);
+
+      const solicitudesAdmin = (respAdmin.data?.data || []).map((sol: any) => ({
+        id: sol.id,
+        tipo: 'Administrativo' as const,
+        nombreCompleto: sol.nombre_completo,
+        cedula: sol.cedula,
+        cargo: sol.cargo,
+        estado: sol.estado || 'Pendiente',
+        fechaSolicitud: sol.fecha_solicitud || sol.created_at,
+        fecha_solicitud: sol.fecha_solicitud || sol.created_at,
+        created_at: sol.created_at,
+        solicitadoPor: sol.registrado_por_nombre || sol.solicitado_por || 'Sistema',
+        datos: sol
+      }));
+
+      const solicitudesHistoria = (respHistoria.data?.data || []).map((sol: any) => ({
+        id: sol.id,
+        tipo: 'Historia Clínica' as const,
+        nombreCompleto: sol.nombre_completo,
+        cedula: sol.cedula,
+        especialidad: sol.especialidad,
+        estado: sol.estado || 'Pendiente',
+        fechaSolicitud: sol.fecha_solicitud || sol.created_at,
+        fecha_solicitud: sol.fecha_solicitud || sol.created_at,
+        created_at: sol.created_at,
+        solicitadoPor: sol.registrado_por_nombre || sol.solicitado_por || 'Sistema',
+        datos: sol
+      }));
+
+      const todasSolicitudes = [...solicitudesAdmin, ...solicitudesHistoria];
+      
+      console.log('✅ Total solicitudes mapeadas:', todasSolicitudes.length);
+      console.log('📋 Solicitudes:', todasSolicitudes);
+      
+      if (todasSolicitudes.length > 0) {
+        setSolicitudes(todasSolicitudes);
+        console.log('✅ Solicitudes guardadas en estado');
+      } else {
+        console.log('⚠️ No hay solicitudes en API, intentando localStorage...');
+        // Si no hay datos en API, cargar desde localStorage
+        const saved = localStorage.getItem('hefesto_solicitudes');
+        if (saved) {
+          const solicitudesLS = JSON.parse(saved);
+          setSolicitudes(solicitudesLS);
+          console.log('✅ Cargadas', solicitudesLS.length, 'solicitudes desde localStorage');
+        } else {
+          console.log('⚠️ No hay solicitudes en localStorage tampoco');
+        }
       }
-    ];
-  });
+    } catch (error) {
+      console.error('Error al cargar solicitudes:', error);
+      // Fallback a localStorage
+      const saved = localStorage.getItem('hefesto_solicitudes');
+      if (saved) {
+        setSolicitudes(JSON.parse(saved));
+      }
+    } finally {
+      setCargandoSolicitudes(false);
+    }
+  };
 
-  const [actividades, setActividades] = useState<Actividad[]>(() => {
-    const saved = localStorage.getItem('hefesto_actividades');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const cargarUsuarios = async () => {
+    try {
+      setCargandoUsuarios(true);
+      const response = await usuariosApi.getAll();
+      
+      // Manejar diferentes formatos de respuesta
+      let usuariosData = [];
+      if (Array.isArray(response.data)) {
+        usuariosData = response.data;
+      } else if (Array.isArray(response.data?.data)) {
+        usuariosData = response.data.data;
+      } else if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
+        usuariosData = response.data.data.data;
+      }
+      
+      console.log('👥 Usuarios recibidos:', usuariosData.length);
+      
+      const usuariosBackend = usuariosData.map((user: any) => ({
+        id: user.id,
+        username: user.username || user.email,
+        nombre: user.name || user.nombre,
+        email: user.email,
+        rol: user.rol || 'Usuario',
+        estado: user.estado || 'Activo',
+        fechaCreacion: user.created_at || new Date().toISOString()
+      }));
 
-  // Persistir en localStorage cuando cambian
+      if (usuariosBackend.length > 0) {
+        setUsuarios(usuariosBackend);
+      } else {
+        // Fallback a localStorage
+        const saved = localStorage.getItem('hefesto_usuarios');
+        if (saved) {
+          setUsuarios(JSON.parse(saved));
+        } else {
+          // Usuario por defecto
+          setUsuarios([{
+            id: 1,
+            username: 'admin',
+            nombre: 'Admin User',
+            email: 'admin@hefesto.local',
+            rol: 'Administrador',
+            estado: 'Activo',
+            fechaCreacion: new Date().toISOString()
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error('Error al cargar usuarios:', error);
+      // Fallback a localStorage
+      const saved = localStorage.getItem('hefesto_usuarios');
+      if (saved) {
+        setUsuarios(JSON.parse(saved));
+      } else {
+        setUsuarios([{
+          id: 1,
+          username: 'admin',
+          nombre: 'Admin User',
+          email: 'admin@hefesto.local',
+          rol: 'Administrador',
+          estado: 'Activo',
+          fechaCreacion: new Date().toISOString()
+        }]);
+      }
+    } finally {
+      setCargandoUsuarios(false);
+    }
+  };
+
+  // Persistir en localStorage cuando cambian (solo como backup)
   useEffect(() => {
-    localStorage.setItem('hefesto_solicitudes', JSON.stringify(solicitudes));
-  }, [solicitudes]);
+    if (!cargandoSolicitudes && solicitudes.length > 0) {
+      localStorage.setItem('hefesto_solicitudes', JSON.stringify(solicitudes));
+    }
+  }, [solicitudes, cargandoSolicitudes]);
 
   useEffect(() => {
-    localStorage.setItem('hefesto_usuarios', JSON.stringify(usuarios));
-  }, [usuarios]);
+    if (!cargandoUsuarios && usuarios.length > 0) {
+      localStorage.setItem('hefesto_usuarios', JSON.stringify(usuarios));
+    }
+  }, [usuarios, cargandoUsuarios]);
 
   useEffect(() => {
-    localStorage.setItem('hefesto_actividades', JSON.stringify(actividades));
+    if (actividades.length > 0) {
+      localStorage.setItem('hefesto_actividades', JSON.stringify(actividades));
+    }
   }, [actividades]);
 
   // Funciones de solicitudes
-  const agregarSolicitud = (solicitud: Omit<Solicitud, 'id' | 'fechaSolicitud'>) => {
+  const agregarSolicitud = (solicitud: Omit<Solicitud, 'fechaSolicitud'> & { id?: number; fechaSolicitud?: string }) => {
     const nueva: Solicitud = {
       ...solicitud,
-      id: Date.now(),
-      fechaSolicitud: new Date().toISOString(),
+      id: solicitud.id || Date.now(), // Usar ID del backend si existe, sino generar uno temporal
+      fechaSolicitud: solicitud.fechaSolicitud || new Date().toISOString(),
     };
     
     setSolicitudes(prev => [nueva, ...prev]);
@@ -133,22 +272,51 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
-  const actualizarEstadoSolicitud = (id: number, estado: Solicitud['estado'], comentario?: string) => {
-    setSolicitudes(prev => 
-      prev.map(sol => 
-        sol.id === id 
-          ? { ...sol, estado }
-          : sol
-      )
-    );
+  const actualizarEstadoSolicitud = async (id: number, estado: Solicitud['estado'], comentario?: string) => {
+    console.log('🔄 Actualizando solicitud:', id, 'a estado:', estado);
     
     const solicitud = solicitudes.find(s => s.id === id);
-    if (solicitud) {
+    if (!solicitud) {
+      console.error('❌ Solicitud no encontrada:', id);
+      return;
+    }
+
+    try {
+      // Determinar el tipo de solicitud y el endpoint
+      const esAdministrativa = solicitud.tipo === 'Administrativo';
+      const api = esAdministrativa ? solicitudesAdministrativas : solicitudesHistoriaClinica;
+      
+      // Llamar al endpoint apropiado según el estado
+      if (estado === 'Aprobado') {
+        await api.aprobar(id, { comentario });
+        console.log('✅ Solicitud aprobada en backend');
+      } else if (estado === 'Rechazado') {
+        await api.rechazar(id, { motivo: comentario });
+        console.log('✅ Solicitud rechazada en backend');
+      }
+      
+      // Actualizar estado local
+      setSolicitudes(prev => 
+        prev.map(sol => 
+          sol.id === id 
+            ? { ...sol, estado }
+            : sol
+        )
+      );
+      
+      // Registrar actividad
       registrarActividad(
         `${estado} Solicitud`,
         `Solicitud de ${solicitud.nombreCompleto} ${estado.toLowerCase()}${comentario ? `: ${comentario}` : ''}`,
         'Control'
       );
+      
+      // Recargar solicitudes para obtener datos actualizados
+      await cargarSolicitudes();
+      
+    } catch (error) {
+      console.error('❌ Error al actualizar solicitud:', error);
+      throw error;
     }
   };
 

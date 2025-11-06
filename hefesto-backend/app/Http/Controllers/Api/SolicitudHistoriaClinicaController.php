@@ -73,18 +73,71 @@ class SolicitudHistoriaClinicaController extends Controller
         }
 
         $data = $validator->validated();
+        
+        // ===== CAPTURA AUTOMÁTICA DE METADATOS =====
+        $usuario = auth()->user();
+        
+        // Fecha y hora exacta de creación
         $data['fecha_solicitud'] = now();
-        $data['usuario_creador_id'] = auth()->id() ?? null;
+        
+        // Usuario que creó el registro
+        $data['usuario_creador_id'] = $usuario?->id;
+        $data['registrado_por_nombre'] = $usuario?->name ?? $request->input('registrado_por_nombre', 'Sistema');
+        $data['registrado_por_email'] = $usuario?->email ?? $request->input('registrado_por_email', 'sistema@hefesto.local');
+        
+        // Estado inicial
+        $data['estado'] = 'Pendiente';
+        $data['fase_actual'] = 'Registro inicial';
+        
+        // Calcular firmas pendientes si hay firmas
+        if (isset($data['firmas']) && is_array($data['firmas'])) {
+            $totalFirmas = count($data['firmas']);
+            $firmasCompletas = collect($data['firmas'])->filter(fn($f) => !empty($f['firma'] ?? null))->count();
+            $data['firmas_pendientes'] = $totalFirmas - $firmasCompletas;
+            $data['firmas_completadas'] = $firmasCompletas;
+        } else {
+            $data['firmas_pendientes'] = 0;
+            $data['firmas_completadas'] = 0;
+        }
         
         $solicitud = SolicitudHistoriaClinica::create($data);
         
-        // Registrar en historial
-        $solicitud->historial()->create([
-            'accion' => 'Creada',
-            'usuario_id' => auth()->id() ?? 1,
+        // Registrar en historial de estados
+        $solicitud->historialEstados()->create([
+            'estado_anterior' => null,
+            'estado_nuevo' => 'Pendiente',
+            'fase' => 'Registro inicial',
+            'usuario_id' => $usuario?->id,
+            'usuario_nombre' => $data['registrado_por_nombre'],
+            'usuario_email' => $data['registrado_por_email'],
+            'observaciones' => 'Solicitud de historia clínica creada en el sistema',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
         ]);
         
-        return response()->json($solicitud, 201);
+        // Registrar en historial antiguo (compatibilidad)
+        $solicitud->historial()->create([
+            'accion' => 'Creada',
+            'usuario_id' => $usuario?->id ?? 1,
+        ]);
+        
+        // Cargar relaciones para la respuesta
+        $solicitud->load(['usuarioCreador', 'historialEstados']);
+        
+        return response()->json([
+            'message' => 'Solicitud creada exitosamente',
+            'data' => $solicitud,
+            'metadata' => [
+                'id_unico' => $solicitud->id,
+                'solicitante_nombre' => $solicitud->nombre_completo,
+                'solicitante_telefono' => $solicitud->celular,
+                'solicitante_correo' => $solicitud->correo_electronico,
+                'usuario_creador' => $data['registrado_por_nombre'],
+                'tipo_solicitud' => 'Historia Clínica',
+                'fase_actual' => $solicitud->estado,
+                'fecha_registro' => $solicitud->created_at->format('d/m/Y H:i:s'),
+            ]
+        ], 201);
     }
     
     public function show($id)

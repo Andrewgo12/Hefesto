@@ -5,6 +5,13 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\SolicitudAdministrativaController;
 use App\Http\Controllers\Api\SolicitudHistoriaClinicaController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\FlujoAprobacionController;
+use App\Http\Controllers\Api\CatalogoController;
+use App\Http\Controllers\Api\NotificacionController;
+use App\Http\Controllers\Api\ExportacionController;
+use App\Http\Controllers\Api\RolController;
+use App\Http\Controllers\Api\ParametroController;
+use App\Http\Controllers\Api\UsuarioController;
 
 // Ruta pública para pruebas
 Route::get('/ping', function () {
@@ -48,4 +55,74 @@ Route::prefix('solicitudes')->group(function () {
         Route::post('/{id}/aprobar', [SolicitudHistoriaClinicaController::class, 'aprobar']);
         Route::post('/{id}/rechazar', [SolicitudHistoriaClinicaController::class, 'rechazar']);
     });
+});
+
+// Rutas de flujo de aprobaciones
+Route::prefix('flujos')->group(function () {
+    // Buscar solicitud por cédula o nombre
+    Route::get('/buscar', [FlujoAprobacionController::class, 'buscarSolicitud']);
+    
+    // Obtener progreso de firmas
+    Route::get('/progreso/{tipo}/{id}', [FlujoAprobacionController::class, 'obtenerProgreso']);
+    
+    // Firmar paso (aprobar)
+    Route::post('/firmar', [FlujoAprobacionController::class, 'firmarPaso']);
+    
+    // Rechazar paso
+    Route::post('/rechazar', [FlujoAprobacionController::class, 'rechazarPaso']);
+});
+
+// Rutas de catálogos
+Route::prefix('catalogos')->group(function () {
+    Route::get('/areas', [CatalogoController::class, 'areas']);
+    Route::get('/cargos', [CatalogoController::class, 'cargos']);
+    Route::get('/especialidades', [CatalogoController::class, 'especialidades']);
+    Route::get('/todos', [CatalogoController::class, 'todos']);
+});
+
+// Rutas de notificaciones
+Route::prefix('notificaciones')->group(function () {
+    Route::get('/', [NotificacionController::class, 'index']);
+    Route::get('/no-leidas', [NotificacionController::class, 'noLeidas']);
+    Route::put('/{id}/leer', [NotificacionController::class, 'marcarLeida']);
+    Route::post('/leer-todas', [NotificacionController::class, 'marcarTodasLeidas']);
+});
+
+// Rutas de exportación y previsualización
+Route::prefix('exportar')->group(function () {
+    // Descargar Excel
+    Route::get('/administrativa/{id}', [ExportacionController::class, 'exportarAdministrativa']);
+    Route::get('/historia-clinica/{id}', [ExportacionController::class, 'exportarHistoriaClinica']);
+    
+    // Previsualizar como HTML
+    Route::get('/preview/administrativa/{id}', [ExportacionController::class, 'previsualizarAdministrativa']);
+    Route::get('/preview/historia-clinica/{id}', [ExportacionController::class, 'previsualizarHistoriaClinica']);
+    
+    Route::get('/metadatos', [ExportacionController::class, 'obtenerMetadatos']);
+});
+
+// Rutas de roles
+Route::prefix('roles')->group(function () {
+    Route::get('/', [RolController::class, 'index']);
+    Route::get('/{id}', [RolController::class, 'show']);
+    Route::post('/', [RolController::class, 'store']);
+    Route::put('/{id}', [RolController::class, 'update']);
+    Route::delete('/{id}', [RolController::class, 'destroy']);
+});
+
+// Rutas de parámetros del sistema
+Route::prefix('parametros')->group(function () {
+    Route::get('/', [ParametroController::class, 'index']);
+    Route::get('/{key}', [ParametroController::class, 'show']);
+    Route::put('/{key}', [ParametroController::class, 'update']);
+});
+
+// Rutas de usuarios
+Route::prefix('usuarios')->group(function () {
+    Route::get('/', [UsuarioController::class, 'index']);
+    Route::get('/{id}', [UsuarioController::class, 'show']);
+    Route::post('/', [UsuarioController::class, 'store']);
+    Route::put('/{id}', [UsuarioController::class, 'update']);
+    Route::delete('/{id}', [UsuarioController::class, 'destroy']);
+    Route::put('/{id}/estado', [UsuarioController::class, 'cambiarEstado']);
 });

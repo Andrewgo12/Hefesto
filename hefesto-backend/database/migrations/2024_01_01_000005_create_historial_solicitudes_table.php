@@ -10,14 +10,13 @@ return new class extends Migration
     {
         Schema::create('historial_solicitudes', function (Blueprint $table) {
             $table->id();
-            $table->morphs('solicitud'); // solicitud_id, solicitud_type
+            $table->morphs('solicitud'); // solicitud_id, solicitud_type (ya incluye índice)
             $table->enum('accion', ['Creada', 'En revisión', 'Aprobada', 'Rechazada', 'Modificada']);
             $table->text('comentario')->nullable();
             $table->foreignId('usuario_id')->constrained('users')->onDelete('cascade');
             $table->timestamps();
             
-            // Índices
-            $table->index(['solicitud_type', 'solicitud_id']);
+            // Índice adicional
             $table->index('accion');
         });
     }

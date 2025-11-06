@@ -86,7 +86,9 @@ export interface FormularioAdministrativo {
   // Vo. Bo. y Firmas (5 firmas requeridas)
   firmas: FirmasAdministrativo;
   
-  // Espacio reservado para sistemas
+  // Espacio reservado para sistemas (llenado por Gestión de la Información)
+  loginUsuario?: string;
+  contrasenaUsuario?: string;
   loginAsignado?: string;
   claveTemporal?: string;
   

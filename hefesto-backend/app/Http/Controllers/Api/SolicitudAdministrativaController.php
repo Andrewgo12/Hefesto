@@ -50,13 +50,16 @@ class SolicitudAdministrativaController extends Controller
             'cargo' => 'required|string|max:255',
             'area_servicio' => 'required|string|max:255',
             'telefono_extension' => 'required|string|max:50',
-            'tipo_vinculacion' => 'required|in:Planta,Agremiado,Contrato',
-            'modulos_administrativos' => 'nullable|array',
-            'modulos_financieros' => 'nullable|array',
-            'tipo_permiso' => 'nullable|array',
+            'tipo_vinculacion' => 'nullable|in:Planta,Agremiado,Contrato',
+            'modulos_administrativos' => 'nullable', // Acepta string o array
+            'modulos_financieros' => 'nullable', // Acepta string o array
+            'tipo_permiso' => 'nullable', // Acepta string o array
             'perfil_de' => 'nullable|string|max:255',
-            'opciones_web' => 'nullable|array',
-            'acepta_responsabilidad' => 'required|boolean',
+            'opciones_web' => 'nullable', // Acepta string o array
+            'firmas' => 'nullable', // Acepta string o array
+            'login_asignado' => 'nullable|string|max:100',
+            'clave_temporal' => 'nullable|string|max:100',
+            'acepta_responsabilidad' => 'nullable', // Acepta boolean o integer
         ]);
 
         if ($validator->fails()) {
@@ -64,18 +67,75 @@ class SolicitudAdministrativaController extends Controller
         }
 
         $data = $validator->validated();
+        
+        // Agregar valores por defecto si no vienen
+        $data['tipo_vinculacion'] = $data['tipo_vinculacion'] ?? 'Planta';
+        
+        // ===== CAPTURA AUTOMÁTICA DE METADATOS =====
+        $usuario = auth()->user();
+        
+        // Fecha y hora exacta de creación
         $data['fecha_solicitud'] = now();
-        $data['usuario_creador_id'] = auth()->id() ?? null;
+        
+        // Usuario que creó el registro
+        $data['usuario_creador_id'] = $usuario?->id;
+        $data['registrado_por_nombre'] = $usuario?->name ?? $request->input('registrado_por_nombre', 'Sistema');
+        $data['registrado_por_email'] = $usuario?->email ?? $request->input('registrado_por_email', 'sistema@hefesto.local');
+        
+        // Estado inicial
+        $data['estado'] = 'Pendiente';
+        $data['fase_actual'] = 'Registro inicial';
+        
+        // Calcular firmas pendientes si hay firmas
+        if (isset($data['firmas']) && is_array($data['firmas'])) {
+            $totalFirmas = count($data['firmas']);
+            $firmasCompletas = collect($data['firmas'])->filter(fn($f) => !empty($f['firma'] ?? null))->count();
+            $data['firmas_pendientes'] = $totalFirmas - $firmasCompletas;
+            $data['firmas_completadas'] = $firmasCompletas;
+        } else {
+            $data['firmas_pendientes'] = 0;
+            $data['firmas_completadas'] = 0;
+        }
         
         $solicitud = SolicitudAdministrativa::create($data);
         
-        // Registrar en historial
-        $solicitud->historial()->create([
-            'accion' => 'Creada',
-            'usuario_id' => auth()->id() ?? 1,
+        // Registrar en historial de estados
+        $solicitud->historialEstados()->create([
+            'estado_anterior' => null,
+            'estado_nuevo' => 'Pendiente',
+            'fase' => 'Registro inicial',
+            'usuario_id' => $usuario?->id,
+            'usuario_nombre' => $data['registrado_por_nombre'],
+            'usuario_email' => $data['registrado_por_email'],
+            'observaciones' => 'Solicitud creada en el sistema',
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
         ]);
         
-        return response()->json($solicitud, 201);
+        // Registrar en historial antiguo (compatibilidad) - solo si hay usuario
+        if ($usuario?->id) {
+            $solicitud->historial()->create([
+                'accion' => 'Creada',
+                'usuario_id' => $usuario->id,
+            ]);
+        }
+        
+        // Cargar relaciones para la respuesta
+        $solicitud->load(['usuarioCreador', 'historialEstados']);
+        
+        return response()->json([
+            'message' => 'Solicitud creada exitosamente',
+            'data' => $solicitud,
+            'metadata' => [
+                'id_unico' => $solicitud->id,
+                'solicitante_nombre' => $solicitud->nombre_completo,
+                'solicitante_telefono' => $solicitud->telefono_extension,
+                'usuario_creador' => $data['registrado_por_nombre'],
+                'tipo_solicitud' => 'Administrativa',
+                'fase_actual' => $solicitud->estado,
+                'fecha_registro' => $solicitud->created_at->format('d/m/Y H:i:s'),
+            ]
+        ], 201);
     }
     
     public function show($id)
@@ -126,37 +186,121 @@ class SolicitudAdministrativaController extends Controller
     
     public function aprobar(Request $request, $id)
     {
-        $solicitud = SolicitudAdministrativa::findOrFail($id);
-        
-        $solicitud->update([
-            'estado' => 'Aprobado',
-            'login_asignado' => $request->login_asignado,
-        ]);
-        
-        $solicitud->historial()->create([
-            'accion' => 'Aprobada',
-            'comentario' => $request->comentario ?? 'Solicitud aprobada',
-            'usuario_id' => auth()->id() ?? 1,
-        ]);
-        
-        return response()->json($solicitud);
+        try {
+            $solicitud = SolicitudAdministrativa::findOrFail($id);
+            $usuario = auth()->user();
+            
+            $solicitud->update([
+                'estado' => 'Aprobado',
+                'fase_actual' => 'Aprobado',
+                'login_asignado' => $request->login_asignado,
+                'fecha_aprobacion' => now(),
+                'usuario_aprobador_id' => $usuario?->id,
+                'observaciones_estado' => $request->comentario ?? 'Solicitud aprobada',
+            ]);
+            
+            // Registrar cambio de estado solo si existe la tabla
+            if (schema()->hasTable('historial_estados')) {
+                try {
+                    $solicitud->historialEstados()->create([
+                        'estado_anterior' => 'Pendiente',
+                        'estado_nuevo' => 'Aprobado',
+                        'fase' => 'Aprobado',
+                        'usuario_id' => $usuario?->id,
+                        'usuario_nombre' => $usuario?->name ?? 'Sistema',
+                        'usuario_email' => $usuario?->email,
+                        'observaciones' => $request->comentario ?? 'Solicitud aprobada',
+                        'motivo' => 'Aprobación manual',
+                        'ip_address' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::warning('No se pudo registrar en historial_estados: ' . $e->getMessage());
+                }
+            }
+            
+            // Historial antiguo (compatibilidad)
+            try {
+                $solicitud->historial()->create([
+                    'accion' => 'Aprobada',
+                    'comentario' => $request->comentario ?? 'Solicitud aprobada',
+                    'usuario_id' => $usuario?->id ?? 1,
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('No se pudo registrar en historial: ' . $e->getMessage());
+            }
+            
+            return response()->json([
+                'message' => 'Solicitud aprobada exitosamente',
+                'data' => $solicitud->fresh()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error al aprobar solicitud: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Error al aprobar solicitud',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
     
     public function rechazar(Request $request, $id)
     {
-        $solicitud = SolicitudAdministrativa::findOrFail($id);
-        
-        $solicitud->update([
-            'estado' => 'Rechazado',
-        ]);
-        
-        $solicitud->historial()->create([
-            'accion' => 'Rechazada',
-            'comentario' => $request->comentario ?? 'Solicitud rechazada',
-            'usuario_id' => auth()->id() ?? 1,
-        ]);
-        
-        return response()->json($solicitud);
+        try {
+            $solicitud = SolicitudAdministrativa::findOrFail($id);
+            $usuario = auth()->user();
+            
+            $motivo = $request->motivo ?? $request->comentario ?? 'No especificado';
+            
+            $solicitud->update([
+                'estado' => 'Rechazado',
+                'fase_actual' => 'Rechazado',
+                'fecha_rechazo' => now(),
+                'usuario_rechazador_id' => $usuario?->id,
+                'observaciones_estado' => $motivo,
+            ]);
+            
+            // Registrar cambio de estado solo si existe la tabla
+            if (schema()->hasTable('historial_estados')) {
+                try {
+                    $solicitud->historialEstados()->create([
+                        'estado_anterior' => $solicitud->getOriginal('estado'),
+                        'estado_nuevo' => 'Rechazado',
+                        'fase' => 'Rechazado',
+                        'usuario_id' => $usuario?->id,
+                        'usuario_nombre' => $usuario?->name ?? 'Sistema',
+                        'usuario_email' => $usuario?->email,
+                        'observaciones' => $motivo,
+                        'motivo' => 'Rechazo manual',
+                        'ip_address' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::warning('No se pudo registrar en historial_estados: ' . $e->getMessage());
+                }
+            }
+            
+            // Historial antiguo (compatibilidad)
+            try {
+                $solicitud->historial()->create([
+                    'accion' => 'Rechazada',
+                    'comentario' => $motivo,
+                    'usuario_id' => $usuario?->id ?? 1,
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('No se pudo registrar en historial: ' . $e->getMessage());
+            }
+            
+            return response()->json([
+                'message' => 'Solicitud rechazada',
+                'data' => $solicitud->fresh()
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error al rechazar solicitud: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Error al rechazar solicitud',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function estadisticas()

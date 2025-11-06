@@ -1,364 +1,129 @@
-# 🔐 SISTEMA DE CREDENCIALES - FIRMAS DIGITALES
+# 🔐 CREDENCIALES DEL SISTEMA HEFESTO
 
-**Fecha de creación:** 4 de Noviembre, 2025  
-**Última actualización:** 4 de Noviembre, 2025  
-**Responsable:** Administrador del Sistema
+## 👤 USUARIOS DE PRUEBA
 
----
+Todos los usuarios tienen la misma contraseña: **`password123`**
 
-## 📋 ÍNDICE
+### 1. **Administrador**
+- **Email:** `admin@hefesto.local`
+- **Password:** `password123`
+- **Rol:** Administrador
+- **Permisos:** Acceso completo al sistema
 
-1. [Ubicación de Credenciales](#ubicación-de-credenciales)
-2. [Credenciales Activas](#credenciales-activas)
-3. [Cómo Cambiar Credenciales](#cómo-cambiar-credenciales)
-4. [Procedimiento de Cambio](#procedimiento-de-cambio)
-5. [Historial de Cambios](#historial-de-cambios)
-6. [Seguridad](#seguridad)
+### 2. **Jefe de Área**
+- **Email:** `jefe@hefesto.local`
+- **Password:** `password123`
+- **Rol:** Jefe de Área
+- **Permisos:** Aprobación de solicitudes
 
----
+### 3. **Médico**
+- **Email:** `medico@hefesto.local`
+- **Password:** `password123`
+- **Rol:** Médico
+- **Permisos:** Acceso a historia clínica
 
-## 📍 UBICACIÓN DE CREDENCIALES
+### 4. **Analista**
+- **Email:** `maria.garcia@hefesto.local`
+- **Password:** `password123`
+- **Rol:** Analista
+- **Permisos:** Consulta y análisis
 
-### Archivo Principal
-```
-📁 client/lib/credenciales.ts
-```
-
-**Este es el ÚNICO lugar donde se deben cambiar las credenciales.**
-
-### Archivos que Usan Credenciales
-1. ✅ `client/components/FirmaDigital.tsx` - Componente de firma
-2. ✅ `client/pages/RegistroAdministrativo.tsx` - Formulario administrativo
-3. ✅ `client/pages/RegistroHistoriaClinica.tsx` - Formulario historia clínica
-
----
-
-## 🔑 CREDENCIALES ACTIVAS
-
-### 1. Jefe Inmediato
-- **Cargo:** Jefe inmediato
-- **Credencial:** `JEFE2024`
-- **Descripción:** Jefe directo del área solicitante
-- **Responsable:** Variable según área
-- **Última actualización:** 01/01/2024
-
-**Uso:** Aprobación inicial de solicitudes de usuarios
+### 5. **Operador**
+- **Email:** `juan.perez@hefesto.local`
+- **Password:** `password123`
+- **Rol:** Operador
+- **Permisos:** Operaciones básicas
 
 ---
 
-### 2. Jefe de Talento Humano
-- **Cargo:** Jefe de Talento Humano
-- **Credencial:** `TALENTO2024`
-- **Descripción:** Jefe del departamento de Recursos Humanos
-- **Responsable:** Jefe de Talento Humano
-- **Última actualización:** 01/01/2024
+## 🗄️ BASE DE DATOS
 
-**Uso:** Validación de datos de personal y contratación
-
----
-
-### 3. Jefe de Gestión de la Información
-- **Cargo:** Jefe de Gestión de la Información
-- **Credencial:** `GESTION2024`
-- **Descripción:** Jefe del departamento de TI/Sistemas
-- **Responsable:** Jefe de Gestión de la Información
-- **Última actualización:** 01/01/2024
-
-**Uso:** Aprobación final de accesos al sistema
+### Configuración Local
+- **Host:** `localhost`
+- **Puerto:** `3306` (MySQL) o `5432` (PostgreSQL)
+- **Base de datos:** `hefesto_db`
+- **Usuario:** `root` (o según tu configuración)
+- **Password:** (según tu configuración local)
 
 ---
 
-### 4. Coordinador de Facturación
-- **Cargo:** Coordinador de Facturación o Subgerente Financiero
-- **Credencial:** `FINANZAS2024`
-- **Descripción:** Responsable del área financiera
-- **Responsable:** Coordinador de Facturación
-- **Última actualización:** 01/01/2024
+## 🚀 URLS DEL SISTEMA
 
-**Uso:** Aprobación de accesos a módulos financieros
+### Frontend
+- **URL Local:** `http://localhost:5173`
+- **Puerto:** `5173` (Vite dev server)
 
----
-
-### 5. Capacitador de Historia Clínica
-- **Cargo:** Capacitador de historia clínica
-- **Credencial:** `CAPACITAHC2024`
-- **Descripción:** Responsable de capacitación en Historia Clínica Electrónica
-- **Responsable:** Capacitador HC
-- **Última actualización:** 01/01/2024
-
-**Uso:** Certificación de capacitación en HC
+### Backend
+- **URL Local:** `http://localhost:8000`
+- **API Base:** `http://localhost:8000/api`
+- **Puerto:** `8000` (Laravel)
 
 ---
 
-### 6. Capacitador de Epidemiología
-- **Cargo:** Capacitador de epidemiología
-- **Credencial:** `CAPACITAEPI2024`
-- **Descripción:** Responsable de capacitación en Epidemiología
-- **Responsable:** Capacitador Epidemiología
-- **Última actualización:** 01/01/2024
+## 📊 DATOS DE PRUEBA ACTUALES
 
-**Uso:** Certificación de capacitación en Epidemiología
+### Solicitud Administrativa (ID: 1)
+- **Nombre:** Dr. Carlos Andrés Martínez López
+- **Cédula:** 1098765432
+- **Cargo:** Jefe de Facturación
+- **Login:** cmartinez
+- **Clave Temporal:** Temp2025!
 
----
-
-### 7. Aval Institucional
-- **Cargo:** Aval institucional
-- **Credencial:** `AVAL2024`
-- **Descripción:** Aval de la Subgerencia o Coordinación
-- **Responsable:** Subgerente/Coordinador
-- **Última actualización:** 01/01/2024
-
-**Uso:** Aval final para accesos especiales
+### Solicitud Historia Clínica (ID: 1)
+- **Nombre:** Dra. Laura Beatriz Rodríguez Pérez
+- **Cédula:** 1087654321
+- **Especialidad:** Cardiología Intervencionista
+- **Código:** RM-2025-001
 
 ---
 
-## 🔄 CÓMO CAMBIAR CREDENCIALES
+## 🔧 COMANDOS ÚTILES
 
-### Cuándo Cambiar
-
-Cambiar credenciales cuando:
-- ✅ Hay cambio de jefe o responsable de área
-- ✅ Cada 6 meses (política de seguridad)
-- ✅ Si se sospecha de compromiso de seguridad
-- ✅ Por solicitud de auditoría
-
-### Quién Puede Cambiar
-
-Solo pueden cambiar credenciales:
-- ✅ Administrador del Sistema
-- ✅ Jefe de Gestión de la Información
-- ✅ Personal autorizado de TI
-
----
-
-## 📝 PROCEDIMIENTO DE CAMBIO
-
-### Paso 1: Abrir el Archivo
+### Limpiar Base de Datos
 ```bash
-# Navegar al archivo
-cd client/lib
-# Abrir con editor
-code credenciales.ts
+php limpiar_bd.php
 ```
 
-### Paso 2: Modificar la Credencial
-
-**ANTES:**
-```typescript
-'Jefe de Talento Humano': {
-  cargo: 'Jefe de Talento Humano',
-  clave: 'TALENTO2024',  // ← CAMBIAR AQUÍ
-  descripcion: 'Jefe del departamento de Recursos Humanos',
-  responsable: 'Jefe de Talento Humano',
-  ultimoCambio: '2024-01-01'  // ← Y AQUÍ
-}
+### Crear Datos de Prueba
+```bash
+php crear_datos_completos.php
 ```
 
-**DESPUÉS:**
-```typescript
-'Jefe de Talento Humano': {
-  cargo: 'Jefe de Talento Humano',
-  clave: 'TALENTO2025',  // ✅ NUEVA CREDENCIAL
-  descripcion: 'Jefe del departamento de Recursos Humanos',
-  responsable: 'Nuevo Jefe de Talento Humano',  // ✅ ACTUALIZAR NOMBRE
-  ultimoCambio: '2025-01-15'  // ✅ FECHA DE CAMBIO
-}
+### Ver Datos Actuales
+```bash
+php ver_datos_completos.php
 ```
 
-### Paso 3: Guardar y Verificar
-
-1. **Guardar el archivo** (Ctrl + S)
-2. **Reiniciar el servidor de desarrollo**
-   ```bash
-   # Detener servidor (Ctrl + C)
-   # Iniciar nuevamente
-   pnpm dev
-   ```
-3. **Probar la nueva credencial**
-   - Ir a formulario de registro
-   - Intentar firmar con cargo modificado
-   - Verificar que la nueva credencial funciona
-
-### Paso 4: Notificar al Responsable
-
-**Enviar correo al nuevo responsable:**
-
-```
-Asunto: Nueva Credencial de Firma Digital - [CARGO]
-
-Estimado/a [NOMBRE],
-
-Se le ha asignado la credencial de firma digital para el cargo:
-[CARGO]
-
-Su credencial es: [NUEVA_CLAVE]
-
-Por favor, mantenga esta información confidencial.
-
-Atentamente,
-Administrador del Sistema
+### Ejecutar Seeders
+```bash
+php artisan db:seed --class=UserSeeder
+php artisan db:seed --class=SolicitudesSeeder
+php artisan db:seed --class=ConfiguracionesSeeder
 ```
 
-### Paso 5: Documentar el Cambio
-
-Actualizar la sección [Historial de Cambios](#historial-de-cambios) en este documento.
-
----
-
-## 📊 HISTORIAL DE CAMBIOS
-
-| Fecha | Cargo | Credencial Anterior | Credencial Nueva | Responsable | Motivo |
-|-------|-------|-------------------|------------------|-------------|---------|
-| 01/01/2024 | Todos | N/A | Iniciales | Sistema | Implementación inicial |
-| - | - | - | - | - | - |
-
-**Formato para agregar:**
-```
-| DD/MM/AAAA | [Cargo] | [Anterior] | [Nueva] | [Nombre] | [Motivo] |
+### Limpiar y Recrear BD
+```bash
+php artisan migrate:fresh --seed
 ```
 
 ---
 
-## 🔒 SEGURIDAD
+## ⚠️ NOTAS DE SEGURIDAD
 
-### Mejores Prácticas
-
-#### ✅ HACER
-- ✅ Cambiar credenciales cada 6 meses
-- ✅ Usar credenciales únicas y complejas
-- ✅ Notificar solo al responsable directo
-- ✅ Mantener registro de cambios
-- ✅ Verificar identidad antes de compartir
-
-#### ❌ NO HACER
-- ❌ Compartir credenciales por WhatsApp/SMS
-- ❌ Escribir credenciales en papel
-- ❌ Usar la misma credencial para múltiples cargos
-- ❌ Compartir con personal no autorizado
-- ❌ Dejar credenciales en correos antiguos
-
-### Formato de Credenciales Recomendado
-
-```
-[AREA][AÑO][NUMERO]
-
-Ejemplos:
-- TALENTO2024
-- GESTION2025
-- FINANZAS2024A
-```
-
-**Características:**
-- Mínimo 8 caracteres
-- Mayúsculas
-- Incluir año
-- Opcional: número o letra al final
-
-### En Caso de Compromiso
-
-Si se sospecha que una credencial fue comprometida:
-
-1. **INMEDIATO:** Cambiar la credencial
-2. **Notificar** al Jefe de Gestión de la Información
-3. **Revisar** logs de firmas recientes
-4. **Investigar** posibles usos no autorizados
-5. **Documentar** el incidente
+- **IMPORTANTE:** Estas credenciales son SOLO para desarrollo local
+- **NO** usar estas contraseñas en producción
+- Cambiar todas las contraseñas antes de deploy
+- Usar variables de entorno para credenciales sensibles
+- Implementar 2FA en producción
 
 ---
 
-## 🚀 MIGRACIÓN A BACKEND (FUTURO)
+## 📝 ÚLTIMA ACTUALIZACIÓN
 
-### Estado Actual
-- ⚠️ Credenciales en frontend (temporal)
-- ⚠️ Solo para desarrollo/pruebas
-
-### Plan de Migración
-
-#### Fase 1: Backend API
-```typescript
-// Endpoint propuesto
-POST /api/auth/validar-credencial
-{
-  "cargo": "Jefe de Talento Humano",
-  "credencial": "TALENTO2024"
-}
-
-// Respuesta
-{
-  "valida": true,
-  "usuario": "Juan Pérez"
-}
-```
-
-#### Fase 2: Base de Datos
-```sql
-CREATE TABLE credenciales (
-  id INT PRIMARY KEY,
-  cargo VARCHAR(100),
-  clave_hash VARCHAR(255),  -- Hash, no texto plano
-  responsable VARCHAR(100),
-  fecha_creacion DATETIME,
-  fecha_expiracion DATETIME,
-  activa BOOLEAN
-);
-```
-
-#### Fase 3: Gestión Web
-- Panel de administración
-- Cambio de credenciales desde UI
-- Historial automático
-- Notificaciones por email
+**Fecha:** 6 de Noviembre, 2025  
+**Estado:** Desarrollo Local  
+**Versión:** 1.0.0
 
 ---
 
-## 📞 CONTACTO
-
-### Para Cambios de Credenciales
-- **Email:** sistemas@hospital.local
-- **Extensión:** 1234
-- **Responsable:** Jefe de Gestión de la Información
-
-### Para Soporte Técnico
-- **Email:** soporte@hospital.local
-- **Extensión:** 5678
-- **Horario:** Lunes a Viernes, 8:00 AM - 5:00 PM
-
----
-
-## 📚 REFERENCIAS
-
-### Archivos Relacionados
-- `client/lib/credenciales.ts` - Sistema de credenciales
-- `client/components/FirmaDigital.tsx` - Componente de firma
-- `RESUMEN_FINAL.md` - Estado general del proyecto
-
-### Documentación Técnica
-- [React Signature Canvas](https://github.com/agilgur5/react-signature-canvas)
-- [Mejores Prácticas de Seguridad](https://owasp.org/)
-
----
-
-**Última revisión:** 4 de Noviembre, 2025  
-**Próxima revisión:** 4 de Mayo, 2025 (6 meses)
-
----
-
-## ✅ CHECKLIST DE CAMBIO DE CREDENCIAL
-
-Usar esta lista cada vez que se cambie una credencial:
-
-- [ ] Abrir `client/lib/credenciales.ts`
-- [ ] Modificar la credencial del cargo correspondiente
-- [ ] Actualizar campo `responsable` si cambió la persona
-- [ ] Actualizar campo `ultimoCambio` con fecha actual
-- [ ] Guardar el archivo
-- [ ] Reiniciar servidor de desarrollo
-- [ ] Probar la nueva credencial en el formulario
-- [ ] Notificar al nuevo responsable por correo
-- [ ] Actualizar tabla de Historial de Cambios en este documento
-- [ ] Archivar correo de notificación
-- [ ] Programar recordatorio para próximo cambio (6 meses)
-
----
-
-**FIN DEL DOCUMENTO**
+**🔒 MANTENER ESTE ARCHIVO PRIVADO - NO SUBIR A GITHUB**

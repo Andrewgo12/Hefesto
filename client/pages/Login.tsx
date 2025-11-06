@@ -40,12 +40,28 @@ export default function Login() {
     }
   };
 
-  const loginRapido = (email: string, password: string) => {
+  const loginRapido = async (email: string, password: string) => {
     setFormData({ email, password });
-    setTimeout(() => {
-      const form = document.querySelector('form');
-      if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    }, 100);
+    setError('');
+    setLoading(true);
+
+    try {
+      const user = usuariosPrueba.find(
+        u => u.email === email && u.password === password
+      );
+
+      if (!user) throw new Error('Usuario o contraseña incorrectos');
+
+      const token = 'mock-token-12345';
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      navigate('/');
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

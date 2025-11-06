@@ -1,8 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Settings, Key, Database, HardDrive } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/lib/toast";
+import { roles as rolesApi, parametros as parametrosApi } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,67 +49,98 @@ export default function Movimientos() {
   const [paramNewValue, setParamNewValue] = useState("");
 
   // Estados para roles
-  const [roles, setRoles] = useState<Role[]>([
-    {
-      id: 1,
-      name: "Administrativo - Entrada de Datos",
-      description: "Usuario administrativo básico con acceso limitado",
-      usersCount: 15,
-      permissions: ["Crear solicitudes", "Ver reportes", "Editar datos propios"],
-    },
-    {
-      id: 2,
-      name: "Administrativo - Supervisor",
-      description: "Supervisor de área con permisos de aprobación",
-      usersCount: 8,
-      permissions: ["Crear solicitudes", "Aprobar solicitudes", "Ver reportes", "Gestionar equipo"],
-    },
-    {
-      id: 3,
-      name: "Médico - Consulta",
-      description: "Médico general con acceso a historia clínica",
-      usersCount: 25,
-      permissions: ["Acceso historia clínica", "Crear registros médicos", "Ver laboratorios"],
-    },
-    {
-      id: 4,
-      name: "Técnico del Sistema",
-      description: "Administrador con acceso total",
-      usersCount: 2,
-      permissions: ["Acceso total", "Gestionar usuarios", "Gestionar roles"],
-    },
-  ]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [cargandoRoles, setCargandoRoles] = useState(true);
 
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
 
   // Estados para parámetros
-  const [parameters, setParameters] = useState<Parameter[]>([
-    {
-      name: "Política de Contraseña",
-      value: "Mínimo 8 caracteres, mayúscula y número",
-      description: "Requisitos mínimos para contraseñas de usuario",
-    },
-    {
-      name: "Tiempo de Sesión",
-      value: "30 minutos",
-      description: "Tiempo máximo de inactividad antes de cierre de sesión",
-    },
-    {
-      name: "Expiración de Credenciales",
-      value: "90 días",
-      description: "Días hasta que las credenciales vencen",
-    },
-    {
-      name: "Intento de Acceso",
-      value: "5 intentos",
-      description: "Número máximo de intentos fallidos permitidos",
-    },
-    {
-      name: "Auditoría de Cambios",
-      value: "Activada",
-      description: "Registro de todos los cambios en el sistema",
-    },
-  ]);
+  const [parameters, setParameters] = useState<Parameter[]>([]);
+  const [cargandoParametros, setCargandoParametros] = useState(true);
+
+  // Cargar datos desde la API
+  useEffect(() => {
+    cargarRoles();
+    cargarParametros();
+  }, []);
+
+  const cargarRoles = async () => {
+    try {
+      setCargandoRoles(true);
+      const response = await rolesApi.getAll();
+      const rolesBackend = (response.data?.data || []).map((rol: any) => ({
+        id: rol.id,
+        name: rol.name || rol.nombre,
+        description: rol.description || rol.descripcion || 'Sin descripción',
+        usersCount: rol.users_count || 0,
+        permissions: rol.permissions || rol.permisos || []
+      }));
+
+      if (rolesBackend.length > 0) {
+        setRoles(rolesBackend);
+      } else {
+        // Roles por defecto
+        setRoles([
+          {
+            id: 1,
+            name: "Administrativo - Entrada de Datos",
+            description: "Usuario administrativo básico",
+            usersCount: 0,
+            permissions: ["Crear solicitudes"],
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error al cargar roles:', error);
+      setRoles([
+        {
+          id: 1,
+          name: "Administrativo",
+          description: "Usuario administrativo",
+          usersCount: 0,
+          permissions: [],
+        },
+      ]);
+    } finally {
+      setCargandoRoles(false);
+    }
+  };
+
+  const cargarParametros = async () => {
+    try {
+      setCargandoParametros(true);
+      const response = await parametrosApi.getAll();
+      const parametrosBackend = (response.data?.data || []).map((param: any) => ({
+        name: param.name || param.nombre || param.key,
+        value: param.value || param.valor,
+        description: param.description || param.descripcion || 'Sin descripción'
+      }));
+
+      if (parametrosBackend.length > 0) {
+        setParameters(parametrosBackend);
+      } else {
+        // Parámetros por defecto
+        setParameters([
+          {
+            name: "Tiempo de Sesión",
+            value: "30 minutos",
+            description: "Tiempo máximo de inactividad",
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error al cargar parámetros:', error);
+      setParameters([
+        {
+          name: "Configuración",
+          value: "Por defecto",
+          description: "Configuración del sistema",
+        },
+      ]);
+    } finally {
+      setCargandoParametros(false);
+    }
+  };
 
   // Handlers para roles
   const handleNuevoRol = () => {

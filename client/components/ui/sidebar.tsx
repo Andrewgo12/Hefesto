@@ -19,9 +19,8 @@ const sidebarItems: SidebarItem[] = [
   { 
     label: 'Registro', icon: HiInbox,
     subItems: [
-      { label: 'Usuario Administrativo', path: '/registro/admin', icon: HiUser },
-      { label: 'Usuario Médico', path: '/registro/medico', icon: HiUserAdd },
-      { label: 'Mis Solicitudes', path: '/registro/mis-solicitudes', icon: HiClipboardList },
+      { label: 'Usuario Administrativo', path: '/registro/administrativo', icon: HiUser },
+      { label: 'Usuario Médico', path: '/registro/historia-clinica', icon: HiUserAdd },
     ]
   },
   { 
@@ -94,21 +93,25 @@ export default function AdvancedSidebar() {
 
       {/* Rail (visible cuando está cerrado) */}
       {!isOpen && (
-        <div className="fixed left-0 top-0 h-full w-16 z-40 bg-slate-900 text-white list-none [&_*]:list-none [&_*]:marker:hidden border-r border-slate-800">
+        <div className="fixed left-0 top-0 h-full w-16 z-40 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white list-none [&_*]:list-none [&_*]:marker:hidden border-r border-slate-700 shadow-2xl">
           <div className="p-3 flex flex-col items-center gap-4">
-            <div className="w-10 h-10 bg-[#006837] rounded-lg flex items-center justify-center font-bold">H</div>
-            <div className="h-px w-8 bg-slate-800" />
+            <div className="w-10 h-10 bg-gradient-to-br from-[#006837] to-[#004d28] rounded-lg flex items-center justify-center font-bold shadow-lg hover:scale-110 transition-transform duration-300 cursor-pointer">H</div>
+            <div className="h-px w-8 bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
             <nav className="flex-1 flex flex-col items-center gap-2">
-              {sidebarItems.map(item => {
+              {sidebarItems.map((item, idx) => {
                 const Icon = item.icon;
                 return (
                   <button
                     key={`rail-${item.label}`}
                     onClick={() => openFromIcon(item.label, !!item.subItems)}
-                    className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-slate-800 text-slate-300 hover:text-white"
+                    className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gradient-to-br hover:from-[#006837] hover:to-[#004d28] text-slate-300 hover:text-white transition-all duration-300 hover:scale-110 hover:shadow-lg group relative"
                     title={item.label}
+                    style={{ animationDelay: `${idx * 50}ms` }}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      {item.label}
+                    </div>
                   </button>
                 );
               })}
@@ -119,15 +122,15 @@ export default function AdvancedSidebar() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-full z-40 bg-slate-900 text-white shadow-2xl w-64 transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : '-translate-x-full'} list-none [&_*]:list-none [&_*]:marker:hidden`}
+        className={`fixed left-0 top-0 h-full z-40 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 text-white shadow-2xl w-64 transform transition-all duration-500 ${isOpen ? 'translate-x-0' : '-translate-x-full'} list-none [&_*]:list-none [&_*]:marker:hidden backdrop-blur-sm`}
         aria-hidden={!isOpen}
         role="dialog"
         aria-modal="true"
       >
         {/* Logo */}
-        <div className="p-4 border-b border-slate-700 flex items-center gap-3">
-          <div className="w-12 h-12 bg-[#006837] rounded-xl flex items-center justify-center font-bold text-xl shadow-lg">H</div>
-          <span className="font-bold text-xl text-white">HEFESTO</span>
+        <div className="p-4 border-b border-slate-700/50 flex items-center gap-3 bg-gradient-to-r from-slate-900/50 to-transparent">
+          <div className="w-12 h-12 bg-gradient-to-br from-[#006837] via-[#007d42] to-[#004d28] rounded-xl flex items-center justify-center font-bold text-xl shadow-lg hover:scale-110 transition-transform duration-300 cursor-pointer animate-pulse">H</div>
+          <span className="font-bold text-xl text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">HEFESTO</span>
         </div>
 
         {/* Navigation */}
@@ -137,36 +140,43 @@ export default function AdvancedSidebar() {
             const active = isActive(item.path);
 
             return (
-              <div key={item.label}>
+              <div key={item.label} className="group">
                 <button
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200
-                    ${active ? 'bg-[#006837] text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 relative overflow-hidden
+                    ${active 
+                      ? 'bg-gradient-to-r from-[#006837] to-[#007d42] text-white shadow-lg shadow-green-900/50' 
+                      : 'text-slate-300 hover:bg-gradient-to-r hover:from-slate-800 hover:to-slate-700 hover:text-white hover:shadow-lg hover:scale-105'}
                   `}
                   onClick={() => item.subItems ? toggleMenu(item.label) : item.path && navigate(item.path)}
                   title={item.label}
                 >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-slate-300'}`} />
+                  <div className="flex items-center gap-3 relative z-10">
+                    <Icon className={`w-5 h-5 transition-transform duration-300 ${active ? 'text-white scale-110' : 'text-slate-300 group-hover:scale-110 group-hover:rotate-12'}`} />
                     <span className="font-medium text-sm">{item.label}</span>
                   </div>
-                  {item.subItems && <HiChevronDown className={`w-5 h-5 transform transition-transform ${openMenus[item.label] ? 'rotate-180' : ''}`} />}
+                  {item.subItems && <HiChevronDown className={`w-5 h-5 transform transition-all duration-300 ${openMenus[item.label] ? 'rotate-180' : ''} group-hover:scale-110`} />}
+                  {!active && <div className="absolute inset-0 bg-gradient-to-r from-[#006837]/0 to-[#006837]/0 group-hover:from-[#006837]/10 group-hover:to-[#007d42]/10 transition-all duration-300" />}
                 </button>
 
                 {/* Submenu */}
                 {item.subItems && (
-                  <div className={`overflow-hidden transition-[max-height] duration-200 ease-in-out ml-6 ${openMenus[item.label] ? 'max-h-96' : 'max-h-0'} list-none marker:hidden`}>
-                    {item.subItems.map(sub => {
+                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ml-6 ${openMenus[item.label] ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'} list-none marker:hidden`}>
+                    {item.subItems.map((sub, idx) => {
                       const SubIcon = sub.icon;
                       return (
                         <button
                           key={sub.label}
                           onClick={() => sub.path && navigate(sub.path)}
-                          className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all duration-150 appearance-none
-                            ${isActive(sub.path) ? 'bg-[#006837] text-white' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}
+                          className={`w-full flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all duration-300 appearance-none group/sub relative overflow-hidden
+                            ${isActive(sub.path) 
+                              ? 'bg-gradient-to-r from-[#006837] to-[#007d42] text-white shadow-md' 
+                              : 'text-slate-300 hover:bg-gradient-to-r hover:from-slate-700 hover:to-slate-600 hover:text-white hover:translate-x-1'}
                           `}
+                          style={{ transitionDelay: `${idx * 50}ms` }}
                         >
-                          <SubIcon className={`w-4 h-4 flex-shrink-0 ${isActive(sub.path) ? 'text-white' : 'text-gray-300'}`} />
+                          <SubIcon className={`w-4 h-4 flex-shrink-0 transition-transform duration-300 ${isActive(sub.path) ? 'text-white scale-110' : 'text-gray-300 group-hover/sub:scale-110 group-hover/sub:rotate-12'}`} />
                           <span className="leading-none">{sub.label}</span>
+                          {!isActive(sub.path) && <div className="absolute inset-0 bg-gradient-to-r from-[#006837]/0 to-[#006837]/0 group-hover/sub:from-[#006837]/5 group-hover/sub:to-[#007d42]/5 transition-all duration-300" />}
                         </button>
                       );
                     })}
@@ -178,25 +188,25 @@ export default function AdvancedSidebar() {
         </nav>
 
         {/* User Section */}
-        <div className="p-4 border-t border-slate-700">
-          <div className={`flex items-center gap-3 mb-3 ${!isOpen && 'justify-center'}`}>
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center font-bold text-sm shadow-lg hover:scale-110 transition-transform">
+        <div className="p-4 border-t border-slate-700/50 bg-gradient-to-r from-slate-900/50 to-transparent">
+          <div className={`flex items-center gap-3 mb-3 ${!isOpen && 'justify-center'} group/user`}>
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 via-pink-500 to-purple-600 rounded-full flex items-center justify-center font-bold text-sm shadow-lg hover:scale-110 hover:rotate-12 transition-all duration-300 cursor-pointer animate-pulse hover:animate-none ring-2 ring-purple-500/30 hover:ring-purple-400">
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             {isOpen && (
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm truncate">{user?.name || 'Usuario'}</p>
-                <p className="text-xs text-slate-400 truncate">{user?.email || 'No autenticado'}</p>
+              <div className="flex-1 min-w-0 group-hover/user:translate-x-1 transition-transform duration-300">
+                <p className="font-semibold text-sm truncate bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">{user?.name || 'Usuario'}</p>
+                <p className="text-xs text-slate-400 truncate group-hover/user:text-slate-300 transition-colors">{user?.email || 'No autenticado'}</p>
               </div>
             )}
           </div>
 
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-red-900/30 text-red-400 hover:bg-red-900 hover:text-white transition-all duration-300 ${!isOpen && 'justify-center'}`}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-red-900/30 to-red-800/30 text-red-400 hover:from-red-900 hover:to-red-800 hover:text-white transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-red-900/50 group/logout ${!isOpen && 'justify-center'}`}
             title={!isOpen ? 'Cerrar Sesión' : ''}
           >
-            <HiArrowSmRight className="w-5 h-5" />
+            <HiArrowSmRight className="w-5 h-5 group-hover/logout:translate-x-1 transition-transform duration-300" />
             {isOpen && <span className="font-medium text-sm">Cerrar Sesión</span>}
           </button>
         </div>

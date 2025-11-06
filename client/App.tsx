@@ -63,7 +63,6 @@ const App = () => (
               <Route path="registro" element={<Navigate to="/registro/administrativo" replace />} />
               <Route path="registro/administrativo" element={<RegistroAdministrativo />} />
               <Route path="registro/historia-clinica" element={<RegistroHistoriaClinica />} />
-              <Route path="registro/:view" element={<Registro />} />
 
               {/* Control routes */}
               <Route path="control" element={<Navigate to="/control/aprobacion" replace />} />

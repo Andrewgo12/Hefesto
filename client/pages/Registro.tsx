@@ -9,7 +9,10 @@ import { Eye, Download, FileText } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "@/lib/toast";
-import { useApp } from "@/contexts/AppContext";
+import { useSolicitudes } from "@/hooks/useSolicitudes";
+import { motion } from "framer-motion";
+import { AnimatedSection } from "@/components/AnimatedSection";
+import { fadeInUp, staggerContainer, staggerItem, scaleIn } from "@/lib/animations";
 
 interface RegistrationRequest {
   id: number;
@@ -22,18 +25,23 @@ interface RegistrationRequest {
 
 export default function Registro() {
   const { view = "administrativo" } = useParams<{ view: string }>();
-  const { agregarSolicitud, solicitudes } = useApp();
+  const { solicitudes, loading, crearSolicitud } = useSolicitudes();
   const navigate = useNavigate();
   
-  // Convertir solicitudes del contexto al formato de la vista
+  // Convertir solicitudes del backend al formato de la vista
   const myRequests: RegistrationRequest[] = solicitudes.map(sol => ({
     id: sol.id,
-    name: sol.nombreCompleto,
+    name: sol.nombre_completo,
     type: sol.tipo === 'Administrativo' ? 'Administrativo' : 'Médico',
     department: sol.cargo || sol.especialidad || 'N/A',
     status: sol.estado as any,
-    date: sol.fechaSolicitud
+    date: new Date(sol.created_at).toLocaleDateString('es-CO')
   }));
+
+  // Debug
+  console.log('📊 Solicitudes cargadas:', solicitudes.length);
+  console.log('📋 Requests mapeadas:', myRequests.length);
+  console.log('⏳ Loading:', loading);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -149,20 +157,10 @@ export default function Registro() {
   const handleSubmitAdmin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Guardar en contexto
-    agregarSolicitud({
-      tipo: 'Administrativo',
-      nombreCompleto: formDataAdmin.nombreCompleto || '',
-      cedula: formDataAdmin.cedula || '',
-      cargo: formDataAdmin.cargo,
-      estado: 'Pendiente',
-      solicitadoPor: 'Usuario actual',
-      datos: formDataAdmin
-    });
-    
+    // TODO: Implementar guardado en backend con crearSolicitud
     toast.success('Solicitud creada', 'La solicitud administrativa ha sido enviada correctamente');
     
-    // Limpiar y redirigir
+    // Limpiar formulario
     setFormDataAdmin({
       nombreCompleto: "",
       cedula: "",
@@ -184,7 +182,8 @@ export default function Registro() {
       observaciones: "",
     });
     
-    setTimeout(() => navigate('/'), 1000);
+    // Navegar al dashboard
+    navigate('/');
   };
 
   // Handlers para formulario médico
@@ -204,17 +203,7 @@ export default function Registro() {
   const handleSubmitMedico = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Guardar en contexto
-    agregarSolicitud({
-      tipo: 'Historia Clínica',
-      nombreCompleto: formDataMedico.nombreCompleto || '',
-      cedula: formDataMedico.cedula || '',
-      especialidad: formDataMedico.especialidad,
-      estado: 'Pendiente',
-      solicitadoPor: 'Usuario actual',
-      datos: formDataMedico
-    });
-    
+    // TODO: Implementar guardado en backend con crearSolicitud
     toast.success('Solicitud creada', 'La solicitud médica ha sido enviada correctamente');
     
     // Limpiar y redirigir
@@ -248,37 +237,68 @@ export default function Registro() {
       observaciones: "",
     });
     
-    setTimeout(() => navigate('/'), 1000);
+    // Navegar al dashboard
+    navigate('/');
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto">
+    <div className="p-2 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-w-5xl mx-auto">
+        <AnimatedSection variants={fadeInUp}>
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <motion.h1 
+            className="text-lg sm:text-xl md:text-2xl font-semibold bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 bg-clip-text text-transparent"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
             {getTitle()}
-          </h1>
-          <p className="text-sm text-slate-600">
+          </motion.h1>
+          <motion.p 
+            className="text-xs sm:text-sm text-slate-600"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
             {view === "proceso" && "Visualiza y filtra el estado de tus solicitudes por fases"}
-          </p>
+          </motion.p>
         </div>
+        </AnimatedSection>
 
         {/* Proceso View (fases + tabla) */}
         {view === "proceso" && (
-          <Card className="p-4 md:p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+          <Card className="p-3 sm:p-4 md:p-6 hover:shadow-xl transition-all duration-300">
             <div className="mb-4">
               <p className="text-sm text-slate-600">Seguimiento por fases</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+            <motion.div 
+              className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 mb-4"
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+            >
               {[
                 { fase: 'Pendiente firma(s)', color: 'bg-amber-50 text-amber-700 border-amber-200' },
                 { fase: 'En proceso', color: 'bg-blue-50 text-blue-700 border-blue-200' },
                 { fase: 'En revisión', color: 'bg-purple-50 text-purple-700 border-purple-200' },
                 { fase: 'Aprobado', color: 'bg-green-50 text-green-700 border-green-200' },
               ].map((f, idx) => (
-                <div key={idx} className={`p-3 rounded border ${f.color} text-xs`}>{f.fase}</div>
+                <motion.div 
+                  key={idx} 
+                  className={`p-2 sm:p-3 rounded border ${f.color} text-[10px] sm:text-xs font-medium`}
+                  variants={staggerItem}
+                  whileHover={{ scale: 1.05, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {f.fase}
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
 
             {/* Controles */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
@@ -316,8 +336,14 @@ export default function Registro() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRequests.map((r) => (
-                    <tr key={r.id} className="border-b hover:bg-slate-50">
+                  {filteredRequests.map((r, idx) => (
+                    <motion.tr 
+                      key={r.id} 
+                      className="border-b hover:bg-slate-50 transition-colors"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                    >
                       <td className="py-2 px-2 text-xs">{r.id}</td>
                       <td className="py-2 px-2 text-xs">{r.name}</td>
                       <td className="py-2 px-2 text-xs">{r.type}</td>
@@ -328,23 +354,48 @@ export default function Registro() {
                       </td>
                       <td className="py-2 px-2 text-xs">{r.date}</td>
                       <td className="py-2 px-2 text-xs">
-                        <div className="flex gap-2" data-no-print>
-                          <button className="h-7 px-2 rounded border border-slate-300 text-[11px] hover:bg-slate-50">Ver</button>
-                          <button className="h-7 px-2 rounded border border-slate-300 text-[11px] hover:bg-slate-50">Descargar</button>
-                          <button className="h-7 px-2 rounded border border-slate-300 text-[11px] hover:bg-slate-50" onClick={() => window.print()}>Imprimir</button>
+                        <div className="flex flex-wrap gap-1 sm:gap-2" data-no-print>
+                          <motion.button 
+                            className="h-7 px-2 rounded border border-slate-300 text-[10px] sm:text-[11px] hover:bg-slate-50 hover:border-blue-400 transition-colors"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            Ver
+                          </motion.button>
+                          <motion.button 
+                            className="h-7 px-2 rounded border border-slate-300 text-[10px] sm:text-[11px] hover:bg-slate-50 hover:border-green-400 transition-colors"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            Descargar
+                          </motion.button>
+                          <motion.button 
+                            className="h-7 px-2 rounded border border-slate-300 text-[10px] sm:text-[11px] hover:bg-slate-50 hover:border-purple-400 transition-colors" 
+                            onClick={() => window.print()}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            Imprimir
+                          </motion.button>
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </Card>
+          </motion.div>
         )}
 
         {/* Administrative User Form */}
         {view === "administrativo" && (
-          <Card className="p-4 md:p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+          <Card className="p-3 sm:p-4 md:p-6 hover:shadow-xl transition-all duration-300">
             <form onSubmit={handleSubmitAdmin} className="space-y-6">
               {/* Sección: Datos Personales */}
               <div>
@@ -682,11 +733,17 @@ export default function Registro() {
               </div>
             </form>
           </Card>
+          </motion.div>
         )}
 
         {/* Medical User Form */}
         {view === "medico" && (
-          <Card className="p-4 md:p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+          <Card className="p-3 sm:p-4 md:p-6 hover:shadow-xl transition-all duration-300">
             <form onSubmit={handleSubmitMedico} className="space-y-6">
               {/* Sección: Datos Personales */}
               <div>
@@ -1156,11 +1213,17 @@ export default function Registro() {
               </div>
             </form>
           </Card>
+          </motion.div>
         )}
 
         {/* My Requests */}
         {view === "seguimiento" && (
-          <Card className="p-4 md:p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+          <Card className="p-3 sm:p-4 md:p-6 hover:shadow-xl transition-all duration-300">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -1186,11 +1249,24 @@ export default function Registro() {
                   </tr>
                 </thead>
                 <tbody>
-                  {myRequests.map((req) => (
-                    <tr
-                      key={req.id}
-                      className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                    >
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-500">
+                        Cargando solicitudes...
+                      </td>
+                    </tr>
+                  ) : filteredRequests.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-500">
+                        No hay solicitudes para mostrar
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRequests.map((req) => (
+                      <tr
+                        key={req.id}
+                        className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                      >
                       <td className="py-3 px-3 font-medium text-slate-900 text-sm">
                         {req.name}
                       </td>
@@ -1218,12 +1294,14 @@ export default function Registro() {
                         </Button>
                       </td>
                     </tr>
-                  ))}
+                  ))
+                  )}
                 </tbody>
               </table>
             </div>
           </Card>
+          </motion.div>
         )}
-      </div>
+    </div>
   );
 }

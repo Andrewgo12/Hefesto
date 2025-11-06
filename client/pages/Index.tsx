@@ -1,20 +1,12 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, CheckCircle2, AlertCircle, Eye, Download, Users, FileText } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, Eye, Download, Users, FileText, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
 import { motion } from "framer-motion";
 import { AnimatedSection, AnimatedCard, StaggerContainer, StaggerItem, AnimatedNumber } from "@/components/AnimatedSection";
 import { fadeInUp, fadeInDown, staggerContainer, staggerItem } from "@/lib/animations";
-
-interface Solicitud {
-  id: number;
-  nombre_completo: string;
-  tipo: "Administrativo" | "Historia Clínica";
-  estado: "Pendiente" | "En revisión" | "Aprobado" | "Rechazado";
-  fecha_solicitud: string;
-  created_at: string;
-}
+import { useApp } from "@/contexts/AppContext";
+import { useMemo } from "react";
 
 interface Estadisticas {
   total: number;
@@ -25,7 +17,35 @@ interface Estadisticas {
 }
 
 export default function Index() {
-  const { solicitudes, estadisticas } = useApp();
+  const { solicitudes: todasSolicitudes } = useApp();
+  
+  // Calcular estadísticas desde AppContext
+  const estadisticas = useMemo(() => {
+    console.log('📊 Calculando estadísticas con', todasSolicitudes.length, 'solicitudes');
+    const pendientes = todasSolicitudes.filter(s => 
+      s.estado === 'Pendiente' || s.estado === 'Pendiente firma(s)'
+    ).length;
+    const enRevision = todasSolicitudes.filter(s => 
+      s.estado === 'En revisión' || s.estado === 'En proceso'
+    ).length;
+    const aprobadas = todasSolicitudes.filter(s => s.estado === 'Aprobado').length;
+    const rechazadas = todasSolicitudes.filter(s => s.estado === 'Rechazado').length;
+    
+    console.log('📈 Pendientes:', pendientes, 'En revisión:', enRevision, 'Aprobadas:', aprobadas, 'Rechazadas:', rechazadas);
+    
+    return {
+      total: todasSolicitudes.length,
+      pendientes,
+      en_revision: enRevision,
+      aprobadas,
+      rechazadas,
+    };
+  }, [todasSolicitudes]);
+  
+  console.log('📈 Estadísticas:', estadisticas);
+  
+  const solicitudes = todasSolicitudes;
+  const loading = false;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -59,15 +79,62 @@ export default function Index() {
   const solicitudesRecientes = solicitudes.slice(0, 5);
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="relative p-4 md:p-6 space-y-6 max-w-7xl mx-auto overflow-hidden">
+        {/* Animated Grid Background */}
+        <div className="fixed inset-0 -z-10 opacity-[0.03]">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `
+              linear-gradient(to right, #3b82f6 1px, transparent 1px),
+              linear-gradient(to bottom, #3b82f6 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px',
+          }} />
+        </div>
+        
+        {/* Gradient Orbs */}
+        <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+          <motion.div
+            className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"
+            animate={{
+              x: [0, 100, 0],
+              y: [0, 50, 0],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"
+            animate={{
+              x: [0, -100, 0],
+              y: [0, -50, 0],
+            }}
+            transition={{
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+        </div>
+    
         {/* Header */}
         <AnimatedSection variants={fadeInDown}>
           <div className="flex flex-col gap-2">
             <motion.h1 
-              className="text-2xl md:text-3xl font-bold text-slate-900 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
+              className="text-2xl md:text-3xl font-bold text-slate-900 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-clip-text text-transparent bg-[length:200%_auto]"
               initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+              animate={{ 
+                opacity: 1, 
+                y: 0,
+                backgroundPosition: ['0% center', '100% center', '0% center']
+              }}
+              transition={{ 
+                opacity: { duration: 0.5 },
+                y: { duration: 0.5 },
+                backgroundPosition: { duration: 5, repeat: Infinity, ease: "linear" }
+              }}
             >
               Panel de Control
             </motion.h1>
@@ -89,18 +156,18 @@ export default function Index() {
               whileHover={{ scale: 1.05, y: -5 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
-              <Card className="p-4 border-2 border-transparent hover:border-blue-400 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 rounded-xl">
+              <Card className="p-4 border-2 border-transparent hover:border-blue-400 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 rounded-xl bg-gradient-to-br from-white to-blue-50/30 hover:from-blue-50/50 hover:to-blue-100/50 group">
                 <div className="flex items-center gap-3">
                   <motion.div 
-                    className="p-2 bg-blue-100 rounded-lg"
-                    whileHover={{ rotate: 360 }}
+                    className="p-2 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg shadow-sm group-hover:shadow-md"
+                    whileHover={{ rotate: 360, scale: 1.1 }}
                     transition={{ duration: 0.5 }}
                   >
-                    <FileText className="w-5 h-5 text-blue-600" />
+                    <FileText className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
                   </motion.div>
                   <div>
                     <p className="text-xs text-slate-600">Total Solicitudes</p>
-                    <AnimatedNumber value={estadisticas.totalSolicitudes} className="text-2xl font-bold text-slate-900" />
+                    <AnimatedNumber value={estadisticas.total} className="text-2xl font-bold text-slate-900" />
                   </div>
                 </div>
               </Card>
@@ -111,14 +178,14 @@ export default function Index() {
               whileHover={{ scale: 1.05, y: -5 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
-              <Card className="p-4 border-2 border-transparent hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-200/50 transition-all duration-300 rounded-xl">
+              <Card className="p-4 border-2 border-transparent hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-200/50 transition-all duration-300 rounded-xl bg-gradient-to-br from-white to-amber-50/30 hover:from-amber-50/50 hover:to-amber-100/50 group">
                 <div className="flex items-center gap-3">
                   <motion.div 
-                    className="p-2 bg-amber-100 rounded-lg"
+                    className="p-2 bg-gradient-to-br from-amber-100 to-amber-200 rounded-lg shadow-sm group-hover:shadow-md"
                     animate={{ rotate: [0, 10, -10, 0] }}
                     transition={{ duration: 2, repeat: Infinity }}
                   >
-                    <Clock className="w-5 h-5 text-amber-600" />
+                    <Clock className="w-5 h-5 text-amber-600 group-hover:text-amber-700" />
                   </motion.div>
                   <div>
                     <p className="text-xs text-slate-600">Pendientes</p>
@@ -133,13 +200,14 @@ export default function Index() {
               whileHover={{ scale: 1.05, y: -5 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
-              <Card className="p-4 border-2 border-transparent hover:border-green-400 hover:shadow-2xl hover:shadow-green-200/50 transition-all duration-300 rounded-xl">
+              <Card className="p-4 border-2 border-transparent hover:border-green-400 hover:shadow-2xl hover:shadow-green-200/50 transition-all duration-300 rounded-xl bg-gradient-to-br from-white to-green-50/30 hover:from-green-50/50 hover:to-green-100/50 group">
                 <div className="flex items-center gap-3">
                   <motion.div 
-                    className="p-2 bg-green-100 rounded-lg"
-                    whileHover={{ scale: 1.2 }}
+                    className="p-2 bg-gradient-to-br from-green-100 to-green-200 rounded-lg shadow-sm group-hover:shadow-md"
+                    whileHover={{ scale: 1.2, rotate: 360 }}
+                    transition={{ duration: 0.5 }}
                   >
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    <CheckCircle2 className="w-5 h-5 text-green-600 group-hover:text-green-700" />
                   </motion.div>
                   <div>
                     <p className="text-xs text-slate-600">Aprobadas</p>
@@ -154,18 +222,18 @@ export default function Index() {
               whileHover={{ scale: 1.05, y: -5 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
-              <Card className="p-4 border-2 border-transparent hover:border-purple-400 hover:shadow-2xl hover:shadow-purple-200/50 transition-all duration-300 rounded-xl">
+              <Card className="p-4 border-2 border-transparent hover:border-red-400 hover:shadow-2xl hover:shadow-red-200/50 transition-all duration-300 rounded-xl bg-gradient-to-br from-white to-red-50/30 hover:from-red-50/50 hover:to-red-100/50 group">
                 <div className="flex items-center gap-3">
                   <motion.div 
-                    className="p-2 bg-purple-100 rounded-lg"
-                    whileHover={{ rotate: 360 }}
-                    transition={{ duration: 0.5 }}
+                    className="p-2 bg-gradient-to-br from-red-100 to-red-200 rounded-lg shadow-sm group-hover:shadow-md"
+                    whileHover={{ scale: 1.2, rotate: [0, -10, 10, 0] }}
+                    transition={{ duration: 0.3 }}
                   >
-                    <Users className="w-5 h-5 text-purple-600" />
+                    <AlertCircle className="w-5 h-5 text-red-600 group-hover:text-red-700" />
                   </motion.div>
                   <div>
-                    <p className="text-xs text-slate-600">Usuarios Activos</p>
-                    <AnimatedNumber value={estadisticas.usuariosActivos} className="text-2xl font-bold text-purple-600" />
+                    <p className="text-xs text-slate-600">Rechazadas</p>
+                    <AnimatedNumber value={estadisticas.rechazadas} className="text-2xl font-bold text-red-600" />
                   </div>
                 </div>
               </Card>
@@ -177,23 +245,35 @@ export default function Index() {
         <AnimatedSection variants={fadeInUp}>
           <div className="flex flex-wrap gap-3">
             <Link to="/registro/administrativo">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 border-2 border-blue-700 hover:border-blue-500 rounded-lg">
-                  Nueva Solicitud Administrativa
+              <motion.div 
+                whileHover={{ scale: 1.05, y: -2 }} 
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400 }}
+              >
+                <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 border-2 border-blue-700 hover:border-blue-500 rounded-lg group">
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Nueva Solicitud Administrativa</span>
                 </Button>
               </motion.div>
             </Link>
             <Link to="/registro/historia-clinica">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button className="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-2xl hover:shadow-green-500/50 transition-all duration-300 border-2 border-green-700 hover:border-green-500 rounded-lg">
-                  Nueva Solicitud Historia Clínica
+              <motion.div 
+                whileHover={{ scale: 1.05, y: -2 }} 
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400 }}
+              >
+                <Button className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-2xl hover:shadow-green-500/50 transition-all duration-300 border-2 border-green-700 hover:border-green-500 rounded-lg group">
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Nueva Solicitud Historia Clínica</span>
                 </Button>
               </motion.div>
             </Link>
-            <Link to="/control">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button variant="outline" className="shadow hover:shadow-xl hover:shadow-slate-300/50 transition-all duration-300 border-2 hover:border-slate-400 rounded-lg hover:bg-slate-50">
-                  Ver todas las solicitudes
+            <Link to="/control/aprobacion">
+              <motion.div 
+                whileHover={{ scale: 1.05, y: -2 }} 
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400 }}
+              >
+                <Button variant="outline" className="shadow hover:shadow-xl hover:shadow-slate-300/50 transition-all duration-300 border-2 hover:border-slate-400 rounded-lg hover:bg-gradient-to-r hover:from-slate-50 hover:to-slate-100 group">
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">Ver todas las solicitudes</span>
                 </Button>
               </motion.div>
             </Link>
@@ -258,7 +338,7 @@ export default function Index() {
                     >
                       <td className="py-3 px-3">
                         <p className="font-medium text-slate-900 text-sm">
-                          {sol.nombreCompleto}
+                          {sol.nombre_completo}
                         </p>
                       </td>
                       <td className="py-3 px-3 text-slate-700 text-sm">
@@ -278,7 +358,7 @@ export default function Index() {
                         </motion.span>
                       </td>
                       <td className="py-3 px-3 text-slate-600 text-sm">
-                        {new Date(sol.fechaSolicitud).toLocaleDateString('es-CO')}
+                        {new Date(sol.created_at).toLocaleDateString('es-CO')}
                       </td>
                       <td className="py-3 px-3">
                         <Link to="/control/aprobacion">

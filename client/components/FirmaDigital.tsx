@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pencil, Trash2, Check } from 'lucide-react';
@@ -71,19 +71,19 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
   return (
     <>
       {firmaActual ? (
-        <div className="relative border border-green-300 bg-green-50 p-2 rounded">
+        <div className="relative border-2 border-blue-300 bg-blue-50 p-3 rounded-lg">
           {firmaActual.startsWith('FIRMA_TEXTO:') ? (
-            <div className="text-center font-signature text-lg text-green-800">
+            <div className="text-center font-signature text-lg text-blue-800">
               {firmaActual.replace('FIRMA_TEXTO:', '')}
             </div>
           ) : (
-            <img src={firmaActual} alt="Firma" className="h-12 mx-auto" />
+            <img src={firmaActual} alt="Firma" className="h-16 mx-auto" />
           )}
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="absolute top-1 right-1"
+            className="absolute top-1 right-1 hover:bg-red-100 hover:text-red-600"
             onClick={() => {
               onFirmaCompleta('', '');
               setIsOpen(true);
@@ -98,9 +98,9 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
           variant="outline"
           size="sm"
           onClick={() => setIsOpen(true)}
-          className="w-full"
+          className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
         >
-          <Pencil className="w-3 h-3 mr-1" />
+          <Pencil className="w-4 h-4 mr-2" />
           Firmar
         </Button>
       )}
@@ -109,6 +109,9 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Firma Digital - {cargo}</DialogTitle>
+            <DialogDescription>
+              Complete los campos y firme para autorizar esta solicitud
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
