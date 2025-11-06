@@ -148,23 +148,29 @@ export default function Movimientos() {
     setShowNewRoleModal(true);
   };
   
-  const confirmNewRole = () => {
+  const confirmNewRole = async () => {
     if (!newRoleName.trim()) {
       toast.error('Nombre requerido', 'Debe ingresar un nombre para el rol');
       return;
     }
     
-    const nuevoRol: Role = {
-      id: Date.now(),
-      name: newRoleName,
-      description: 'Nuevo rol creado',
-      usersCount: 0,
-      permissions: []
-    };
-    
-    setRoles(prev => [...prev, nuevoRol]);
-    setShowNewRoleModal(false);
-    toast.success('Rol creado', `El rol "${newRoleName}" ha sido creado exitosamente`);
+    try {
+      // Crear rol en la API
+      const response = await rolesApi.create({
+        name: newRoleName,
+        description: 'Nuevo rol creado',
+        permissions: []
+      });
+      
+      // Recargar roles desde BD
+      await cargarRoles();
+      
+      setShowNewRoleModal(false);
+      toast.success('Rol creado', `El rol "${newRoleName}" ha sido creado en la base de datos`);
+    } catch (error) {
+      console.error('Error al crear rol:', error);
+      toast.error('Error', 'No se pudo crear el rol en la base de datos');
+    }
   };
 
   const handleEditarRol = (role: Role) => {
@@ -173,17 +179,28 @@ export default function Movimientos() {
     setShowEditRoleModal(true);
   };
   
-  const confirmEditRole = () => {
+  const confirmEditRole = async () => {
     if (!editRoleName.trim() || !roleToEdit) {
       toast.error('Nombre requerido', 'Debe ingresar un nombre para el rol');
       return;
     }
     
-    setRoles(prev => prev.map(r => 
-      r.id === roleToEdit.id ? { ...r, name: editRoleName } : r
-    ));
-    setShowEditRoleModal(false);
-    toast.success('Rol actualizado', 'El rol ha sido actualizado correctamente');
+    try {
+      // Actualizar rol en la API
+      await rolesApi.update(roleToEdit.id, {
+        name: editRoleName,
+        description: roleToEdit.description
+      });
+      
+      // Recargar roles desde BD
+      await cargarRoles();
+      
+      setShowEditRoleModal(false);
+      toast.success('Rol actualizado', 'El rol ha sido actualizado en la base de datos');
+    } catch (error) {
+      console.error('Error al actualizar rol:', error);
+      toast.error('Error', 'No se pudo actualizar el rol');
+    }
   };
 
   const handleEliminarRol = (role: Role) => {
@@ -191,14 +208,24 @@ export default function Movimientos() {
     setShowDeleteRoleModal(true);
   };
   
-  const confirmDeleteRole = () => {
+  const confirmDeleteRole = async () => {
     if (!roleToDelete) return;
     
-    setRoles(prev => prev.filter(r => r.id !== roleToDelete.id));
-    setSelectedRole(null);
-    setShowDeleteRoleModal(false);
-    setRoleToDelete(null);
-    toast.success('Rol eliminado', 'El rol ha sido eliminado correctamente');
+    try {
+      // Eliminar rol en la API
+      await rolesApi.delete(roleToDelete.id);
+      
+      // Recargar roles desde BD
+      await cargarRoles();
+      
+      setSelectedRole(null);
+      setShowDeleteRoleModal(false);
+      setRoleToDelete(null);
+      toast.success('Rol eliminado', 'El rol ha sido eliminado de la base de datos');
+    } catch (error) {
+      console.error('Error al eliminar rol:', error);
+      toast.error('Error', 'No se pudo eliminar el rol');
+    }
   };
 
   // Handlers para credenciales
@@ -225,17 +252,25 @@ export default function Movimientos() {
     setShowEditParamModal(true);
   };
   
-  const confirmEditParam = () => {
+  const confirmEditParam = async () => {
     if (!paramNewValue.trim() || !paramToEdit) {
       toast.error('Valor requerido', 'Debe ingresar un valor para el parámetro');
       return;
     }
     
-    setParameters(prev => prev.map(p => 
-      p.name === paramToEdit.name ? { ...p, value: paramNewValue } : p
-    ));
-    setShowEditParamModal(false);
-    toast.success('Parámetro actualizado', `${paramToEdit.name} ha sido actualizado`);
+    try {
+      // Actualizar parámetro en la API
+      await parametrosApi.update(paramToEdit.name, paramNewValue);
+      
+      // Recargar parámetros desde BD
+      await cargarParametros();
+      
+      setShowEditParamModal(false);
+      toast.success('Parámetro actualizado', 'El parámetro ha sido actualizado en la base de datos');
+    } catch (error) {
+      console.error('Error al actualizar parámetro:', error);
+      toast.error('Error', 'No se pudo actualizar el parámetro');
+    }
   };
 
   // Handlers para respaldos

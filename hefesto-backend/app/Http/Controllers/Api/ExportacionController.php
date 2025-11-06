@@ -13,6 +13,184 @@ use PhpOffice\PhpSpreadsheet\Writer\Html;
 class ExportacionController extends Controller
 {
     /**
+     * Normalizar texto para comparación robusta
+     * Elimina tildes, espacios, guiones y convierte a minúsculas
+     */
+    private function normalizarTexto($texto)
+    {
+        if (empty($texto)) {
+            return '';
+        }
+        
+        // Convertir a minúsculas
+        $texto = mb_strtolower($texto, 'UTF-8');
+        
+        // Eliminar tildes y caracteres especiales
+        $texto = str_replace(
+            ['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü', 'à', 'è', 'ì', 'ò', 'ù'],
+            ['a', 'e', 'i', 'o', 'u', 'n', 'u', 'a', 'e', 'i', 'o', 'u'],
+            $texto
+        );
+        
+        // Eliminar espacios, guiones, guiones bajos
+        $texto = str_replace([' ', '-', '_'], '', $texto);
+        
+        return $texto;
+    }
+    
+    /**
+     * Verificar si un cargo coincide con alguna de las variantes
+     */
+    private function cargoCoincide($cargo, $variantes)
+    {
+        $cargoNormalizado = $this->normalizarTexto($cargo);
+        
+        foreach ($variantes as $variante) {
+            $varianteNormalizada = $this->normalizarTexto($variante);
+            
+            // Buscar si la variante está contenida en el cargo
+            if (stripos($cargoNormalizado, $varianteNormalizada) !== false) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Convertir cualquier dato a array de forma segura
+     * Maneja: JSON string, JSON corrupto, array, objeto, null, string vacío
+     */
+    private function toArray($data)
+    {
+        // Si ya es null o vacío, retornar array vacío
+        if (empty($data)) {
+            return [];
+        }
+        
+        // Si ya es array, retornarlo
+        if (is_array($data)) {
+            return $data;
+        }
+        
+        // Si es objeto, convertir a array
+        if (is_object($data)) {
+            return json_decode(json_encode($data), true) ?: [];
+        }
+        
+        // Si es string, intentar decodificar como JSON
+        if (is_string($data)) {
+            // Limpiar JSON corrupto (comillas extras, escapes dobles, etc.)
+            $cleaned = $this->cleanJSON($data);
+            
+            $decoded = json_decode($cleaned, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return $decoded;
+            }
+            
+            // Si aún falla, intentar con stripslashes
+            $decoded = json_decode(stripslashes($cleaned), true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return $decoded;
+            }
+            
+            // Si no es JSON válido, retornar array vacío
+            return [];
+        }
+        
+        // Para cualquier otro tipo, retornar array vacío
+        return [];
+    }
+    
+    /**
+     * Limpiar JSON corrupto
+     * Elimina comillas extras, escapes dobles, etc.
+     */
+    private function cleanJSON($json)
+    {
+        if (!is_string($json)) {
+            return $json;
+        }
+        
+        $json = trim($json);
+        
+        // Eliminar comillas dobles extras al inicio y final: ""{"key":"value"}""
+        while (substr($json, 0, 2) === '""' && substr($json, -2) === '""') {
+            $json = substr($json, 2, -2);
+        }
+        
+        // Eliminar comilla simple extra al inicio y final: "{"key":"value"}"
+        if (substr($json, 0, 1) === '"' && substr($json, -1) === '"' && substr($json, 1, 1) === '{') {
+            $json = substr($json, 1, -1);
+        }
+        
+        // Reemplazar escapes dobles: \\\" -> \"
+        $json = str_replace('\\"', '"', $json);
+        $json = str_replace('\\\\', '\\', $json);
+        
+        return $json;
+    }
+    
+    /**
+     * Obtener valor de array/JSON de forma segura
+     * Maneja cualquier formato y retorna el valor o default
+     */
+    private function getValue($data, $key, $default = null)
+    {
+        $array = $this->toArray($data);
+        return $array[$key] ?? $default;
+    }
+    
+    /**
+     * Verificar si un valor booleano es verdadero
+     * Maneja: true, 1, "1", "true", "yes", "si", "sí"
+     */
+    private function isTrue($value)
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        
+        if (is_numeric($value)) {
+            return (int)$value === 1;
+        }
+        
+        if (is_string($value)) {
+            $value = strtolower(trim($value));
+            return in_array($value, ['1', 'true', 'yes', 'si', 'sí', 'verdadero']);
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Obtener fecha formateada de forma segura
+     * Maneja: DateTime, string, timestamp, null
+     */
+    private function getFormattedDate($date, $format = 'd/m/Y')
+    {
+        if (empty($date)) {
+            return '';
+        }
+        
+        try {
+            if ($date instanceof \DateTime) {
+                return $date->format($format);
+            }
+            
+            if (is_string($date) || is_numeric($date)) {
+                $dateTime = new \DateTime($date);
+                return $dateTime->format($format);
+            }
+        } catch (\Exception $e) {
+            // Si falla, retornar vacío
+            return '';
+        }
+        
+        return '';
+    }
+    
+    /**
      * Previsualizar solicitud administrativa como HTML
      */
     public function previsualizarAdministrativa($id)
@@ -21,8 +199,8 @@ class ExportacionController extends Controller
             // Primero exportar el Excel normalmente
             $solicitud = SolicitudAdministrativa::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
             
-            // Usar el template LIMPIO original
-            $templatePath = storage_path('app/temp/formatocreacionusuariosAdministrativosv1.xlsx');
+            // Usar el template MAPEADO para previsualización (con texto descriptivo)
+            $templatePath = storage_path('app/templates/formato_administrativo_MAPEADO.xlsx');
             
             if (!file_exists($templatePath)) {
                 return response()->json(['error' => 'Template no encontrado: ' . $templatePath], 404);
@@ -57,55 +235,47 @@ class ExportacionController extends Controller
                 $sheet->setCellValue('T9', 'X');
             }
             
-            // MÓDULOS ADMINISTRATIVOS
-            if ($solicitud->modulos_administrativos) {
-                $modulos = is_string($solicitud->modulos_administrativos) 
-                    ? json_decode($solicitud->modulos_administrativos, true)
-                    : $solicitud->modulos_administrativos;
+            // MÓDULOS ADMINISTRATIVOS - Usar método robusto
+            $modulos = $this->toArray($solicitud->modulos_administrativos);
+            if (!empty($modulos)) {
+                $filaInicio = 20;
+                $modulosNombres = ['facturacion', 'anticipos', 'farmacia', 'suministros', 'cartera', 'glosas', 
+                                  'admisiones', 'ayudasDiagnosticas', 'citasMedicas', 'cirugia', 'rips', 'anexos'];
                 
-                if (is_array($modulos)) {
-                    $filaInicio = 20;
-                    $modulosNombres = ['facturacion', 'anticipos', 'farmacia', 'suministros', 'cartera', 'glosas', 
-                                      'admisiones', 'ayudasDiagnosticas', 'citasMedicas', 'cirugia', 'rips', 'anexos'];
-                    
-                    foreach ($modulosNombres as $index => $modulo) {
-                        $fila = $filaInicio + $index;
-                        if (isset($modulos[$modulo])) {
-                            if (is_array($modulos[$modulo])) {
-                                if ($modulos[$modulo]['adicionar'] ?? false) $sheet->setCellValue('D' . $fila, 'X');
-                                if ($modulos[$modulo]['consultar'] ?? false) $sheet->setCellValue('F' . $fila, 'X');
-                                if ($modulos[$modulo]['modificar'] ?? false) $sheet->setCellValue('H' . $fila, 'X');
-                                if ($modulos[$modulo]['borrar'] ?? false) $sheet->setCellValue('J' . $fila, 'X');
-                            } elseif ($modulos[$modulo]) {
-                                $sheet->setCellValue('F' . $fila, 'X');
-                            }
+                foreach ($modulosNombres as $index => $modulo) {
+                    $fila = $filaInicio + $index;
+                    if (isset($modulos[$modulo])) {
+                        if (is_array($modulos[$modulo])) {
+                            // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
+                            if (($modulos[$modulo]['A'] ?? false) || ($modulos[$modulo]['adicionar'] ?? false)) $sheet->setCellValue('D' . $fila, 'X');
+                            if (($modulos[$modulo]['C'] ?? false) || ($modulos[$modulo]['consultar'] ?? false)) $sheet->setCellValue('F' . $fila, 'X');
+                            if (($modulos[$modulo]['M'] ?? false) || ($modulos[$modulo]['modificar'] ?? false)) $sheet->setCellValue('H' . $fila, 'X');
+                            if (($modulos[$modulo]['B'] ?? false) || ($modulos[$modulo]['borrar'] ?? false)) $sheet->setCellValue('J' . $fila, 'X');
+                        } elseif ($modulos[$modulo]) {
+                            $sheet->setCellValue('F' . $fila, 'X');
                         }
                     }
                 }
             }
             
-            // MÓDULOS FINANCIEROS
-            if ($solicitud->modulos_financieros) {
-                $modulos = is_string($solicitud->modulos_financieros) 
-                    ? json_decode($solicitud->modulos_financieros, true)
-                    : $solicitud->modulos_financieros;
+            // MÓDULOS FINANCIEROS - Usar método robusto
+            $modulos = $this->toArray($solicitud->modulos_financieros);
+            if (!empty($modulos)) {
+                $filaInicio = 20;
+                $modulosNombres = ['presupuesto', 'activosFijos', 'contabilidad', 'cuentasPorPagar', 
+                                  'cajaYBancos', 'costos', 'administracionDocumentos'];
                 
-                if (is_array($modulos)) {
-                    $filaInicio = 20;
-                    $modulosNombres = ['presupuesto', 'activosFijos', 'contabilidad', 'cuentasPorPagar', 
-                                      'cajaYBancos', 'costos', 'administracionDocumentos'];
-                    
-                    foreach ($modulosNombres as $index => $modulo) {
-                        $fila = $filaInicio + $index;
-                        if (isset($modulos[$modulo])) {
-                            if (is_array($modulos[$modulo])) {
-                                if ($modulos[$modulo]['adicionar'] ?? false) $sheet->setCellValue('Q' . $fila, 'X');
-                                if ($modulos[$modulo]['consultar'] ?? false) $sheet->setCellValue('R' . $fila, 'X');
-                                if ($modulos[$modulo]['modificar'] ?? false) $sheet->setCellValue('S' . $fila, 'X');
-                                if ($modulos[$modulo]['borrar'] ?? false) $sheet->setCellValue('U' . $fila, 'X');
-                            } elseif ($modulos[$modulo]) {
-                                $sheet->setCellValue('R' . $fila, 'X');
-                            }
+                foreach ($modulosNombres as $index => $modulo) {
+                    $fila = $filaInicio + $index;
+                    if (isset($modulos[$modulo])) {
+                        if (is_array($modulos[$modulo])) {
+                            // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
+                            if (($modulos[$modulo]['A'] ?? false) || ($modulos[$modulo]['adicionar'] ?? false)) $sheet->setCellValue('Q' . $fila, 'X');
+                            if (($modulos[$modulo]['C'] ?? false) || ($modulos[$modulo]['consultar'] ?? false)) $sheet->setCellValue('R' . $fila, 'X');
+                            if (($modulos[$modulo]['M'] ?? false) || ($modulos[$modulo]['modificar'] ?? false)) $sheet->setCellValue('S' . $fila, 'X');
+                            if (($modulos[$modulo]['B'] ?? false) || ($modulos[$modulo]['borrar'] ?? false)) $sheet->setCellValue('U' . $fila, 'X');
+                        } elseif ($modulos[$modulo]) {
+                            $sheet->setCellValue('R' . $fila, 'X');
                         }
                     }
                 }
@@ -114,83 +284,82 @@ class ExportacionController extends Controller
             // PERFIL DE
             $sheet->setCellValue('I33', $solicitud->perfil_de ?? '');
             
-            // OPCIONES WEB
-            if ($solicitud->opciones_web) {
-                $opciones = is_string($solicitud->opciones_web) 
-                    ? json_decode($solicitud->opciones_web, true)
-                    : $solicitud->opciones_web;
-                
-                if (is_array($opciones)) {
-                    if ($opciones['internet'] ?? false) $sheet->setCellValue('D34', 'X');
-                    if ($opciones['correoElectronico'] ?? false) $sheet->setCellValue('D35', 'X');
-                    if ($opciones['transferenciaArchivos'] ?? false) $sheet->setCellValue('D36', 'X');
-                }
+            // OPCIONES WEB - Usar método robusto
+            $opciones = $this->toArray($solicitud->opciones_web);
+            if (!empty($opciones)) {
+                if ($opciones['internet'] ?? false) $sheet->setCellValue('D34', 'X');
+                if ($opciones['correoElectronico'] ?? false) $sheet->setCellValue('D35', 'X');
+                if ($opciones['transferenciaArchivos'] ?? false) $sheet->setCellValue('D36', 'X');
             }
             
             // LOGIN Y CLAVE
             $sheet->setCellValue('C39', $solicitud->login_asignado ?? '');
             $sheet->setCellValue('P39', $solicitud->clave_temporal ?? '');
             
-            // FIRMAS (con imágenes)
-            if ($solicitud->firmas) {
-                $firmas = is_string($solicitud->firmas) 
-                    ? json_decode($solicitud->firmas, true)
-                    : $solicitud->firmas;
-                
-                if (is_array($firmas)) {
-                    foreach ($firmas as $cargo => $firma) {
-                        $cargoLower = strtolower($cargo);
-                        $usuario = $firma['usuario'] ?? '';
-                        $fecha = $firma['fecha'] ?? date('Y-m-d H:i:s');
-                        $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
-                        $firmaData = $firma['firma'] ?? '';
-                        
-                        $celda = null;
-                        if (stripos($cargoLower, 'usuario') !== false || stripos($cargoLower, 'solicitante') !== false) {
-                            $celda = 'F40';
-                        } elseif (stripos($cargoLower, 'jefe inmediato') !== false) {
-                            $celda = 'A45';
-                        } elseif (stripos($cargoLower, 'talento humano') !== false) {
-                            $celda = 'G45';
-                        } elseif (stripos($cargoLower, 'gestion') !== false || stripos($cargoLower, 'informacion') !== false || stripos($cargoLower, 'coordinador') !== false) {
-                            $celda = 'O45';
-                        }
-                        
-                        if ($celda) {
-                            if (!empty($firmaData) && strpos($firmaData, 'data:image') === 0) {
-                                try {
-                                    $imageData = explode(',', $firmaData);
-                                    if (count($imageData) === 2) {
-                                        $imageBase64 = $imageData[1];
-                                        $imageContent = base64_decode($imageBase64);
-                                        $tempImagePath = storage_path('app/temp/firma_prev_' . md5($cargo . $solicitud->id) . '.png');
-                                        file_put_contents($tempImagePath, $imageContent);
-                                        
-                                        $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                                        $drawing->setName('Firma ' . $cargo);
-                                        $drawing->setDescription('Firma de ' . $usuario);
-                                        $drawing->setPath($tempImagePath);
-                                        $drawing->setCoordinates($celda);
-                                        $drawing->setHeight(60);
-                                        $drawing->setWorksheet($sheet);
-                                        
-                                        $filaTexto = (int)filter_var($celda, FILTER_SANITIZE_NUMBER_INT) + 3;
-                                        $columnaTexto = preg_replace('/[0-9]+/', '', $celda);
-                                        $sheet->setCellValue($columnaTexto . $filaTexto, $usuario . "\n" . $fechaFormateada);
-                                        $sheet->getStyle($columnaTexto . $filaTexto)->getAlignment()->setWrapText(true);
+            // FIRMAS (con imágenes) - Usar método robusto
+            $firmas = $this->toArray($solicitud->firmas);
+            if (!empty($firmas)) {
+                foreach ($firmas as $cargo => $firma) {
+                    $cargoLower = strtolower($cargo);
+                    $usuario = $firma['usuario'] ?? '';
+                    $fecha = $firma['fecha'] ?? date('Y-m-d H:i:s');
+                    $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
+                    $firmaData = $firma['firma'] ?? '';
+                    
+                    // Mapear celda usando función normalizada (soporta tildes, espacios, mayúsculas)
+                    $celda = null;
+                    if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
+                        $celda = 'F40';
+                    } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo'])) {
+                        $celda = 'A45';
+                    } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento'])) {
+                        $celda = 'G45';
+                    } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI'])) {
+                        $celda = 'O45';
+                    }
+                    
+                    if ($celda) {
+                        if (!empty($firmaData) && strpos($firmaData, 'data:image') === 0) {
+                            try {
+                                $imageData = explode(',', $firmaData);
+                                if (count($imageData) === 2) {
+                                    $imageBase64 = $imageData[1];
+                                    $imageContent = base64_decode($imageBase64);
+                                    
+                                    // Crear carpeta organizada para firmas: storage/app/firmas/administrativa/{id}/
+                                    $firmasDir = storage_path("app/firmas/administrativa/{$solicitud->id}");
+                                    if (!file_exists($firmasDir)) {
+                                        mkdir($firmasDir, 0755, true);
                                     }
-                                } catch (\Exception $e) {
-                                    $sheet->setCellValue($celda, $usuario . ' - ' . $fechaFormateada);
+                                    
+                                    // Nombre descriptivo: cargo_fecha.png
+                                    $cargoSlug = str_replace(' ', '_', strtolower($cargo));
+                                    $timestamp = date('YmdHis');
+                                    $tempImagePath = "{$firmasDir}/{$cargoSlug}_{$timestamp}.png";
+                                    file_put_contents($tempImagePath, $imageContent);
+                                    
+                                    $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+                                    $drawing->setName('Firma ' . $cargo);
+                                    $drawing->setDescription('Firma de ' . $usuario);
+                                    $drawing->setPath($tempImagePath);
+                                    $drawing->setCoordinates($celda);
+                                    $drawing->setHeight(60);
+                                    // Centrar imagen en la celda
+                                    $drawing->setOffsetX(10);
+                                    $drawing->setOffsetY(5);
+                                    $drawing->setWorksheet($sheet);
                                 }
-                            } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
-                                $textoFirma = str_replace('FIRMA_TEXTO:', '', $firmaData);
-                                $sheet->setCellValue($celda, $textoFirma . "\n" . $fechaFormateada);
-                                $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
-                                $sheet->getStyle($celda)->getFont()->setName('Brush Script MT')->setSize(16);
-                            } else {
-                                $sheet->setCellValue($celda, $usuario . "\n" . $fechaFormateada);
-                                $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
+                            } catch (\Exception $e) {
+                                $sheet->setCellValue($celda, $usuario . ' - ' . $fechaFormateada);
                             }
+                        } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
+                            $textoFirma = str_replace('FIRMA_TEXTO:', '', $firmaData);
+                            $sheet->setCellValue($celda, $textoFirma . "\n" . $fechaFormateada);
+                            $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
+                            $sheet->getStyle($celda)->getFont()->setName('Brush Script MT')->setSize(16);
+                        } else {
+                            $sheet->setCellValue($celda, $usuario . "\n" . $fechaFormateada);
+                            $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
                         }
                     }
                 }
@@ -226,8 +395,8 @@ class ExportacionController extends Controller
         try {
             $solicitud = SolicitudHistoriaClinica::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
             
-            // Usar el template LIMPIO original
-            $templatePath = storage_path('app/temp/formatocreacionusuarioshistoriaclinicaelectronicav.xlsx');
+            // Usar el template MAPEADO para previsualización (con texto descriptivo)
+            $templatePath = storage_path('app/templates/formatocreacionusuarioshistoriaclinicaelectronicavmapeado.xlsx');
             
             if (!file_exists($templatePath)) {
                 return response()->json(['error' => 'Template no encontrado: ' . $templatePath], 404);
@@ -262,6 +431,11 @@ class ExportacionController extends Controller
             if (stripos($perfil, 'enfermero jefe') !== false) $sheet->setCellValue('L13', 'X');
             if (stripos($perfil, 'auxiliar') !== false) $sheet->setCellValue('L14', 'X');
             if (stripos($perfil, 'terapeuta') !== false) $sheet->setCellValue('L15', 'X');
+            if (stripos($perfil, 'auditor') !== false) $sheet->setCellValue('Q13', 'X');
+            // Si es "Otro", escribir el texto
+            if (stripos($perfil, 'otro') !== false && isset($solicitud->perfil_otro)) {
+                $sheet->setCellValue('Q14', $solicitud->perfil_otro);
+            }
             
             // Tipo de Vinculación (Interno/Externo) - M14
             $vinculacion = strtolower($solicitud->tipo_vinculacion ?? '');
@@ -276,59 +450,54 @@ class ExportacionController extends Controller
             if (stripos($terminal, 'tablet') !== false) $sheet->setCellValue('G17', 'X');
             if (stripos($terminal, 'portatil') !== false) $sheet->setCellValue('G18', 'X');
             
-            // Aval Institucional - M16
-            if ($solicitud->aval_institucional) {
-                $aval = is_string($solicitud->aval_institucional) 
-                    ? json_decode($solicitud->aval_institucional, true)
-                    : $solicitud->aval_institucional;
-                
-                if (is_array($aval)) {
-                    $textoAval = ($aval['avaladoPor'] ?? '') . ' - ' . ($aval['cargo'] ?? '');
-                    $sheet->setCellValue('M16', $textoAval);
-                }
+            // Aval Institucional - M16 - Usar método robusto
+            $aval = $this->toArray($solicitud->aval_institucional);
+            if (!empty($aval)) {
+                $textoAval = ($aval['avaladoPor'] ?? '') . ' - ' . ($aval['cargo'] ?? '');
+                $sheet->setCellValue('M16', $textoAval);
             }
             
-            // Capacitación Historia Clínica
-            if ($solicitud->capacitacion_historia_clinica) {
-                $cap = is_string($solicitud->capacitacion_historia_clinica) 
-                    ? json_decode($solicitud->capacitacion_historia_clinica, true)
-                    : $solicitud->capacitacion_historia_clinica;
-                
-                if (is_array($cap)) {
-                    if ($cap['capacitacionRealizada'] ?? false) {
-                        $sheet->setCellValue('B23', 'X');
-                        $sheet->setCellValue('I22', $cap['nombreCapacitador'] ?? '');
-                        if (isset($cap['fechaCapacitacion'])) {
-                            $fechaCap = new \DateTime($cap['fechaCapacitacion']);
+            // Capacitación Historia Clínica - Usar método robusto
+            $cap = $this->toArray($solicitud->capacitacion_historia_clinica);
+            if (!empty($cap)) {
+                if ($cap['capacitacionRealizada'] ?? false) {
+                    $sheet->setCellValue('B23', 'X');
+                    $sheet->setCellValue('I22', $cap['nombreCapacitador'] ?? $cap['instructor'] ?? $cap['capacitador'] ?? '');
+                    $fechaCap = $cap['fechaCapacitacion'] ?? $cap['fecha'] ?? null;
+                    if ($fechaCap) {
+                        try {
+                            $fechaCap = new \DateTime($fechaCap);
                             $sheet->setCellValue('N23', $fechaCap->format('d'));
                             $sheet->setCellValue('O23', $fechaCap->format('m'));
                             $sheet->setCellValue('Q23', $fechaCap->format('Y'));
+                        } catch (\Exception $e) {
+                            \Log::error('Error parseando fecha capacitación HC: ' . $e->getMessage());
                         }
-                    } else {
-                        $sheet->setCellValue('D23', 'X');
                     }
+                } else {
+                    $sheet->setCellValue('D23', 'X');
                 }
             }
             
-            // Capacitación Epidemiología
-            if ($solicitud->capacitacion_epidemiologia) {
-                $cap = is_string($solicitud->capacitacion_epidemiologia) 
-                    ? json_decode($solicitud->capacitacion_epidemiologia, true)
-                    : $solicitud->capacitacion_epidemiologia;
-                
-                if (is_array($cap)) {
-                    if ($cap['capacitacionRealizada'] ?? false) {
-                        $sheet->setCellValue('B27', 'X');
-                        $sheet->setCellValue('I26', $cap['nombreCapacitador'] ?? '');
-                        if (isset($cap['fechaCapacitacion'])) {
-                            $fechaCap = new \DateTime($cap['fechaCapacitacion']);
+            // Capacitación Epidemiología - Usar método robusto
+            $cap = $this->toArray($solicitud->capacitacion_epidemiologia);
+            if (!empty($cap)) {
+                if ($cap['capacitacionRealizada'] ?? false) {
+                    $sheet->setCellValue('B27', 'X');
+                    $sheet->setCellValue('I26', $cap['nombreCapacitador'] ?? $cap['instructor'] ?? $cap['capacitador'] ?? '');
+                    $fechaCap = $cap['fechaCapacitacion'] ?? $cap['fecha'] ?? null;
+                    if ($fechaCap) {
+                        try {
+                            $fechaCap = new \DateTime($fechaCap);
                             $sheet->setCellValue('N27', $fechaCap->format('d'));
                             $sheet->setCellValue('O27', $fechaCap->format('m'));
                             $sheet->setCellValue('Q27', $fechaCap->format('Y'));
+                        } catch (\Exception $e) {
+                            \Log::error('Error parseando fecha capacitación Epi: ' . $e->getMessage());
                         }
-                    } else {
-                        $sheet->setCellValue('D27', 'X');
                     }
+                } else {
+                    $sheet->setCellValue('D27', 'X');
                 }
             }
             
@@ -346,15 +515,15 @@ class ExportacionController extends Controller
                         $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
                         $firmaData = $firma['firma'] ?? '';
                         
-                        // Mapear celdas según cargo
+                        // Mapear celda usando función normalizada (soporta tildes, espacios, mayúsculas)
                         $celda = null;
-                        if (stripos($cargoLower, 'usuario') !== false || stripos($cargoLower, 'solicitante') !== false) {
+                        if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
                             $celda = 'A29';
-                        } elseif (stripos($cargoLower, 'capacitador') !== false && stripos($cargoLower, 'historia') !== false) {
+                        } elseif ($this->cargoCoincide($cargo, ['capacitador historia', 'capacitador HC', 'capacitador clínica', 'capacitador clinica'])) {
                             $celda = 'I24';
-                        } elseif (stripos($cargoLower, 'capacitador') !== false && stripos($cargoLower, 'epidemiologia') !== false) {
+                        } elseif ($this->cargoCoincide($cargo, ['capacitador epidemiología', 'capacitador epidemiologia', 'capacitador epi'])) {
                             $celda = 'I28';
-                        } elseif (stripos($cargoLower, 'aval') !== false) {
+                        } elseif ($this->cargoCoincide($cargo, ['aval', 'aval institucional', 'avalado'])) {
                             $celda = 'M17';
                         }
                         
@@ -365,7 +534,17 @@ class ExportacionController extends Controller
                                     if (count($imageData) === 2) {
                                         $imageBase64 = $imageData[1];
                                         $imageContent = base64_decode($imageBase64);
-                                        $tempImagePath = storage_path('app/temp/firma_hc_prev_' . md5($cargo . $solicitud->id) . '.png');
+                                        
+                                        // Crear carpeta organizada para firmas: storage/app/firmas/historia_clinica/{id}/
+                                        $firmasDir = storage_path("app/firmas/historia_clinica/{$solicitud->id}");
+                                        if (!file_exists($firmasDir)) {
+                                            mkdir($firmasDir, 0755, true);
+                                        }
+                                        
+                                        // Nombre descriptivo: cargo_fecha.png
+                                        $cargoSlug = str_replace(' ', '_', strtolower($cargo));
+                                        $timestamp = date('YmdHis');
+                                        $tempImagePath = "{$firmasDir}/{$cargoSlug}_{$timestamp}.png";
                                         file_put_contents($tempImagePath, $imageContent);
                                         
                                         $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
@@ -374,6 +553,9 @@ class ExportacionController extends Controller
                                         $drawing->setPath($tempImagePath);
                                         $drawing->setCoordinates($celda);
                                         $drawing->setHeight(50);
+                                        // Centrar imagen en la celda
+                                        $drawing->setOffsetX(10);
+                                        $drawing->setOffsetY(5);
                                         $drawing->setWorksheet($sheet);
                                     }
                                 } catch (\Exception $e) {
@@ -419,8 +601,8 @@ class ExportacionController extends Controller
     {
         $solicitud = SolicitudAdministrativa::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
         
-        // Usar el template LIMPIO original
-        $templatePath = storage_path('app/temp/formatocreacionusuariosAdministrativosv1.xlsx');
+        // Usar el template VACÍO para exportación (sin texto descriptivo)
+        $templatePath = storage_path('app/templates/formato_administrativo_MAPEADOVacio.xlsx');
         
         if (!file_exists($templatePath)) {
             return response()->json([
@@ -496,11 +678,11 @@ class ExportacionController extends Controller
                         
                         if (isset($modulos[$modulo])) {
                             if (is_array($modulos[$modulo])) {
-                                // Formato completo con permisos
-                                if ($modulos[$modulo]['adicionar'] ?? false) $sheet->setCellValue('D' . $fila, 'X');
-                                if ($modulos[$modulo]['consultar'] ?? false) $sheet->setCellValue('F' . $fila, 'X');
-                                if ($modulos[$modulo]['modificar'] ?? false) $sheet->setCellValue('H' . $fila, 'X');
-                                if ($modulos[$modulo]['borrar'] ?? false) $sheet->setCellValue('J' . $fila, 'X');
+                                // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
+                                if (($modulos[$modulo]['A'] ?? false) || ($modulos[$modulo]['adicionar'] ?? false)) $sheet->setCellValue('D' . $fila, 'X');
+                                if (($modulos[$modulo]['C'] ?? false) || ($modulos[$modulo]['consultar'] ?? false)) $sheet->setCellValue('F' . $fila, 'X');
+                                if (($modulos[$modulo]['M'] ?? false) || ($modulos[$modulo]['modificar'] ?? false)) $sheet->setCellValue('H' . $fila, 'X');
+                                if (($modulos[$modulo]['B'] ?? false) || ($modulos[$modulo]['borrar'] ?? false)) $sheet->setCellValue('J' . $fila, 'X');
                             } elseif ($modulos[$modulo]) {
                                 // Formato simple: marcar solo Consultar
                                 $sheet->setCellValue('F' . $fila, 'X');
@@ -529,11 +711,11 @@ class ExportacionController extends Controller
                         
                         if (isset($modulos[$modulo])) {
                             if (is_array($modulos[$modulo])) {
-                                // Formato completo con permisos
-                                if ($modulos[$modulo]['adicionar'] ?? false) $sheet->setCellValue('Q' . $fila, 'X');
-                                if ($modulos[$modulo]['consultar'] ?? false) $sheet->setCellValue('R' . $fila, 'X');
-                                if ($modulos[$modulo]['modificar'] ?? false) $sheet->setCellValue('S' . $fila, 'X');
-                                if ($modulos[$modulo]['borrar'] ?? false) $sheet->setCellValue('U' . $fila, 'X');
+                                // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
+                                if (($modulos[$modulo]['A'] ?? false) || ($modulos[$modulo]['adicionar'] ?? false)) $sheet->setCellValue('Q' . $fila, 'X');
+                                if (($modulos[$modulo]['C'] ?? false) || ($modulos[$modulo]['consultar'] ?? false)) $sheet->setCellValue('R' . $fila, 'X');
+                                if (($modulos[$modulo]['M'] ?? false) || ($modulos[$modulo]['modificar'] ?? false)) $sheet->setCellValue('S' . $fila, 'X');
+                                if (($modulos[$modulo]['B'] ?? false) || ($modulos[$modulo]['borrar'] ?? false)) $sheet->setCellValue('U' . $fila, 'X');
                             } elseif ($modulos[$modulo]) {
                                 // Formato simple: marcar solo Consultar
                                 $sheet->setCellValue('R' . $fila, 'X');
@@ -597,14 +779,15 @@ class ExportacionController extends Controller
                         $firmaData = $firma['firma'] ?? '';
                         
                         // Determinar celda según cargo
+                        // Mapear celda usando función normalizada (soporta tildes, espacios, mayúsculas)
                         $celda = null;
-                        if (stripos($cargoLower, 'usuario') !== false || stripos($cargoLower, 'solicitante') !== false) {
+                        if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
                             $celda = 'F40';
-                        } elseif (stripos($cargoLower, 'jefe inmediato') !== false) {
+                        } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo'])) {
                             $celda = 'A45';
-                        } elseif (stripos($cargoLower, 'talento humano') !== false) {
+                        } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento'])) {
                             $celda = 'G45';
-                        } elseif (stripos($cargoLower, 'gestion') !== false || stripos($cargoLower, 'informacion') !== false || stripos($cargoLower, 'coordinador') !== false) {
+                        } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI'])) {
                             $celda = 'O45';
                         }
                         
@@ -618,8 +801,16 @@ class ExportacionController extends Controller
                                         $imageBase64 = $imageData[1];
                                         $imageContent = base64_decode($imageBase64);
                                         
-                                        // Guardar temporalmente
-                                        $tempImagePath = storage_path('app/temp/firma_' . md5($cargo . $solicitud->id) . '.png');
+                                        // Crear carpeta organizada para firmas: storage/app/firmas/administrativa/{id}/
+                                        $firmasDir = storage_path("app/firmas/administrativa/{$solicitud->id}");
+                                        if (!file_exists($firmasDir)) {
+                                            mkdir($firmasDir, 0755, true);
+                                        }
+                                        
+                                        // Nombre descriptivo: cargo_fecha.png
+                                        $cargoSlug = str_replace(' ', '_', strtolower($cargo));
+                                        $timestamp = date('YmdHis');
+                                        $tempImagePath = "{$firmasDir}/{$cargoSlug}_{$timestamp}.png";
                                         file_put_contents($tempImagePath, $imageContent);
                                         
                                         // Insertar imagen en Excel
@@ -629,13 +820,10 @@ class ExportacionController extends Controller
                                         $drawing->setPath($tempImagePath);
                                         $drawing->setCoordinates($celda);
                                         $drawing->setHeight(60); // Altura en píxeles
+                                        // Centrar imagen en la celda
+                                        $drawing->setOffsetX(10);
+                                        $drawing->setOffsetY(5);
                                         $drawing->setWorksheet($sheet);
-                                        
-                                        // Agregar texto debajo de la imagen
-                                        $filaTexto = (int)filter_var($celda, FILTER_SANITIZE_NUMBER_INT) + 3;
-                                        $columnaTexto = preg_replace('/[0-9]+/', '', $celda);
-                                        $sheet->setCellValue($columnaTexto . $filaTexto, $usuario . "\n" . $fechaFormateada);
-                                        $sheet->getStyle($columnaTexto . $filaTexto)->getAlignment()->setWrapText(true);
                                     }
                                 } catch (\Exception $e) {
                                     \Log::error('Error insertando imagen de firma: ' . $e->getMessage());
@@ -660,6 +848,11 @@ class ExportacionController extends Controller
             
             // ===== ACEPTA RESPONSABILIDAD (convertir a texto) =====
             $sheet->setCellValue('B52', $solicitud->acepta_responsabilidad ? 'X' : '');
+            
+            // LOGIN y CREADO POR (en las celdas correspondientes del template)
+            $loginRow = 30; // Ajustar según el template
+            $sheet->setCellValue('F' . $loginRow, $solicitud->login_creado_por ?? '');
+            $sheet->setCellValue('N' . $loginRow, $solicitud->registrado_por_nombre ?? 'Sistema');
             
             // Agregar información adicional al final del documento
             $lastRow = $sheet->getHighestRow() + 3;
@@ -731,8 +924,8 @@ class ExportacionController extends Controller
     {
         $solicitud = SolicitudHistoriaClinica::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
         
-        // Usar el template LIMPIO original
-        $templatePath = storage_path('app/temp/formatocreacionusuarioshistoriaclinicaelectronicav.xlsx');
+        // Usar el template VACÍO para exportación (sin texto descriptivo)
+        $templatePath = storage_path('app/templates/formatocreacionusuarioshistoriaclinicaelectronicavacia.xlsx');
         
         if (!file_exists($templatePath)) {
             return response()->json([
@@ -771,6 +964,11 @@ class ExportacionController extends Controller
             if (stripos($perfil, 'enfermero jefe') !== false) $sheet->setCellValue('L13', 'X');
             if (stripos($perfil, 'auxiliar') !== false) $sheet->setCellValue('L14', 'X');
             if (stripos($perfil, 'terapeuta') !== false) $sheet->setCellValue('L15', 'X');
+            if (stripos($perfil, 'auditor') !== false) $sheet->setCellValue('Q13', 'X');
+            // Si es "Otro", escribir el texto
+            if (stripos($perfil, 'otro') !== false && isset($solicitud->perfil_otro)) {
+                $sheet->setCellValue('Q14', $solicitud->perfil_otro);
+            }
             
             // Tipo de Vinculación (Interno/Externo) - M14
             $vinculacion = strtolower($solicitud->tipo_vinculacion ?? '');
@@ -785,59 +983,54 @@ class ExportacionController extends Controller
             if (stripos($terminal, 'tablet') !== false) $sheet->setCellValue('G17', 'X');
             if (stripos($terminal, 'portatil') !== false) $sheet->setCellValue('G18', 'X');
             
-            // Aval Institucional - M16
-            if ($solicitud->aval_institucional) {
-                $aval = is_string($solicitud->aval_institucional) 
-                    ? json_decode($solicitud->aval_institucional, true)
-                    : $solicitud->aval_institucional;
-                
-                if (is_array($aval)) {
-                    $textoAval = ($aval['avaladoPor'] ?? '') . ' - ' . ($aval['cargo'] ?? '');
-                    $sheet->setCellValue('M16', $textoAval);
-                }
+            // Aval Institucional - M16 - Usar método robusto
+            $aval = $this->toArray($solicitud->aval_institucional);
+            if (!empty($aval)) {
+                $textoAval = ($aval['avaladoPor'] ?? '') . ' - ' . ($aval['cargo'] ?? '');
+                $sheet->setCellValue('M16', $textoAval);
             }
             
-            // Capacitación Historia Clínica
-            if ($solicitud->capacitacion_historia_clinica) {
-                $cap = is_string($solicitud->capacitacion_historia_clinica) 
-                    ? json_decode($solicitud->capacitacion_historia_clinica, true)
-                    : $solicitud->capacitacion_historia_clinica;
-                
-                if (is_array($cap)) {
-                    if ($cap['capacitacionRealizada'] ?? false) {
-                        $sheet->setCellValue('B23', 'X');
-                        $sheet->setCellValue('I22', $cap['nombreCapacitador'] ?? '');
-                        if (isset($cap['fechaCapacitacion'])) {
-                            $fechaCap = new \DateTime($cap['fechaCapacitacion']);
+            // Capacitación Historia Clínica - Usar método robusto
+            $cap = $this->toArray($solicitud->capacitacion_historia_clinica);
+            if (!empty($cap)) {
+                if ($cap['capacitacionRealizada'] ?? false) {
+                    $sheet->setCellValue('B23', 'X');
+                    $sheet->setCellValue('I22', $cap['nombreCapacitador'] ?? $cap['instructor'] ?? $cap['capacitador'] ?? '');
+                    $fechaCap = $cap['fechaCapacitacion'] ?? $cap['fecha'] ?? null;
+                    if ($fechaCap) {
+                        try {
+                            $fechaCap = new \DateTime($fechaCap);
                             $sheet->setCellValue('N23', $fechaCap->format('d'));
                             $sheet->setCellValue('O23', $fechaCap->format('m'));
                             $sheet->setCellValue('Q23', $fechaCap->format('Y'));
+                        } catch (\Exception $e) {
+                            \Log::error('Error parseando fecha capacitación HC: ' . $e->getMessage());
                         }
-                    } else {
-                        $sheet->setCellValue('D23', 'X');
                     }
+                } else {
+                    $sheet->setCellValue('D23', 'X');
                 }
             }
             
-            // Capacitación Epidemiología
-            if ($solicitud->capacitacion_epidemiologia) {
-                $cap = is_string($solicitud->capacitacion_epidemiologia) 
-                    ? json_decode($solicitud->capacitacion_epidemiologia, true)
-                    : $solicitud->capacitacion_epidemiologia;
-                
-                if (is_array($cap)) {
-                    if ($cap['capacitacionRealizada'] ?? false) {
-                        $sheet->setCellValue('B27', 'X');
-                        $sheet->setCellValue('I26', $cap['nombreCapacitador'] ?? '');
-                        if (isset($cap['fechaCapacitacion'])) {
-                            $fechaCap = new \DateTime($cap['fechaCapacitacion']);
+            // Capacitación Epidemiología - Usar método robusto
+            $cap = $this->toArray($solicitud->capacitacion_epidemiologia);
+            if (!empty($cap)) {
+                if ($cap['capacitacionRealizada'] ?? false) {
+                    $sheet->setCellValue('B27', 'X');
+                    $sheet->setCellValue('I26', $cap['nombreCapacitador'] ?? $cap['instructor'] ?? $cap['capacitador'] ?? '');
+                    $fechaCap = $cap['fechaCapacitacion'] ?? $cap['fecha'] ?? null;
+                    if ($fechaCap) {
+                        try {
+                            $fechaCap = new \DateTime($fechaCap);
                             $sheet->setCellValue('N27', $fechaCap->format('d'));
                             $sheet->setCellValue('O27', $fechaCap->format('m'));
                             $sheet->setCellValue('Q27', $fechaCap->format('Y'));
+                        } catch (\Exception $e) {
+                            \Log::error('Error parseando fecha capacitación Epi: ' . $e->getMessage());
                         }
-                    } else {
-                        $sheet->setCellValue('D27', 'X');
                     }
+                } else {
+                    $sheet->setCellValue('D27', 'X');
                 }
             }
             
@@ -855,15 +1048,15 @@ class ExportacionController extends Controller
                         $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
                         $firmaData = $firma['firma'] ?? '';
                         
-                        // Mapear celdas según cargo
+                        // Mapear celda usando función normalizada (soporta tildes, espacios, mayúsculas)
                         $celda = null;
-                        if (stripos($cargoLower, 'usuario') !== false || stripos($cargoLower, 'solicitante') !== false) {
+                        if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
                             $celda = 'A29';
-                        } elseif (stripos($cargoLower, 'capacitador') !== false && stripos($cargoLower, 'historia') !== false) {
+                        } elseif ($this->cargoCoincide($cargo, ['capacitador historia', 'capacitador HC', 'capacitador clínica', 'capacitador clinica'])) {
                             $celda = 'I24';
-                        } elseif (stripos($cargoLower, 'capacitador') !== false && stripos($cargoLower, 'epidemiologia') !== false) {
+                        } elseif ($this->cargoCoincide($cargo, ['capacitador epidemiología', 'capacitador epidemiologia', 'capacitador epi'])) {
                             $celda = 'I28';
-                        } elseif (stripos($cargoLower, 'aval') !== false) {
+                        } elseif ($this->cargoCoincide($cargo, ['aval', 'aval institucional', 'avalado'])) {
                             $celda = 'M17';
                         }
                         
@@ -874,7 +1067,17 @@ class ExportacionController extends Controller
                                     if (count($imageData) === 2) {
                                         $imageBase64 = $imageData[1];
                                         $imageContent = base64_decode($imageBase64);
-                                        $tempImagePath = storage_path('app/temp/firma_hc_' . md5($cargo . $solicitud->id) . '.png');
+                                        
+                                        // Crear carpeta organizada para firmas: storage/app/firmas/historia_clinica/{id}/
+                                        $firmasDir = storage_path("app/firmas/historia_clinica/{$solicitud->id}");
+                                        if (!file_exists($firmasDir)) {
+                                            mkdir($firmasDir, 0755, true);
+                                        }
+                                        
+                                        // Nombre descriptivo: cargo_fecha.png
+                                        $cargoSlug = str_replace(' ', '_', strtolower($cargo));
+                                        $timestamp = date('YmdHis');
+                                        $tempImagePath = "{$firmasDir}/{$cargoSlug}_{$timestamp}.png";
                                         file_put_contents($tempImagePath, $imageContent);
                                         
                                         $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
@@ -883,6 +1086,9 @@ class ExportacionController extends Controller
                                         $drawing->setPath($tempImagePath);
                                         $drawing->setCoordinates($celda);
                                         $drawing->setHeight(50);
+                                        // Centrar imagen en la celda
+                                        $drawing->setOffsetX(10);
+                                        $drawing->setOffsetY(5);
                                         $drawing->setWorksheet($sheet);
                                     }
                                 } catch (\Exception $e) {
@@ -903,6 +1109,11 @@ class ExportacionController extends Controller
                 }
             }
             
+            // LOGIN y CREADO POR (en las celdas correspondientes del template)
+            $loginRow = 30; // Ajustar según el template
+            $sheet->setCellValue('F' . $loginRow, $solicitud->login_creado_por ?? '');
+            $sheet->setCellValue('N' . $loginRow, $solicitud->registrado_por_nombre ?? 'Sistema');
+            
             // Agregar información adicional al final del documento
             $lastRow = $sheet->getHighestRow() + 3;
             
@@ -920,6 +1131,10 @@ class ExportacionController extends Controller
             
             $sheet->setCellValue('A' . $lastRow, 'Registrado por:');
             $sheet->setCellValue('B' . $lastRow, $solicitud->registrado_por_nombre ?? 'Sistema');
+            $lastRow++;
+            
+            $sheet->setCellValue('A' . $lastRow, 'Email registrador:');
+            $sheet->setCellValue('B' . $lastRow, $solicitud->registrado_por_email ?? 'N/A');
             $lastRow++;
             
             $sheet->setCellValue('A' . $lastRow, 'Fecha de registro:');

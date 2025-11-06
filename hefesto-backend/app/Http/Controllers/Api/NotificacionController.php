@@ -81,4 +81,68 @@ class NotificacionController extends Controller
 
         return response()->json(['count' => $count]);
     }
+
+    /**
+     * Crear una nueva notificación
+     * POST /api/notificaciones
+     */
+    public function store(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user->tienePermiso('notificaciones.enviar')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene permisos para enviar notificaciones'
+            ], 403);
+        }
+
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'titulo' => 'required|string|max:255',
+            'mensaje' => 'required|string',
+            'tipo' => 'required|in:info,warning,error,success',
+            'importante' => 'boolean',
+        ]);
+
+        $notificacion = Notificacion::create([
+            'user_id' => $request->user_id,
+            'titulo' => $request->titulo,
+            'mensaje' => $request->mensaje,
+            'tipo' => $request->tipo,
+            'importante' => $request->importante ?? false,
+            'leida' => false,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notificación creada exitosamente',
+            'data' => $notificacion
+        ], 201);
+    }
+
+    /**
+     * Eliminar una notificación
+     * DELETE /api/notificaciones/{id}
+     */
+    public function destroy($id, Request $request)
+    {
+        $user = $request->user();
+        $notificacion = Notificacion::findOrFail($id);
+
+        // Solo puede eliminar sus propias notificaciones
+        if ($notificacion->user_id !== $user->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No puede eliminar notificaciones de otros usuarios'
+            ], 403);
+        }
+
+        $notificacion->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notificación eliminada'
+        ]);
+    }
 }

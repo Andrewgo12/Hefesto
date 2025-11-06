@@ -3,17 +3,25 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
+import { auth } from '@/lib/api';
+import { toast } from '@/lib/toast';
+import ModalRegistroUsuario from '@/components/ModalRegistroUsuario';
+import { UserPlus } from 'lucide-react';
+
+const USE_API = import.meta.env.VITE_USE_API === 'true';
 
 export default function Login() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showRegistroModal, setShowRegistroModal] = useState(false);
 
   const usuariosPrueba = [
-    { email: 'admin@hefesto.local', password: 'password123', rol: 'Administrador' },
-    { email: 'jefe@hefesto.local', password: 'password123', rol: 'Jefe de Área' },
-    { email: 'medico@hefesto.local', password: 'password123', rol: 'Médico' },
+    { email: 'kevin@admin.com', password: 'Lesli123', rol: 'Administrador', name: 'Kevin Admin' },
+    { email: 'jefe.inmediato@hospital.com', password: 'password123', rol: 'Jefe Inmediato', name: 'Jefe Inmediato' },
+    { email: 'talento.humano@hospital.com', password: 'password123', rol: 'Jefe de Talento Humano', name: 'Jefe Talento Humano' },
+    { email: 'usuario@hospital.com', password: 'password123', rol: 'Usuario', name: 'Usuario Normal' },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,19 +30,44 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const user = usuariosPrueba.find(
-        u => u.email === formData.email && u.password === formData.password
-      );
+      if (USE_API) {
+        // Login con API real
+        const response = await auth.login({
+          email: formData.email,
+          password: formData.password
+        });
 
-      if (!user) throw new Error('Usuario o contraseña incorrectos');
+        if (response.data.token) {
+          // Guardar token y datos del usuario
+          localStorage.setItem('auth_token', response.data.token);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+          localStorage.setItem('user_name', response.data.user.name);
+          localStorage.setItem('user_email', response.data.user.email);
+          
+          toast.success('Bienvenido', `Sesión iniciada como ${response.data.user.name}`);
+          navigate('/');
+        }
+      } else {
+        // Login mock (fallback)
+        const user = usuariosPrueba.find(
+          u => u.email === formData.email && u.password === formData.password
+        );
 
-      const token = 'mock-token-12345';
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+        if (!user) throw new Error('Usuario o contraseña incorrectos');
 
-      navigate('/');
+        const token = 'mock-token-12345';
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('user_name', user.rol);
+        localStorage.setItem('user_email', user.email);
+
+        toast.success('Bienvenido', `Sesión iniciada como ${user.rol}`);
+        navigate('/');
+      }
     } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+      const errorMsg = err.response?.data?.message || err.message || 'Error al iniciar sesión';
+      setError(errorMsg);
+      toast.error('Error', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -46,19 +79,40 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const user = usuariosPrueba.find(
-        u => u.email === email && u.password === password
-      );
+      if (USE_API) {
+        // Login con API real
+        const response = await auth.login({ email, password });
 
-      if (!user) throw new Error('Usuario o contraseña incorrectos');
+        if (response.data.token) {
+          localStorage.setItem('auth_token', response.data.token);
+          localStorage.setItem('user', JSON.stringify(response.data.user));
+          localStorage.setItem('user_name', response.data.user.name);
+          localStorage.setItem('user_email', response.data.user.email);
+          
+          toast.success('Bienvenido', `Sesión iniciada como ${response.data.user.name}`);
+          navigate('/');
+        }
+      } else {
+        // Login mock (fallback)
+        const user = usuariosPrueba.find(
+          u => u.email === email && u.password === password
+        );
 
-      const token = 'mock-token-12345';
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+        if (!user) throw new Error('Usuario o contraseña incorrectos');
 
-      navigate('/');
+        const token = 'mock-token-12345';
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('user_name', user.rol);
+        localStorage.setItem('user_email', user.email);
+
+        toast.success('Bienvenido', `Sesión iniciada como ${user.rol}`);
+        navigate('/');
+      }
     } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+      const errorMsg = err.response?.data?.message || err.message || 'Error al iniciar sesión';
+      setError(errorMsg);
+      toast.error('Error', errorMsg);
     } finally {
       setLoading(false);
     }
@@ -223,9 +277,35 @@ export default function Login() {
             <p className="text-center text-xs text-gray-500">
               Contraseña: <code className="px-1.5 py-0.5 bg-gray-100 rounded font-mono text-gray-700">password123</code>
             </p>
+
+            {/* Botón de Registro */}
+            <div className="pt-4 border-t border-gray-200">
+              <p className="text-center text-sm text-gray-600 mb-3">
+                ¿No tienes cuenta?
+              </p>
+              <motion.button
+                type="button"
+                onClick={() => setShowRegistroModal(true)}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full px-4 py-3 rounded-lg border-2 border-blue-600 text-blue-600 hover:bg-blue-50 transition-all shadow-sm hover:shadow-md font-semibold flex items-center justify-center gap-2"
+              >
+                <UserPlus className="w-5 h-5" />
+                Registrar Nuevo Usuario
+              </motion.button>
+            </div>
           </form>
         </motion.div>
       </div>
+
+      {/* Modal de Registro */}
+      <ModalRegistroUsuario 
+        open={showRegistroModal}
+        onClose={() => setShowRegistroModal(false)}
+        onSuccess={() => {
+          toast.success('Usuario registrado', 'Ahora puedes iniciar sesión con tus credenciales');
+        }}
+      />
     </div>
   );
 }

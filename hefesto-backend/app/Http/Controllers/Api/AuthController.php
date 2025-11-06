@@ -29,11 +29,47 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Verificar si el usuario está activo
+        if (isset($user->estado) && $user->estado !== 'activo') {
+            return response()->json([
+                'message' => 'Usuario inactivo. Contacte al administrador.'
+            ], 403);
+        }
+
         $token = $user->createToken('auth-token')->plainTextToken;
 
+        // Obtener roles y permisos del usuario
+        $roles = $user->roles()->get();
+        $permisos = $user->permisos();
+
+        // Registrar actividad de login
+        \DB::table('actividades')->insert([
+            'user_id' => $user->id,
+            'tipo' => 'login',
+            'modulo' => 'autenticacion',
+            'accion' => 'login_exitoso',
+            'descripcion' => 'Usuario inició sesión',
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         return response()->json([
-            'user' => $user,
+            'success' => true,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'rol' => $user->rol,
+                'estado' => $user->estado,
+            ],
+            'roles' => $roles,
+            'permisos' => $permisos,
             'token' => $token,
+            'es_administrador' => $user->esAdministrador(),
+            'es_supervisor' => $user->esSupervisor(),
+            'es_medico' => $user->esMedico(),
         ]);
     }
 
@@ -43,6 +79,8 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6|confirmed',
+            'cargo_id' => 'nullable|exists:cargos,id',
+            'area_id' => 'nullable|exists:areas,id',
         ]);
 
         if ($validator->fails()) {
@@ -53,12 +91,46 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'rol' => 'usuario',
+            'estado' => 'activo',
+            'cargo_id' => $request->cargo_id,
+            'area_id' => $request->area_id,
         ]);
+
+        // Asignar rol por defecto: "Administrativo - Entrada de Datos"
+        $rolPorDefecto = \DB::table('roles')
+            ->where('nombre', 'Administrativo - Entrada de Datos')
+            ->first();
+
+        if ($rolPorDefecto) {
+            $user->asignarRol($rolPorDefecto->id);
+        }
 
         $token = $user->createToken('auth-token')->plainTextToken;
 
+        // Registrar actividad de registro
+        \DB::table('actividades')->insert([
+            'user_id' => $user->id,
+            'tipo' => 'registro',
+            'modulo' => 'autenticacion',
+            'accion' => 'registro_exitoso',
+            'descripcion' => 'Usuario se registró en el sistema',
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         return response()->json([
-            'user' => $user,
+            'success' => true,
+            'message' => 'Usuario registrado exitosamente',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'rol' => $user->rol,
+                'estado' => $user->estado,
+            ],
             'token' => $token,
         ], 201);
     }
@@ -74,7 +146,21 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user();
+        
+        return response()->json([
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'rol' => $user->rol,
+                'estado' => $user->estado,
+                'created_at' => $user->created_at,
+            ],
+            'permisos' => $user->obtenerPermisos(),
+            'es_admin' => $user->esAdministrador(),
+            'esta_activo' => $user->estaActivo(),
+        ]);
     }
 
     // Verificar credenciales de firma

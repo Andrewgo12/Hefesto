@@ -48,28 +48,34 @@ class SolicitudHistoriaClinicaController extends Controller
     
     public function store(Request $request)
     {
+        // Validación más flexible - solo campos críticos son required
         $validator = Validator::make($request->all(), [
             'nombre_completo' => 'required|string|max:255',
             'cedula' => 'required|string|max:50',
-            'celular' => 'required|string|max:50',
-            'correo_electronico' => 'required|email|max:255',
-            'registro_codigo' => 'required|string|max:100',
-            'area_servicio' => 'required|string|max:255',
-            'especialidad' => 'required|string|max:255',
+            'celular' => 'nullable|string|max:50',
+            'correo_electronico' => 'nullable|email|max:255',
+            'registro_codigo' => 'nullable|string|max:100',
+            'area_servicio' => 'nullable|string|max:255',
+            'especialidad' => 'nullable|string|max:255',
             'observaciones' => 'nullable|string',
-            'perfil' => 'required|in:Médico especialista,Médico residente,Médico general,Auditor,Enfermero jefe,Auxiliar de enfermería,Terapeuta,Otro',
-            'perfil_otro' => 'required_if:perfil,Otro|nullable|string|max:255',
-            'tipo_vinculacion' => 'required|in:Interno,Externo',
-            'terminal_asignado' => 'required|in:Tablet,Portátil,Otro',
-            'terminal_otro' => 'required_if:terminal_asignado,Otro|nullable|string|max:255',
-            'capacitacion_historia_clinica' => 'required|array',
-            'capacitacion_epidemiologia' => 'nullable|array',
-            'aval_institucional' => 'required|array',
-            'acepta_responsabilidad' => 'required|boolean',
+            'perfil' => 'nullable|string|max:255',
+            'perfil_otro' => 'nullable|string|max:255',
+            'tipo_vinculacion' => 'nullable|string|max:255',
+            'terminal_asignado' => 'nullable|string|max:255',
+            'terminal_otro' => 'nullable|string|max:255',
+            'capacitacion_historia_clinica' => 'nullable', // Acepta string, array o null
+            'capacitacion_epidemiologia' => 'nullable', // Acepta string, array o null
+            'aval_institucional' => 'nullable', // Acepta string, array o null
+            'acepta_responsabilidad' => 'nullable',
+            'firmas' => 'nullable', // Acepta string, array o null
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            \Log::error('Validación fallida:', ['errors' => $validator->errors()->toArray()]);
+            return response()->json([
+                'message' => 'Error de validación',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
         $data = $validator->validated();
@@ -89,10 +95,19 @@ class SolicitudHistoriaClinicaController extends Controller
         $data['estado'] = 'Pendiente';
         $data['fase_actual'] = 'Registro inicial';
         
-        // Calcular firmas pendientes si hay firmas
-        if (isset($data['firmas']) && is_array($data['firmas'])) {
-            $totalFirmas = count($data['firmas']);
-            $firmasCompletas = collect($data['firmas'])->filter(fn($f) => !empty($f['firma'] ?? null))->count();
+        // Calcular firmas pendientes si hay firmas (manejar JSON string o array)
+        $firmasArray = [];
+        if (isset($data['firmas'])) {
+            if (is_string($data['firmas'])) {
+                $firmasArray = json_decode($data['firmas'], true) ?: [];
+            } elseif (is_array($data['firmas'])) {
+                $firmasArray = $data['firmas'];
+            }
+        }
+        
+        if (!empty($firmasArray) && is_array($firmasArray)) {
+            $totalFirmas = count($firmasArray);
+            $firmasCompletas = collect($firmasArray)->filter(fn($f) => !empty($f['firma'] ?? null))->count();
             $data['firmas_pendientes'] = $totalFirmas - $firmasCompletas;
             $data['firmas_completadas'] = $firmasCompletas;
         } else {
@@ -115,11 +130,13 @@ class SolicitudHistoriaClinicaController extends Controller
             'user_agent' => $request->userAgent(),
         ]);
         
-        // Registrar en historial antiguo (compatibilidad)
-        $solicitud->historial()->create([
-            'accion' => 'Creada',
-            'usuario_id' => $usuario?->id ?? 1,
-        ]);
+        // Registrar en historial antiguo (compatibilidad) - solo si hay usuario
+        if ($usuario?->id) {
+            $solicitud->historial()->create([
+                'accion' => 'Creada',
+                'usuario_id' => $usuario->id,
+            ]);
+        }
         
         // Cargar relaciones para la respuesta
         $solicitud->load(['usuarioCreador', 'historialEstados']);

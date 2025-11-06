@@ -24,6 +24,7 @@ class SolicitudAdministrativa extends Model
         'tipo_vinculacion',
         'modulos_administrativos',
         'modulos_financieros',
+        'anexos_nivel',
         'tipo_permiso',
         'perfil_de',
         'opciones_web',

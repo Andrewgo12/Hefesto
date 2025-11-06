@@ -24,14 +24,43 @@ export default function Perfil() {
   const { view = "personal" } = useParams<{ view: string }>();
   const { actividades } = useApp();
   
+  // Obtener datos del usuario logueado
+  const userStr = localStorage.getItem('user');
+  const loggedUser = userStr ? JSON.parse(userStr) : null;
+  
   // Datos editables del usuario
   const [userData, setUserData] = useState({
-    nombre: "Carlos Mendoza",
-    email: "carlos.mendoza@hefesto.com",
-    telefono: "3001234567",
-    cargo: "Técnico / Administrador",
-    departamento: "Tecnología"
+    nombre: loggedUser?.name || localStorage.getItem('user_name') || "Usuario",
+    email: loggedUser?.email || localStorage.getItem('user_email') || "usuario@hefesto.com",
+    telefono: loggedUser?.telefono || "3001234567",
+    cargo: loggedUser?.rol || "Usuario",
+    departamento: loggedUser?.departamento || "General",
   });
+
+  // Cargar datos actualizados del usuario desde la API
+  useEffect(() => {
+    const cargarDatosUsuario = async () => {
+      try {
+        const { auth } = await import('@/lib/api');
+        const response = await auth.me();
+        if (response.data?.user) {
+          const user = response.data.user;
+          setUserData({
+            nombre: user.name || userData.nombre,
+            email: user.email || userData.email,
+            telefono: user.telefono || userData.telefono,
+            cargo: user.rol || userData.cargo,
+            departamento: user.departamento || userData.departamento,
+          });
+        }
+      } catch (error) {
+        console.log('Error al cargar datos del usuario:', error);
+        // Mantener datos de localStorage si falla
+      }
+    };
+
+    cargarDatosUsuario();
+  }, []);
   
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -166,10 +195,10 @@ export default function Perfil() {
                 </motion.div>
 
               <h3 className="text-lg font-semibold text-slate-900">
-                Admin User
+                {userData.nombre}
               </h3>
               <p className="text-sm text-slate-600 mt-1">
-                Administrador del Sistema
+                {userData.cargo}
               </p>
 
               <div className="w-full mt-6 pt-6 border-t border-slate-200 space-y-3 text-left">
@@ -178,7 +207,7 @@ export default function Perfil() {
                     Área de Trabajo
                   </p>
                   <p className="text-sm font-medium text-slate-900 mt-1">
-                    Dirección de TI
+                    {userData.departamento}
                   </p>
                 </div>
 
@@ -193,10 +222,10 @@ export default function Perfil() {
 
                 <div>
                   <p className="text-xs text-slate-600 font-medium">
-                    Miembro desde
+                    Correo Electrónico
                   </p>
                   <p className="text-sm font-medium text-slate-900 mt-1">
-                    01/01/2024
+                    {userData.email}
                   </p>
                 </div>
 

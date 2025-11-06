@@ -17,7 +17,7 @@ interface Estadisticas {
 }
 
 export default function Index() {
-  const { solicitudes: todasSolicitudes } = useApp();
+  const { solicitudes: todasSolicitudes, recargarDatos } = useApp();
   
   // Calcular estadísticas desde AppContext
   const estadisticas = useMemo(() => {
@@ -292,7 +292,8 @@ export default function Index() {
                 Solicitudes Recientes Pendientes
               </motion.h2>
               <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
+                <Button variant="ghost" size="sm" onClick={() => recargarDatos()}>
+                  <RefreshCw className="w-4 h-4 mr-2" />
                   Actualizar
                 </Button>
               </motion.div>

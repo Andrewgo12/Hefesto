@@ -12,6 +12,9 @@ use App\Http\Controllers\Api\ExportacionController;
 use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\ParametroController;
 use App\Http\Controllers\Api\UsuarioController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\ReporteController;
+use App\Http\Controllers\Api\PermisoController;
 
 // Ruta pública para pruebas
 Route::get('/ping', function () {
@@ -125,4 +128,51 @@ Route::prefix('usuarios')->group(function () {
     Route::put('/{id}', [UsuarioController::class, 'update']);
     Route::delete('/{id}', [UsuarioController::class, 'destroy']);
     Route::put('/{id}/estado', [UsuarioController::class, 'cambiarEstado']);
+    Route::post('/{id}/cambiar-password', [UsuarioController::class, 'cambiarPassword']);
+});
+
+// Rutas de perfil de usuario autenticado
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/perfil', [UsuarioController::class, 'perfil']);
+    Route::put('/perfil', [UsuarioController::class, 'actualizarPerfil']);
+});
+
+// Rutas de Dashboard
+Route::middleware(['auth:sanctum'])->prefix('dashboard')->group(function () {
+    Route::get('/', [DashboardController::class, 'index']);
+    Route::get('/admin', [DashboardController::class, 'estadisticasAdmin']);
+});
+
+// Rutas de Reportes
+Route::middleware(['auth:sanctum'])->prefix('reportes')->group(function () {
+    Route::get('/', [ReporteController::class, 'index']);
+    Route::post('/generar', [ReporteController::class, 'generar']);
+    Route::get('/{id}/exportar', [ReporteController::class, 'exportar']);
+});
+
+// Rutas de Permisos y Roles
+Route::middleware(['auth:sanctum'])->prefix('permisos')->group(function () {
+    Route::get('/mis-permisos', [PermisoController::class, 'misPermisos']);
+    Route::post('/verificar', [PermisoController::class, 'verificarPermiso']);
+    Route::get('/listar', [PermisoController::class, 'listarPermisos']);
+    Route::get('/roles', [PermisoController::class, 'listarRoles']);
+    Route::post('/asignar-rol', [PermisoController::class, 'asignarRol']);
+    Route::delete('/remover-rol', [PermisoController::class, 'removerRol']);
+});
+
+// Rutas de Catálogos CRUD (solo admin)
+Route::middleware(['auth:sanctum'])->prefix('catalogos')->group(function () {
+    // Crear
+    Route::post('/cargos', [CatalogoController::class, 'storeCargo']);
+    Route::post('/areas', [CatalogoController::class, 'storeArea']);
+    Route::post('/especialidades', [CatalogoController::class, 'storeEspecialidad']);
+    
+    // Actualizar
+    Route::put('/cargos/{id}', [CatalogoController::class, 'updateCargo']);
+});
+
+// Rutas de Notificaciones (con auth)
+Route::middleware(['auth:sanctum'])->prefix('notificaciones')->group(function () {
+    Route::post('/', [NotificacionController::class, 'store']);
+    Route::delete('/{id}', [NotificacionController::class, 'destroy']);
 });

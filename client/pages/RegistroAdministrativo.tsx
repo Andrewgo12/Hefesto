@@ -254,11 +254,14 @@ export default function RegistroAdministrativo() {
         telefono_extension: formData.telefonoExtension,
         tipo_vinculacion: formData.tipoVinculacion,
         
-        // Módulos Administrativos (guardar como JSON con todos los valores)
-        modulos_administrativos: JSON.stringify(formData.modulosAdministrativos || {}),
+        // Módulos Administrativos (guardar permisos detallados A,C,M,B)
+        modulos_administrativos: JSON.stringify(permisoAdmin),
         
-        // Módulos Financieros (guardar como JSON con todos los valores)
-        modulos_financieros: JSON.stringify(formData.modulosFinancieros || {}),
+        // Módulos Financieros (guardar permisos detallados A,C,M,B)
+        modulos_financieros: JSON.stringify(permisoFin),
+        
+        // Nivel de anexos (N1, N2, N3)
+        anexos_nivel: anexosNivel || null,
         
         // Tipo de Permiso (array)
         tipo_permiso: JSON.stringify(formData.tipoPermiso || []),

@@ -53,6 +53,7 @@ class SolicitudAdministrativaController extends Controller
             'tipo_vinculacion' => 'nullable|in:Planta,Agremiado,Contrato',
             'modulos_administrativos' => 'nullable', // Acepta string o array
             'modulos_financieros' => 'nullable', // Acepta string o array
+            'anexos_nivel' => 'nullable|in:1,2,3', // Nivel de anexos N1, N2, N3
             'tipo_permiso' => 'nullable', // Acepta string o array
             'perfil_de' => 'nullable|string|max:255',
             'opciones_web' => 'nullable', // Acepta string o array
@@ -86,10 +87,19 @@ class SolicitudAdministrativaController extends Controller
         $data['estado'] = 'Pendiente';
         $data['fase_actual'] = 'Registro inicial';
         
-        // Calcular firmas pendientes si hay firmas
-        if (isset($data['firmas']) && is_array($data['firmas'])) {
-            $totalFirmas = count($data['firmas']);
-            $firmasCompletas = collect($data['firmas'])->filter(fn($f) => !empty($f['firma'] ?? null))->count();
+        // Calcular firmas pendientes si hay firmas (manejar JSON string o array)
+        $firmasArray = [];
+        if (isset($data['firmas'])) {
+            if (is_string($data['firmas'])) {
+                $firmasArray = json_decode($data['firmas'], true) ?: [];
+            } elseif (is_array($data['firmas'])) {
+                $firmasArray = $data['firmas'];
+            }
+        }
+        
+        if (!empty($firmasArray) && is_array($firmasArray)) {
+            $totalFirmas = count($firmasArray);
+            $firmasCompletas = collect($firmasArray)->filter(fn($f) => !empty($f['firma'] ?? null))->count();
             $data['firmas_pendientes'] = $totalFirmas - $firmasCompletas;
             $data['firmas_completadas'] = $firmasCompletas;
         } else {

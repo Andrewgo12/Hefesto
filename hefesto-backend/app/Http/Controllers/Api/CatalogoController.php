@@ -67,9 +67,151 @@ class CatalogoController extends Controller
     public function todos()
     {
         return response()->json([
-            'areas' => Area::where('activo', true)->orderBy('nombre')->get(),
-            'cargos' => Cargo::where('activo', true)->with('area')->orderBy('nombre')->get(),
-            'especialidades' => Especialidad::where('activo', true)->orderBy('nombre')->get(),
+            'success' => true,
+            'data' => [
+                'areas' => Area::where('activo', true)->orderBy('nombre')->get(),
+                'cargos' => Cargo::where('activo', true)->with('area')->orderBy('nombre')->get(),
+                'especialidades' => Especialidad::where('activo', true)->orderBy('nombre')->get(),
+            ]
         ]);
+    }
+
+    /**
+     * Crear un nuevo cargo
+     * POST /api/catalogos/cargos
+     */
+    public function storeCargo(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user->esAdministrador()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene permisos para crear cargos'
+            ], 403);
+        }
+
+        $request->validate([
+            'nombre' => 'required|string|max:255|unique:cargos,nombre',
+            'descripcion' => 'nullable|string',
+            'tipo' => 'required|in:administrativo,medico,tecnico',
+            'area_id' => 'nullable|exists:areas,id',
+        ]);
+
+        $cargo = Cargo::create([
+            'nombre' => $request->nombre,
+            'descripcion' => $request->descripcion,
+            'tipo' => $request->tipo,
+            'area_id' => $request->area_id,
+            'activo' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cargo creado exitosamente',
+            'data' => $cargo
+        ], 201);
+    }
+
+    /**
+     * Actualizar un cargo
+     * PUT /api/catalogos/cargos/{id}
+     */
+    public function updateCargo(Request $request, $id)
+    {
+        $user = $request->user();
+
+        if (!$user->esAdministrador()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene permisos para actualizar cargos'
+            ], 403);
+        }
+
+        $cargo = Cargo::findOrFail($id);
+
+        $request->validate([
+            'nombre' => 'required|string|max:255|unique:cargos,nombre,' . $id,
+            'descripcion' => 'nullable|string',
+            'tipo' => 'required|in:administrativo,medico,tecnico',
+            'area_id' => 'nullable|exists:areas,id',
+            'activo' => 'boolean',
+        ]);
+
+        $cargo->update($request->all());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cargo actualizado exitosamente',
+            'data' => $cargo
+        ]);
+    }
+
+    /**
+     * Crear una nueva área
+     * POST /api/catalogos/areas
+     */
+    public function storeArea(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user->esAdministrador()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene permisos para crear áreas'
+            ], 403);
+        }
+
+        $request->validate([
+            'nombre' => 'required|string|max:255|unique:areas,nombre',
+            'descripcion' => 'nullable|string',
+            'area_padre_id' => 'nullable|exists:areas,id',
+        ]);
+
+        $area = Area::create([
+            'nombre' => $request->nombre,
+            'descripcion' => $request->descripcion,
+            'area_padre_id' => $request->area_padre_id,
+            'activo' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Área creada exitosamente',
+            'data' => $area
+        ], 201);
+    }
+
+    /**
+     * Crear una nueva especialidad
+     * POST /api/catalogos/especialidades
+     */
+    public function storeEspecialidad(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user->esAdministrador()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No tiene permisos para crear especialidades'
+            ], 403);
+        }
+
+        $request->validate([
+            'nombre' => 'required|string|max:255|unique:especialidades,nombre',
+            'descripcion' => 'nullable|string',
+        ]);
+
+        $especialidad = Especialidad::create([
+            'nombre' => $request->nombre,
+            'descripcion' => $request->descripcion,
+            'activo' => true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Especialidad creada exitosamente',
+            'data' => $especialidad
+        ], 201);
     }
 }

@@ -8,7 +8,8 @@ import { solicitudesAdministrativas, solicitudesHistoriaClinica, usuarios as usu
 
 // Tipos
 interface Solicitud {
-  id: number;
+  id: string | number; // Puede ser string (admin-1, historia-1) o number (legacy)
+  id_original?: number; // ID original de la base de datos
   tipo: 'Administrativo' | 'Historia Clínica';
   nombreCompleto: string;
   cedula: string;
@@ -45,6 +46,7 @@ interface AppContextType {
   agregarSolicitud: (solicitud: Omit<Solicitud, 'fechaSolicitud'> & { id?: number; fechaSolicitud?: string }) => void;
   actualizarEstadoSolicitud: (id: number, estado: Solicitud['estado'], comentario?: string) => void;
   obtenerSolicitud: (id: number) => Solicitud | undefined;
+  recargarDatos: () => Promise<void>;
   
   // Usuarios
   usuarios: Usuario[];
@@ -93,22 +95,59 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     cargarUsuarios();
   }, []);
 
-  const cargarSolicitudes = async () => {
+  // Polling automático cada 10 segundos para sincronización en tiempo real
+  useEffect(() => {
+    const intervalo = setInterval(() => {
+      // Solo actualizar si la pestaña está activa (optimización)
+      if (!document.hidden) {
+        console.log('🔄 Actualizando datos automáticamente...');
+        cargarSolicitudes();
+        cargarUsuarios();
+      } else {
+        console.log('⏸️ Pestaña inactiva, pausando actualización');
+      }
+    }, 10000); // 10 segundos
+
+    // Actualizar cuando la pestaña vuelve a estar activa
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('👁️ Pestaña activa, actualizando datos...');
+        cargarSolicitudes();
+        cargarUsuarios();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(intervalo);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const cargarSolicitudes = async (reintentos = 3) => {
     try {
       setCargandoSolicitudes(true);
       console.log('🔄 AppContext: Cargando solicitudes desde API...');
       
-      // Intentar cargar desde API
+      // Intentar cargar desde API con reintentos
       const [respAdmin, respHistoria] = await Promise.all([
-        solicitudesAdministrativas.getAll().catch(() => ({ data: { data: [] } })),
-        solicitudesHistoriaClinica.getAll().catch(() => ({ data: { data: [] } }))
+        solicitudesAdministrativas.getAll().catch((error) => {
+          console.error('❌ Error cargando solicitudes administrativas:', error);
+          return { data: { data: [] } };
+        }),
+        solicitudesHistoriaClinica.getAll().catch((error) => {
+          console.error('❌ Error cargando solicitudes historia clínica:', error);
+          return { data: { data: [] } };
+        })
       ]);
       
       console.log('📦 Respuesta Admin:', respAdmin.data);
       console.log('📦 Respuesta Historia:', respHistoria.data);
 
       const solicitudesAdmin = (respAdmin.data?.data || []).map((sol: any) => ({
-        id: sol.id,
+        id: `admin-${sol.id}`,
+        id_original: sol.id,
         tipo: 'Administrativo' as const,
         nombreCompleto: sol.nombre_completo,
         cedula: sol.cedula,
@@ -122,7 +161,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }));
 
       const solicitudesHistoria = (respHistoria.data?.data || []).map((sol: any) => ({
-        id: sol.id,
+        id: `historia-${sol.id}`,
+        id_original: sol.id,
         tipo: 'Historia Clínica' as const,
         nombreCompleto: sol.nombre_completo,
         cedula: sol.cedula,
@@ -167,10 +207,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const cargarUsuarios = async () => {
+  const cargarUsuarios = async (reintentos = 3) => {
     try {
       setCargandoUsuarios(true);
-      const response = await usuariosApi.getAll();
+      console.log('🔄 AppContext: Cargando usuarios desde API...');
+      const response = await usuariosApi.getAll().catch((error) => {
+        console.error('❌ Error cargando usuarios:', error);
+        return { data: { data: [] } };
+      });
       
       // Manejar diferentes formatos de respuesta
       let usuariosData = [];
@@ -386,11 +430,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     usuariosActivos: usuarios.filter(u => u.estado === 'Activo').length,
   };
 
+  // Función para recargar datos manualmente
+  const recargarDatos = async () => {
+    console.log('🔄 Recargando datos manualmente...');
+    await Promise.all([
+      cargarSolicitudes(),
+      cargarUsuarios()
+    ]);
+  };
+
   const value: AppContextType = {
     solicitudes,
     agregarSolicitud,
     actualizarEstadoSolicitud,
     obtenerSolicitud,
+    recargarDatos,
     usuarios,
     agregarUsuario,
     actualizarUsuario,

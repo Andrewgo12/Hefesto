@@ -97,10 +97,23 @@ export default function Layout({ children }: LayoutProps) {
     } catch {}
   }, [sidebarOpen, expandedMenu]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
+  const handleLogout = async () => {
+    try {
+      // Intentar cerrar sesión en el backend
+      const { auth } = await import('@/lib/api');
+      await auth.logout().catch(() => {
+        // Ignorar errores del backend, continuar con logout local
+      });
+    } catch (error) {
+      console.log('Error al cerrar sesión en backend:', error);
+    } finally {
+      // Limpiar datos locales siempre
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('user_name');
+      localStorage.removeItem('user_email');
+      window.location.href = '/login';
+    }
   };
 
   return (

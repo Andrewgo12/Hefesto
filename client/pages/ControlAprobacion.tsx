@@ -84,7 +84,8 @@ export default function ControlAprobacion() {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
       const tipo = solicitud.tipo === 'Administrativo' ? 'administrativa' : 'historia-clinica';
-      const url = `${API_URL}/exportar/preview/${tipo}/${solicitud.id}`;
+      const idReal = solicitud.id_original || solicitud.datos?.id || solicitud.id;
+      const url = `${API_URL}/exportar/preview/${tipo}/${idReal}`;
       
       // Abrir en nueva ventana
       window.open(url, '_blank', 'width=1200,height=800');
@@ -98,7 +99,8 @@ export default function ControlAprobacion() {
   // Función para descargar Excel
   const handleDescargar = (solicitud: any) => {
     try {
-      exportacion.descargar(solicitud.tipo, solicitud.id);
+      const idReal = solicitud.id_original || solicitud.datos?.id || solicitud.id;
+      exportacion.descargar(solicitud.tipo, idReal);
       toast.success('Descarga iniciada', 'El archivo se descargará en breve');
     } catch (error) {
       console.error('Error al descargar:', error);
@@ -110,7 +112,8 @@ export default function ControlAprobacion() {
   const handleImprimir = (solicitud: any) => {
     try {
       // Descargar el Excel para que el usuario pueda imprimirlo
-      exportacion.descargar(solicitud.tipo, solicitud.id);
+      const idReal = solicitud.id_original || solicitud.datos?.id || solicitud.id;
+      exportacion.descargar(solicitud.tipo, idReal);
       toast.success('Descarga iniciada', 'Abre el archivo para imprimir');
     } catch (error) {
       console.error('Error al descargar:', error);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   HiHome, HiInbox, HiViewBoards, HiCog, HiUser, 
@@ -6,6 +6,7 @@ import {
   HiLockClosed, HiIdentification,
   HiX, HiMenu, HiChevronDown, HiArrowSmRight
 } from 'react-icons/hi';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface SidebarItem {
   label: string;
@@ -53,6 +54,7 @@ const sidebarItems: SidebarItem[] = [
 export default function AdvancedSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const permissions = usePermissions();
   const [isOpen, setIsOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
   const [user] = useState(() => {
@@ -60,11 +62,50 @@ export default function AdvancedSidebar() {
     return userData ? JSON.parse(userData) : null;
   });
 
+  // Filtrar items del sidebar según permisos
+  const filteredSidebarItems = useMemo(() => {
+    return sidebarItems.map(item => {
+      // Filtrar Control
+      if (item.label === 'Control' && item.subItems) {
+        const filteredSubItems = item.subItems.filter(subItem => {
+          if (subItem.label === 'Gestión de Usuarios' || subItem.label === 'Cambio de Permisos') {
+            return permissions.canAccessGestionUsuarios;
+          }
+          if (subItem.label === 'Aprobación de Solicitudes') {
+            return permissions.canAccessAprobacion;
+          }
+          return true;
+        });
+        return filteredSubItems.length > 0 ? { ...item, subItems: filteredSubItems } : null;
+      }
+      
+      // Filtrar Configuración - Solo Admin
+      if (item.label === 'Configuración') {
+        return permissions.canAccessConfiguracion ? item : null;
+      }
+      
+      return item;
+    }).filter(Boolean) as SidebarItem[];
+  }, [permissions]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
-    navigate('/login');
+
+  const handleLogout = async () => {
+    try {
+      // Intentar cerrar sesión en el backend
+      const { auth } = await import('@/lib/api');
+      await auth.logout().catch(() => {
+        // Ignorar errores del backend, continuar con logout local
+      });
+    } catch (error) {
+      console.log('Error al cerrar sesión en backend:', error);
+    } finally {
+      // Limpiar datos locales siempre
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('user_name');
+      localStorage.removeItem('user_email');
+      navigate('/login');
+    }
   };
 
   const toggleMenu = (label: string) => {
@@ -98,7 +139,7 @@ export default function AdvancedSidebar() {
             <div className="w-10 h-10 bg-gradient-to-br from-[#006837] to-[#004d28] rounded-lg flex items-center justify-center font-bold shadow-lg hover:scale-110 transition-transform duration-300 cursor-pointer">H</div>
             <div className="h-px w-8 bg-gradient-to-r from-transparent via-slate-600 to-transparent" />
             <nav className="flex-1 flex flex-col items-center gap-2">
-              {sidebarItems.map((item, idx) => {
+              {filteredSidebarItems.map((item, idx) => {
                 const Icon = item.icon;
                 return (
                   <button
