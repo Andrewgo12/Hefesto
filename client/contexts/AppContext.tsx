@@ -89,14 +89,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const [actividades, setActividades] = useState<Actividad[]>([]);
 
-  // Cargar datos desde la API al iniciar
+  // Cargar datos desde la API al iniciar (solo si está autenticado)
   useEffect(() => {
-    cargarSolicitudes();
-    cargarUsuarios();
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      cargarSolicitudes();
+      cargarUsuarios();
+    }
   }, []);
 
   // Polling automático cada 10 segundos para sincronización en tiempo real
   useEffect(() => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return; // No hacer polling si no está autenticado
+
     const intervalo = setInterval(() => {
       // Solo actualizar si la pestaña está activa (optimización)
       if (!document.hidden) {

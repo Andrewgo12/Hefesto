@@ -29,8 +29,8 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Verificar si el usuario está activo
-        if (isset($user->estado) && $user->estado !== 'activo') {
+        // Verificar si el usuario está activo (case-insensitive)
+        if (isset($user->estado) && strtolower($user->estado) !== 'activo') {
             return response()->json([
                 'message' => 'Usuario inactivo. Contacte al administrador.'
             ], 403);
@@ -45,11 +45,11 @@ class AuthController extends Controller
         // Registrar actividad de login
         \DB::table('actividades')->insert([
             'user_id' => $user->id,
-            'tipo' => 'login',
+            'usuario_email' => $user->email,
             'modulo' => 'autenticacion',
             'accion' => 'login_exitoso',
             'descripcion' => 'Usuario inició sesión',
-            'ip' => $request->ip(),
+            'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'created_at' => now(),
             'updated_at' => now(),
@@ -111,11 +111,11 @@ class AuthController extends Controller
         // Registrar actividad de registro
         \DB::table('actividades')->insert([
             'user_id' => $user->id,
-            'tipo' => 'registro',
+            'usuario_email' => $user->email,
             'modulo' => 'autenticacion',
             'accion' => 'registro_exitoso',
             'descripcion' => 'Usuario se registró en el sistema',
-            'ip' => $request->ip(),
+            'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'created_at' => now(),
             'updated_at' => now(),

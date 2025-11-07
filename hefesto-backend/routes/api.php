@@ -32,8 +32,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 });
 
-// Rutas de solicitudes (sin auth por ahora para desarrollo)
-Route::prefix('solicitudes')->group(function () {
+// Rutas de solicitudes (protegidas con autenticación)
+Route::middleware(['auth:sanctum'])->prefix('solicitudes')->group(function () {
     
     // Solicitudes Administrativas
     Route::prefix('administrativas')->group(function () {
@@ -120,8 +120,8 @@ Route::prefix('parametros')->group(function () {
     Route::put('/{key}', [ParametroController::class, 'update']);
 });
 
-// Rutas de usuarios
-Route::prefix('usuarios')->group(function () {
+// Rutas de usuarios (protegidas con autenticación)
+Route::middleware(['auth:sanctum'])->prefix('usuarios')->group(function () {
     Route::get('/', [UsuarioController::class, 'index']);
     Route::get('/{id}', [UsuarioController::class, 'show']);
     Route::post('/', [UsuarioController::class, 'store']);

@@ -8,8 +8,6 @@ import { toast } from '@/lib/toast';
 import ModalRegistroUsuario from '@/components/ModalRegistroUsuario';
 import { UserPlus } from 'lucide-react';
 
-const USE_API = import.meta.env.VITE_USE_API === 'true';
-
 export default function Login() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -17,52 +15,29 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showRegistroModal, setShowRegistroModal] = useState(false);
 
-  const usuariosPrueba = [
-    { email: 'kevin@admin.com', password: 'Lesli123', rol: 'Administrador', name: 'Kevin Admin' },
-    { email: 'jefe.inmediato@hospital.com', password: 'password123', rol: 'Jefe Inmediato', name: 'Jefe Inmediato' },
-    { email: 'talento.humano@hospital.com', password: 'password123', rol: 'Jefe de Talento Humano', name: 'Jefe Talento Humano' },
-    { email: 'usuario@hospital.com', password: 'password123', rol: 'Usuario', name: 'Usuario Normal' },
-  ];
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      if (USE_API) {
-        // Login con API real
-        const response = await auth.login({
-          email: formData.email,
-          password: formData.password
-        });
+      // Login con API - Base de datos
+      const response = await auth.login({
+        email: formData.email,
+        password: formData.password
+      });
 
-        if (response.data.token) {
-          // Guardar token y datos del usuario
-          localStorage.setItem('auth_token', response.data.token);
-          localStorage.setItem('user', JSON.stringify(response.data.user));
-          localStorage.setItem('user_name', response.data.user.name);
-          localStorage.setItem('user_email', response.data.user.email);
-          
-          toast.success('Bienvenido', `Sesión iniciada como ${response.data.user.name}`);
-          navigate('/');
-        }
-      } else {
-        // Login mock (fallback)
-        const user = usuariosPrueba.find(
-          u => u.email === formData.email && u.password === formData.password
-        );
-
-        if (!user) throw new Error('Usuario o contraseña incorrectos');
-
-        const token = 'mock-token-12345';
-        localStorage.setItem('auth_token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('user_name', user.rol);
-        localStorage.setItem('user_email', user.email);
-
-        toast.success('Bienvenido', `Sesión iniciada como ${user.rol}`);
-        navigate('/');
+      if (response.data.token) {
+        // Guardar token y datos del usuario
+        localStorage.setItem('auth_token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('user_name', response.data.user.name);
+        localStorage.setItem('user_email', response.data.user.email);
+        
+        toast.success('Bienvenido', `Sesión iniciada como ${response.data.user.name}`);
+        
+        // Recargar la página para que el AppContext cargue los datos
+        window.location.href = '/';
       }
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.message || 'Error al iniciar sesión';
@@ -73,50 +48,6 @@ export default function Login() {
     }
   };
 
-  const loginRapido = async (email: string, password: string) => {
-    setFormData({ email, password });
-    setError('');
-    setLoading(true);
-
-    try {
-      if (USE_API) {
-        // Login con API real
-        const response = await auth.login({ email, password });
-
-        if (response.data.token) {
-          localStorage.setItem('auth_token', response.data.token);
-          localStorage.setItem('user', JSON.stringify(response.data.user));
-          localStorage.setItem('user_name', response.data.user.name);
-          localStorage.setItem('user_email', response.data.user.email);
-          
-          toast.success('Bienvenido', `Sesión iniciada como ${response.data.user.name}`);
-          navigate('/');
-        }
-      } else {
-        // Login mock (fallback)
-        const user = usuariosPrueba.find(
-          u => u.email === email && u.password === password
-        );
-
-        if (!user) throw new Error('Usuario o contraseña incorrectos');
-
-        const token = 'mock-token-12345';
-        localStorage.setItem('auth_token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('user_name', user.rol);
-        localStorage.setItem('user_email', user.email);
-
-        toast.success('Bienvenido', `Sesión iniciada como ${user.rol}`);
-        navigate('/');
-      }
-    } catch (err: any) {
-      const errorMsg = err.response?.data?.message || err.message || 'Error al iniciar sesión';
-      setError(errorMsg);
-      toast.error('Error', errorMsg);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2 overflow-hidden">
@@ -247,36 +178,6 @@ export default function Login() {
                 )}
               </Button>
             </motion.div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">o</span>
-              </div>
-            </div>
-
-            <div className="space-y-2 sm:space-y-3">
-              <p className="text-center text-xs sm:text-sm text-gray-500 font-medium">Acceso rápido (prueba)</p>
-              {usuariosPrueba.map((user, idx) => (
-                <motion.button
-                  key={idx}
-                  type="button"
-                  onClick={() => loginRapido(user.email, user.password)}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full text-left px-3 sm:px-4 py-2 sm:py-3 rounded-lg border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-all shadow-sm hover:shadow-md"
-                >
-                  <p className="font-semibold text-gray-700 text-xs sm:text-sm">{user.rol}</p>
-                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                </motion.button>
-              ))}
-            </div>
-
-            <p className="text-center text-xs text-gray-500">
-              Contraseña: <code className="px-1.5 py-0.5 bg-gray-100 rounded font-mono text-gray-700">password123</code>
-            </p>
 
             {/* Botón de Registro */}
             <div className="pt-4 border-t border-gray-200">

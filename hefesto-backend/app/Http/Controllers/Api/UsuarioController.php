@@ -106,11 +106,11 @@ class UsuarioController extends Controller
         // Registrar actividad
         \DB::table('actividades')->insert([
             'user_id' => $user->id,
-            'tipo' => 'creacion_usuario',
+            'usuario_email' => $user->email,
             'modulo' => 'usuarios',
             'accion' => 'crear',
             'descripcion' => "Creó usuario: {$usuario->name}",
-            'ip' => $request->ip(),
+            'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'created_at' => now(),
             'updated_at' => now(),
@@ -162,11 +162,11 @@ class UsuarioController extends Controller
         // Registrar actividad
         \DB::table('actividades')->insert([
             'user_id' => $user->id,
-            'tipo' => 'actualizacion_usuario',
+            'usuario_email' => $user->email,
             'modulo' => 'usuarios',
             'accion' => 'editar',
             'descripcion' => "Actualizó usuario: {$usuario->name}",
-            'ip' => $request->ip(),
+            'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'created_at' => now(),
             'updated_at' => now(),
@@ -206,11 +206,11 @@ class UsuarioController extends Controller
         // Registrar actividad
         \DB::table('actividades')->insert([
             'user_id' => $user->id,
-            'tipo' => 'eliminacion_usuario',
+            'usuario_email' => $user->email,
             'modulo' => 'usuarios',
             'accion' => 'eliminar',
             'descripcion' => "Eliminó usuario: {$nombreUsuario}",
-            'ip' => $request->ip(),
+            'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'created_at' => now(),
             'updated_at' => now(),
