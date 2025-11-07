@@ -79,6 +79,8 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6|confirmed',
+            'rol' => 'nullable|string',
+            'estado' => 'nullable|string|in:activo,inactivo,Activo,Inactivo',
             'cargo_id' => 'nullable|exists:cargos,id',
             'area_id' => 'nullable|exists:areas,id',
         ]);
@@ -91,8 +93,8 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'rol' => 'usuario',
-            'estado' => 'activo',
+            'rol' => $request->rol ?? 'Usuario',
+            'estado' => ucfirst(strtolower($request->estado ?? 'activo')),
             'cargo_id' => $request->cargo_id,
             'area_id' => $request->area_id,
         ]);

@@ -25,6 +25,8 @@ class User extends Authenticatable
         'password',
         'rol',
         'estado',
+        'cargo_id',
+        'area_id',
     ];
 
     /**

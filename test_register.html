@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Registro Usuario</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        input, select { margin: 5px 0; padding: 8px; width: 300px; }
+        button { padding: 10px 20px; background: #3b82f6; color: white; border: none; cursor: pointer; }
+        button:hover { background: #2563eb; }
+        pre { background: #f3f4f6; padding: 15px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Test Registro de Usuario</h1>
+    
+    <form id="registerForm">
+        <div>
+            <label>Nombre Completo:</label><br>
+            <input type="text" id="name" value="Test Usuario" required>
+        </div>
+        
+        <div>
+            <label>Email:</label><br>
+            <input type="email" id="email" value="test@hefesto.local" required>
+        </div>
+        
+        <div>
+            <label>Rol:</label><br>
+            <select id="rol">
+                <option value="Usuario">Usuario</option>
+                <option value="Administrador">Administrador</option>
+                <option value="Jefe Inmediato">Jefe Inmediato</option>
+            </select>
+        </div>
+        
+        <div>
+            <label>Contraseña:</label><br>
+            <input type="password" id="password" value="123456" required>
+        </div>
+        
+        <div>
+            <label>Confirmar Contraseña:</label><br>
+            <input type="password" id="password_confirmation" value="123456" required>
+        </div>
+        
+        <div>
+            <label>Estado:</label><br>
+            <select id="estado">
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+            </select>
+        </div>
+        
+        <br>
+        <button type="submit">Registrar Usuario</button>
+    </form>
+    
+    <h2>Resultado:</h2>
+    <pre id="result">Esperando...</pre>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const resultEl = document.getElementById('result');
+            resultEl.textContent = 'Enviando petición...';
+            
+            const formData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                rol: document.getElementById('rol').value,
+                password: document.getElementById('password').value,
+                password_confirmation: document.getElementById('password_confirmation').value,
+                estado: document.getElementById('estado').value
+            };
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+                
+                resultEl.textContent = `Status: ${response.status}\n\n`;
+                resultEl.textContent += JSON.stringify(data, null, 2);
+                
+                if (response.ok) {
+                    resultEl.textContent += '\n\n✅ USUARIO REGISTRADO EXITOSAMENTE!';
+                    resultEl.textContent += '\nID: ' + data.user.id;
+                    resultEl.textContent += '\nNombre: ' + data.user.name;
+                    resultEl.textContent += '\nEmail: ' + data.user.email;
+                    resultEl.textContent += '\nRol: ' + data.user.rol;
+                } else {
+                    resultEl.textContent += '\n\n❌ ERROR EN EL REGISTRO';
+                }
+            } catch (error) {
+                resultEl.textContent = '❌ Error: ' + error.message;
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>
