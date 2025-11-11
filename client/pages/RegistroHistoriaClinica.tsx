@@ -160,23 +160,204 @@ export default function RegistroHistoriaClinica() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // ✅ VALIDACIÓN DE CAMPOS OBLIGATORIOS
-    const camposObligatorios = [
-      { campo: formData.nombreCompleto, nombre: 'Nombre completo' },
-      { campo: formData.cedula, nombre: 'Cédula' },
-      { campo: formData.celular, nombre: 'Celular' },
-      { campo: formData.correoElectronico, nombre: 'Correo electrónico' },
-      { campo: formData.registroCodigo, nombre: 'Registro/Código' },
-      { campo: formData.areaOServicio, nombre: 'Área o servicio' },
-      { campo: formData.especialidad, nombre: 'Especialidad' },
-    ];
+    // 🔐 VALIDACIÓN DE SESIÓN
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      toast.error('Sesión expirada', 'Debe iniciar sesión nuevamente');
+      window.location.href = '/login';
+      return;
+    }
 
-    // Verificar campos básicos
-    for (const { campo, nombre } of camposObligatorios) {
-      if (!campo || campo.trim() === '') {
-        toast.error('Campo obligatorio', `El campo "${nombre}" es obligatorio`);
+    // 🚫 RATE LIMITING - Prevenir spam de solicitudes
+    const ultimoEnvio = localStorage.getItem('ultimo_envio_hc');
+    const ahora = Date.now();
+    
+    if (ultimoEnvio) {
+      const tiempoTranscurrido = ahora - parseInt(ultimoEnvio);
+      const TIEMPO_MINIMO = 30000; // 30 segundos entre envíos
+      
+      if (tiempoTranscurrido < TIEMPO_MINIMO) {
+        const segundosRestantes = Math.ceil((TIEMPO_MINIMO - tiempoTranscurrido) / 1000);
+        toast.error('Demasiados intentos', `Debe esperar ${segundosRestantes} segundos antes de enviar otra solicitud`);
         return;
       }
+    }
+
+    // Verificar intentos fallidos
+    const intentosFallidos = parseInt(localStorage.getItem('intentos_fallidos_hc') || '0');
+    if (intentosFallidos >= 5) {
+      const tiempoBloqueo = localStorage.getItem('tiempo_bloqueo_hc');
+      if (tiempoBloqueo && ahora < parseInt(tiempoBloqueo)) {
+        const minutosRestantes = Math.ceil((parseInt(tiempoBloqueo) - ahora) / 60000);
+        toast.error('Cuenta bloqueada temporalmente', `Demasiados intentos fallidos. Intente nuevamente en ${minutosRestantes} minutos`);
+        return;
+      } else {
+        localStorage.removeItem('intentos_fallidos_hc');
+        localStorage.removeItem('tiempo_bloqueo_hc');
+      }
+    }
+
+    // 🛡️ PREVENCIÓN DE INYECCIÓN SQL/XSS
+    const sanitizeInput = (input: string): boolean => {
+      const dangerousPatterns = [
+        /<script/i, /javascript:/i, /on\w+\s*=/i,
+        /SELECT.*FROM/i, /INSERT.*INTO/i, /UPDATE.*SET/i,
+        /DELETE.*FROM/i, /DROP.*TABLE/i, /UNION.*SELECT/i,
+        /--/, /;.*--/, /\/\*/, /\*\//
+      ];
+      return dangerousPatterns.some(pattern => pattern.test(input));
+    };
+
+    const camposTexto = [formData.nombreCompleto, formData.especialidad, formData.areaOServicio, formData.observaciones || ''];
+    for (const campo of camposTexto) {
+      if (campo && sanitizeInput(campo)) {
+        toast.error('Contenido no permitido', 'Se detectaron caracteres o patrones no permitidos');
+        return;
+      }
+    }
+
+    // 🚫 PREVENCIÓN DE EMOJIS
+    const tieneEmojis = (texto: string): boolean => {
+      const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+      return emojiRegex.test(texto);
+    };
+
+    if (tieneEmojis(formData.nombreCompleto) || tieneEmojis(formData.especialidad)) {
+      toast.error('Caracteres no permitidos', 'No se permiten emojis en campos profesionales');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE NOMBRE COMPLETO
+    if (!formData.nombreCompleto || formData.nombreCompleto.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Nombre completo" es obligatorio');
+      return;
+    }
+    if (formData.nombreCompleto.trim().length < 5) {
+      toast.error('Nombre inválido', 'El nombre debe tener al menos 5 caracteres');
+      return;
+    }
+    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(formData.nombreCompleto)) {
+      toast.error('Nombre inválido', 'El nombre solo debe contener letras y espacios');
+      return;
+    }
+    const palabrasNombre = formData.nombreCompleto.trim().split(/\s+/);
+    if (palabrasNombre.length < 2) {
+      toast.error('Nombre incompleto', 'Debe ingresar al menos nombre y apellido');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE CÉDULA
+    if (!formData.cedula || formData.cedula.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Cédula" es obligatorio');
+      return;
+    }
+    if (!/^\d{6,10}$/.test(formData.cedula.trim())) {
+      toast.error('Cédula inválida', 'La cédula debe tener entre 6 y 10 dígitos numéricos');
+      return;
+    }
+
+    // 🔍 VALIDACIÓN DE DUPLICADOS - Verificar cédula
+    try {
+      const responseCedula = await solicitudesHistoriaClinica.verificarCedula(formData.cedula.trim());
+      if (responseCedula.data.existe) {
+        toast.error('Cédula duplicada', `Ya existe una solicitud con esta cédula (ID: ${responseCedula.data.solicitudId})`);
+        return;
+      }
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.warn('No se pudo verificar duplicados de cédula:', error);
+      }
+    }
+
+    // ✅ VALIDACIÓN DE CELULAR
+    if (!formData.celular || formData.celular.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Celular" es obligatorio');
+      return;
+    }
+    if (!/^[\d\s\-\+\(\)]+$/.test(formData.celular)) {
+      toast.error('Celular inválido', 'El celular solo debe contener números, espacios, guiones o paréntesis');
+      return;
+    }
+    const soloNumerosCelular = formData.celular.replace(/\D/g, '');
+    if (soloNumerosCelular.length < 10 || soloNumerosCelular.length > 15) {
+      toast.error('Celular inválido', 'El celular debe tener entre 10 y 15 dígitos');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE CORREO ELECTRÓNICO
+    if (!formData.correoElectronico || formData.correoElectronico.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Correo electrónico" es obligatorio');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.correoElectronico.trim())) {
+      toast.error('Correo inválido', 'Debe ingresar un correo electrónico válido (ejemplo@dominio.com)');
+      return;
+    }
+
+    // Validar dominio del correo
+    const dominiosValidos = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'hefesto.local', 'hospital.gov.co'];
+    const dominio = formData.correoElectronico.split('@')[1]?.toLowerCase();
+    const esDominioValido = dominiosValidos.some(d => dominio?.endsWith(d)) || dominio?.includes('.edu') || dominio?.includes('.gov');
+    
+    if (!esDominioValido) {
+      toast.warning('Dominio no común', 'El dominio del correo no es común. Verifique que sea correcto.');
+    }
+
+    // 🔍 VALIDACIÓN DE DUPLICADOS - Verificar correo
+    try {
+      const responseCorreo = await solicitudesHistoriaClinica.verificarCorreo(formData.correoElectronico.trim());
+      if (responseCorreo.data.existe) {
+        toast.error('Correo duplicado', `Ya existe una solicitud con este correo electrónico`);
+        return;
+      }
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.warn('No se pudo verificar duplicados de correo:', error);
+      }
+    }
+
+    // ✅ VALIDACIÓN DE REGISTRO/CÓDIGO
+    if (!formData.registroCodigo || formData.registroCodigo.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Registro/Código" es obligatorio');
+      return;
+    }
+    if (formData.registroCodigo.trim().length < 3) {
+      toast.error('Registro inválido', 'El registro/código debe tener al menos 3 caracteres');
+      return;
+    }
+
+    // 🔍 VALIDACIÓN DE DUPLICADOS - Verificar registro/código
+    try {
+      const responseRegistro = await solicitudesHistoriaClinica.verificarRegistro(formData.registroCodigo.trim());
+      if (responseRegistro.data.existe) {
+        toast.error('Registro duplicado', `Ya existe una solicitud con este registro/código médico`);
+        return;
+      }
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.warn('No se pudo verificar duplicados de registro:', error);
+      }
+    }
+
+    // ✅ VALIDACIÓN DE ÁREA O SERVICIO
+    if (!formData.areaOServicio || formData.areaOServicio.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Área o servicio" es obligatorio');
+      return;
+    }
+    if (formData.areaOServicio.trim().length < 3) {
+      toast.error('Área inválida', 'El área o servicio debe tener al menos 3 caracteres');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE ESPECIALIDAD
+    if (!formData.especialidad || formData.especialidad.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Especialidad" es obligatorio');
+      return;
+    }
+    if (formData.especialidad.trim().length < 3) {
+      toast.error('Especialidad inválida', 'La especialidad debe tener al menos 3 caracteres');
+      return;
     }
 
     // Verificar perfil seleccionado
@@ -191,9 +372,129 @@ export default function RegistroHistoriaClinica() {
       return;
     }
 
-    // Verificar aval institucional
+    // ✅ VALIDACIÓN DE OBSERVACIONES (si tiene contenido)
+    if (formData.observaciones && formData.observaciones.trim() !== '') {
+      if (formData.observaciones.trim().length < 10) {
+        toast.error('Observaciones muy cortas', 'Las observaciones deben tener al menos 10 caracteres');
+        return;
+      }
+      if (formData.observaciones.trim().length > 500) {
+        toast.error('Observaciones muy largas', 'Las observaciones no deben exceder 500 caracteres');
+        return;
+      }
+    }
+
+    // ✅ VALIDACIÓN DE TERMINAL ASIGNADO
+    if (!formData.terminalAsignado) {
+      toast.error('Terminal requerido', 'Debe seleccionar el terminal asignado');
+      return;
+    }
+
+    // Si seleccionó "Otro", debe especificar cuál
+    if (formData.terminalAsignado === 'Otro' && (!formData.terminalOtro || formData.terminalOtro.trim() === '')) {
+      toast.error('Especificar terminal', 'Debe especificar qué otro terminal será asignado');
+      return;
+    }
+
+    if (formData.terminalOtro && formData.terminalOtro.trim() !== '') {
+      if (formData.terminalOtro.trim().length < 3) {
+        toast.error('Terminal inválido', 'El nombre del terminal debe tener al menos 3 caracteres');
+        return;
+      }
+    }
+
+    // 🔍 VALIDACIÓN DE RECURSOS - Verificar disponibilidad de tablets
+    if (formData.terminalAsignado === 'Tablet') {
+      try {
+        // Simular verificación de tablets disponibles (endpoint a implementar)
+        // const responseTablets = await api.get('/recursos/tablets-disponibles');
+        // if (!responseTablets.data.disponible) {
+        //   toast.error('Sin tablets disponibles', 'No hay tablets disponibles en este momento');
+        //   return;
+        // }
+        console.log('⚠️ Validación de tablets disponibles pendiente de implementar en backend');
+      } catch (error) {
+        console.warn('No se pudo verificar disponibilidad de tablets:', error);
+      }
+    }
+
+    // ✅ VALIDACIÓN DE CAPACITACIÓN EN HISTORIA CLÍNICA
+    if (!formData.capacitacionHistoriaClinica || (Array.isArray(formData.capacitacionHistoriaClinica) && formData.capacitacionHistoriaClinica.length === 0)) {
+      toast.error('Capacitación requerida', 'Debe indicar si realizó la capacitación en Historia Clínica Electrónica');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE CAPACITACIÓN EN EPIDEMIOLOGÍA (solo para médicos)
+    const esMedico = formData.perfil?.toLowerCase().includes('medico') || 
+                     formData.perfil?.toLowerCase().includes('médico') || 
+                     formData.perfil?.toLowerCase().includes('especialista');
+
+    if (esMedico && (!formData.capacitacionEpidemiologia || (Array.isArray(formData.capacitacionEpidemiologia) && formData.capacitacionEpidemiologia.length === 0))) {
+      toast.error('Capacitación requerida', 'Los médicos deben indicar si realizaron la capacitación en Epidemiología');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE AVAL INSTITUCIONAL
     if (!formData.avalInstitucional || (Array.isArray(formData.avalInstitucional) && formData.avalInstitucional.length === 0)) {
-      toast.error('Aval requerido', 'Debe ingresar el nombre de quien avala');
+      toast.error('Aval requerido', 'Debe ingresar el nombre completo de quien avala');
+      return;
+    }
+
+    // Validar que el nombre del aval sea válido
+    if (Array.isArray(formData.avalInstitucional) && formData.avalInstitucional.length > 0) {
+      const nombreAval = formData.avalInstitucional[0];
+      if (typeof nombreAval === 'string') {
+        if (nombreAval.trim().length < 5) {
+          toast.error('Nombre inválido', 'El nombre de quien avala debe tener al menos 5 caracteres');
+          return;
+        }
+        if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(nombreAval)) {
+          toast.error('Nombre inválido', 'El nombre de quien avala solo debe contener letras y espacios');
+          return;
+        }
+      }
+    }
+
+    // ✅ VALIDACIÓN DE PERFIL "OTRO"
+    if (formData.perfil === 'Otro' && (!formData.perfilOtro || formData.perfilOtro.trim() === '')) {
+      toast.error('Especificar perfil', 'Debe especificar qué otro perfil corresponde');
+      return;
+    }
+
+    if (formData.perfilOtro && formData.perfilOtro.trim() !== '') {
+      if (formData.perfilOtro.trim().length < 3) {
+        toast.error('Perfil inválido', 'El perfil debe tener al menos 3 caracteres');
+        return;
+      }
+    }
+
+    // ✅ VALIDACIÓN DE FIRMAS
+    const firmasActuales = Object.keys(formData.firmas || {}).length;
+    if (firmasActuales === 0) {
+      toast.error('Firma requerida', 'Debe tener al menos la firma del aval institucional antes de enviar');
+      return;
+    }
+
+    if (!formData.firmas?.avalInstitucional) {
+      toast.error('Aval requerido', 'Debe tener la firma del aval institucional');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE LONGITUD MÁXIMA (prevenir ataques)
+    if (formData.nombreCompleto.length > 100) {
+      toast.error('Texto muy largo', 'El nombre no debe exceder 100 caracteres');
+      return;
+    }
+    if (formData.especialidad.length > 100) {
+      toast.error('Texto muy largo', 'La especialidad no debe exceder 100 caracteres');
+      return;
+    }
+    if (formData.areaOServicio.length > 100) {
+      toast.error('Texto muy largo', 'El área/servicio no debe exceder 100 caracteres');
+      return;
+    }
+    if (formData.correoElectronico.length > 100) {
+      toast.error('Texto muy largo', 'El correo no debe exceder 100 caracteres');
       return;
     }
 
@@ -271,6 +572,12 @@ export default function RegistroHistoriaClinica() {
       
       toast.success('Solicitud creada exitosamente', 'La solicitud de historia clínica ha sido guardada en la base de datos');
       
+      // Actualizar timestamp de último envío exitoso
+      localStorage.setItem('ultimo_envio_hc', Date.now().toString());
+      // Resetear intentos fallidos
+      localStorage.removeItem('intentos_fallidos_hc');
+      localStorage.removeItem('tiempo_bloqueo_hc');
+      
       // Limpiar formulario guardado en localStorage
       limpiarFormularioGuardado();
       
@@ -279,6 +586,18 @@ export default function RegistroHistoriaClinica() {
     } catch (error: any) {
       console.error('❌ Error al crear solicitud:', error);
       console.error('Detalles:', error.response?.data);
+      
+      // Incrementar contador de intentos fallidos
+      const intentos = parseInt(localStorage.getItem('intentos_fallidos_hc') || '0') + 1;
+      localStorage.setItem('intentos_fallidos_hc', intentos.toString());
+      
+      // Si llega a 5 intentos, bloquear por 15 minutos
+      if (intentos >= 5) {
+        const tiempoBloqueo = Date.now() + (15 * 60 * 1000); // 15 minutos
+        localStorage.setItem('tiempo_bloqueo_hc', tiempoBloqueo.toString());
+        toast.error('Cuenta bloqueada', 'Demasiados intentos fallidos. Bloqueado por 15 minutos');
+      }
+      
       toast.error('Error al crear solicitud', error.response?.data?.message || error.message);
     } finally {
       setLoading(false);

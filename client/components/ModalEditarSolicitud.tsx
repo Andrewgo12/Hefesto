@@ -248,7 +248,7 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-amber-600">
-                    {Object.keys(formData.firmas || {}).length}/3
+                    {Object.keys(formData.firmas || {}).length}/5
                   </div>
                   <div className="text-xs text-slate-600">Firmas Completadas</div>
                 </div>
@@ -646,7 +646,7 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
 
             {/* Vo. Bo. y Firmas */}
             <div className="border-2 border-amber-200 rounded-lg p-4">
-              <h3 className="font-bold text-amber-900 mb-3">Vo. Bo. Y FIRMAS DE AUTORIZACIÓN (3 firmas requeridas)</h3>
+              <h3 className="font-bold text-amber-900 mb-3">Vo. Bo. Y FIRMAS DE AUTORIZACIÓN (5 firmas requeridas)</h3>
               
               {/* Firma Jefe Inmediato */}
               <div className="mb-4 border-2 border-blue-200 rounded-lg p-3 bg-blue-50">

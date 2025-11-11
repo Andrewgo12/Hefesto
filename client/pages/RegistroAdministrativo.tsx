@@ -379,25 +379,177 @@ export default function RegistroAdministrativo() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // ✅ VALIDACIÓN DE CAMPOS OBLIGATORIOS
-    const camposObligatorios = [
-      { campo: formData.nombreCompleto, nombre: 'Nombre completo' },
-      { campo: formData.cedula, nombre: 'Cédula' },
-      { campo: formData.cargo, nombre: 'Cargo' },
-      { campo: formData.areaOServicio, nombre: 'Área o servicio' },
-      { campo: formData.telefonoExtension, nombre: 'Teléfono/Extensión' },
-      { campo: formData.tipoVinculacion, nombre: 'Tipo de vinculación' },
-    ];
+    // 🔐 VALIDACIÓN DE SESIÓN
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      toast.error('Sesión expirada', 'Debe iniciar sesión nuevamente');
+      window.location.href = '/login';
+      return;
+    }
 
-    // Verificar campos básicos
-    for (const { campo, nombre } of camposObligatorios) {
-      if (!campo || campo.trim() === '') {
-        toast.error('Campo obligatorio', `El campo "${nombre}" es obligatorio`);
+    // 🚫 RATE LIMITING - Prevenir spam de solicitudes
+    const ultimoEnvio = localStorage.getItem('ultimo_envio_admin');
+    const ahora = Date.now();
+    
+    if (ultimoEnvio) {
+      const tiempoTranscurrido = ahora - parseInt(ultimoEnvio);
+      const TIEMPO_MINIMO = 30000; // 30 segundos entre envíos
+      
+      if (tiempoTranscurrido < TIEMPO_MINIMO) {
+        const segundosRestantes = Math.ceil((TIEMPO_MINIMO - tiempoTranscurrido) / 1000);
+        toast.error('Demasiados intentos', `Debe esperar ${segundosRestantes} segundos antes de enviar otra solicitud`);
         return;
       }
     }
 
-    // Verificar que al menos un módulo administrativo tenga permisos
+    // Verificar intentos fallidos
+    const intentosFallidos = parseInt(localStorage.getItem('intentos_fallidos_admin') || '0');
+    if (intentosFallidos >= 5) {
+      const tiempoBloqueo = localStorage.getItem('tiempo_bloqueo_admin');
+      if (tiempoBloqueo && ahora < parseInt(tiempoBloqueo)) {
+        const minutosRestantes = Math.ceil((parseInt(tiempoBloqueo) - ahora) / 60000);
+        toast.error('Cuenta bloqueada temporalmente', `Demasiados intentos fallidos. Intente nuevamente en ${minutosRestantes} minutos`);
+        return;
+      } else {
+        // Resetear intentos si ya pasó el tiempo de bloqueo
+        localStorage.removeItem('intentos_fallidos_admin');
+        localStorage.removeItem('tiempo_bloqueo_admin');
+      }
+    }
+
+    // 🛡️ PREVENCIÓN DE INYECCIÓN SQL/XSS
+    const sanitizeInput = (input: string): boolean => {
+      const dangerousPatterns = [
+        /<script/i,
+        /javascript:/i,
+        /on\w+\s*=/i,
+        /SELECT.*FROM/i,
+        /INSERT.*INTO/i,
+        /UPDATE.*SET/i,
+        /DELETE.*FROM/i,
+        /DROP.*TABLE/i,
+        /UNION.*SELECT/i,
+        /--/,
+        /;.*--/,
+        /\/\*/,
+        /\*\//
+      ];
+      return dangerousPatterns.some(pattern => pattern.test(input));
+    };
+
+    // Validar todos los campos de texto contra inyección
+    const camposTexto = [
+      formData.nombreCompleto,
+      formData.cargo,
+      formData.areaOServicio,
+      formData.perfilDe,
+      descripcionPerfil,
+      formData.opcionesWeb?.otros || ''
+    ];
+
+    for (const campo of camposTexto) {
+      if (campo && sanitizeInput(campo)) {
+        toast.error('Contenido no permitido', 'Se detectaron caracteres o patrones no permitidos en los campos');
+        return;
+      }
+    }
+
+    // 🚫 PREVENCIÓN DE EMOJIS Y CARACTERES ESPECIALES
+    const tieneEmojis = (texto: string): boolean => {
+      const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+      return emojiRegex.test(texto);
+    };
+
+    if (tieneEmojis(formData.nombreCompleto) || tieneEmojis(formData.cargo) || tieneEmojis(formData.areaOServicio)) {
+      toast.error('Caracteres no permitidos', 'No se permiten emojis en campos profesionales');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE NOMBRE COMPLETO
+    if (!formData.nombreCompleto || formData.nombreCompleto.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Nombre completo" es obligatorio');
+      return;
+    }
+    if (formData.nombreCompleto.trim().length < 5) {
+      toast.error('Nombre inválido', 'El nombre debe tener al menos 5 caracteres');
+      return;
+    }
+    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(formData.nombreCompleto)) {
+      toast.error('Nombre inválido', 'El nombre solo debe contener letras y espacios');
+      return;
+    }
+    const palabrasNombre = formData.nombreCompleto.trim().split(/\s+/);
+    if (palabrasNombre.length < 2) {
+      toast.error('Nombre incompleto', 'Debe ingresar al menos nombre y apellido');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE CÉDULA
+    if (!formData.cedula || formData.cedula.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Cédula" es obligatorio');
+      return;
+    }
+    if (!/^\d{6,10}$/.test(formData.cedula.trim())) {
+      toast.error('Cédula inválida', 'La cédula debe tener entre 6 y 10 dígitos numéricos');
+      return;
+    }
+
+    // 🔍 VALIDACIÓN DE DUPLICADOS - Verificar cédula
+    try {
+      const responseCedula = await solicitudesAdministrativas.verificarCedula(formData.cedula.trim());
+      if (responseCedula.data.existe) {
+        toast.error('Cédula duplicada', `Ya existe una solicitud con esta cédula (ID: ${responseCedula.data.solicitudId})`);
+        return;
+      }
+    } catch (error: any) {
+      // Si el endpoint no existe, continuar (backend aún no implementado)
+      if (error.response?.status !== 404) {
+        console.warn('No se pudo verificar duplicados de cédula:', error);
+      }
+    }
+
+    // ✅ VALIDACIÓN DE CARGO
+    if (!formData.cargo || formData.cargo.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Cargo" es obligatorio');
+      return;
+    }
+    if (formData.cargo.trim().length < 3) {
+      toast.error('Cargo inválido', 'El cargo debe tener al menos 3 caracteres');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE ÁREA O SERVICIO
+    if (!formData.areaOServicio || formData.areaOServicio.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Área o servicio" es obligatorio');
+      return;
+    }
+    if (formData.areaOServicio.trim().length < 3) {
+      toast.error('Área inválida', 'El área o servicio debe tener al menos 3 caracteres');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE TELÉFONO/EXTENSIÓN
+    if (!formData.telefonoExtension || formData.telefonoExtension.trim() === '') {
+      toast.error('Campo obligatorio', 'El campo "Teléfono/Extensión" es obligatorio');
+      return;
+    }
+    if (!/^[\d\s\-\+\(\)]+$/.test(formData.telefonoExtension)) {
+      toast.error('Teléfono inválido', 'El teléfono solo debe contener números, espacios, guiones o paréntesis');
+      return;
+    }
+    const soloNumeros = formData.telefonoExtension.replace(/\D/g, '');
+    if (soloNumeros.length < 7 || soloNumeros.length > 15) {
+      toast.error('Teléfono inválido', 'El teléfono debe tener entre 7 y 15 dígitos');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE TIPO DE VINCULACIÓN
+    if (!formData.tipoVinculacion) {
+      toast.error('Campo obligatorio', 'Debe seleccionar el tipo de vinculación');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE MÓDULOS ADMINISTRATIVOS
     const tieneModulosAdmin = Object.keys(permisoAdmin).some(modulo => 
       Object.values(permisoAdmin[modulo]).some(v => v === true)
     );
@@ -407,7 +559,17 @@ export default function RegistroAdministrativo() {
       return;
     }
 
-    // Verificar que al menos un módulo financiero tenga permisos
+    // Verificar que cada módulo seleccionado tenga al menos un permiso válido
+    const modulosConPermisos = Object.keys(permisoAdmin).filter(modulo => 
+      Object.values(permisoAdmin[modulo]).some(v => v === true)
+    );
+
+    if (modulosConPermisos.length === 0) {
+      toast.error('Permisos incompletos', 'Debe asignar al menos un permiso (A, C, M, B) a los módulos administrativos');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE MÓDULOS FINANCIEROS
     const tieneModulosFin = Object.keys(permisoFin).some(modulo => 
       Object.values(permisoFin[modulo]).some(v => v === true)
     );
@@ -417,7 +579,25 @@ export default function RegistroAdministrativo() {
       return;
     }
 
-    // Verificar opciones web
+    // Verificar que cada módulo financiero tenga al menos un permiso válido
+    const modulosFinConPermisos = Object.keys(permisoFin).filter(modulo => 
+      Object.values(permisoFin[modulo]).some(v => v === true)
+    );
+
+    if (modulosFinConPermisos.length === 0) {
+      toast.error('Permisos incompletos', 'Debe asignar al menos un permiso (A, C, M, B) a los módulos financieros');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE ANEXOS (si se seleccionó el módulo)
+    if (permisoAdmin['anexos'] && Object.values(permisoAdmin['anexos']).some(v => v === true)) {
+      if (!anexosNivel) {
+        toast.error('Nivel de anexos requerido', 'Debe seleccionar el nivel de anexos (N1, N2 o N3)');
+        return;
+      }
+    }
+
+    // ✅ VALIDACIÓN DE OPCIONES WEB
     const tieneOpcionesWeb = formData.opcionesWeb?.internet || 
                              formData.opcionesWeb?.correoElectronico || 
                              formData.opcionesWeb?.transferenciaArchivos;
@@ -427,15 +607,208 @@ export default function RegistroAdministrativo() {
       return;
     }
 
-    // Verificar tipo de perfil
+    // Validar campo "Otros" si tiene contenido
+    if (formData.opcionesWeb?.otros && formData.opcionesWeb.otros.trim() !== '') {
+      if (formData.opcionesWeb.otros.trim().length < 5) {
+        toast.error('Descripción inválida', 'La descripción de "Otros" debe tener al menos 5 caracteres');
+        return;
+      }
+      if (formData.opcionesWeb.otros.trim().length > 100) {
+        toast.error('Descripción muy larga', 'La descripción de "Otros" no debe exceder 100 caracteres');
+        return;
+      }
+    }
+
+    // ✅ VALIDACIÓN DE TIPO DE PERMISO
+    if (!formData.tipoPermiso || formData.tipoPermiso.length === 0) {
+      toast.error('Tipo de permiso requerido', 'Debe seleccionar al menos un tipo de permiso (Temporal, Permanente, etc.)');
+      return;
+    }
+
+    // Validar que no se seleccionen tipos contradictorios
+    const tieneTemp = formData.tipoPermiso.some(t => t.toLowerCase().includes('temporal'));
+    const tienePerm = formData.tipoPermiso.some(t => t.toLowerCase().includes('permanente'));
+    const tieneAnul = formData.tipoPermiso.some(t => t.toLowerCase().includes('anulación') || t.toLowerCase().includes('anulacion'));
+
+    if (tieneTemp && tienePerm) {
+      toast.error('Tipos incompatibles', 'No puede seleccionar "Temporal" y "Permanente" al mismo tiempo');
+      return;
+    }
+
+    if (tieneAnul && formData.tipoPermiso.length > 1) {
+      toast.error('Tipo incompatible', 'Si selecciona "Anulación", no puede seleccionar otros tipos');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE TIPO DE PERFIL
     if (!formData.perfilDe || formData.perfilDe.trim() === '') {
       toast.error('Perfil requerido', 'Debe especificar el tipo de perfil a crear');
       return;
     }
+    if (formData.perfilDe.trim().length < 5) {
+      toast.error('Perfil inválido', 'El tipo de perfil debe tener al menos 5 caracteres');
+      return;
+    }
+    if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\-]+$/.test(formData.perfilDe)) {
+      toast.error('Perfil inválido', 'El perfil solo debe contener letras, números, espacios y guiones');
+      return;
+    }
 
-    // Verificar descripción del perfil
+    // ✅ VALIDACIÓN DE DESCRIPCIÓN DEL PERFIL
     if (!descripcionPerfil || descripcionPerfil.trim() === '') {
       toast.error('Descripción requerida', 'Debe describir para qué es el perfil');
+      return;
+    }
+    if (descripcionPerfil.trim().length < 10) {
+      toast.error('Descripción muy corta', 'La descripción debe tener al menos 10 caracteres');
+      return;
+    }
+    if (descripcionPerfil.trim().length > 200) {
+      toast.error('Descripción muy larga', 'La descripción no debe exceder 200 caracteres');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE CREDENCIALES (si se proporcionaron)
+    if (formData.loginAsignado && formData.loginAsignado.trim() !== '') {
+      // Validar formato del login
+      if (!/^[a-zA-Z0-9_\-\.]+$/.test(formData.loginAsignado)) {
+        toast.error('Login inválido', 'El login solo puede contener letras, números, guiones, puntos y guiones bajos');
+        return;
+      }
+      if (formData.loginAsignado.length < 4) {
+        toast.error('Login muy corto', 'El login debe tener al menos 4 caracteres');
+        return;
+      }
+      if (formData.loginAsignado.length > 20) {
+        toast.error('Login muy largo', 'El login no debe exceder 20 caracteres');
+        return;
+      }
+      if (/\s/.test(formData.loginAsignado)) {
+        toast.error('Login inválido', 'El login no puede contener espacios');
+        return;
+      }
+
+      // 🔍 VALIDACIÓN DE DUPLICADOS - Verificar login
+      try {
+        const responseLogin = await solicitudesAdministrativas.verificarLogin(formData.loginAsignado.trim());
+        if (responseLogin.data.existe) {
+          toast.error('Login duplicado', 'Este login ya está en uso. Por favor, elija otro');
+          return;
+        }
+      } catch (error: any) {
+        if (error.response?.status !== 404) {
+          console.warn('No se pudo verificar duplicados de login:', error);
+        }
+      }
+    }
+
+    // Validar contraseña temporal (si se proporcionó)
+    if (formData.claveTemporal && formData.claveTemporal.trim() !== '') {
+      if (formData.claveTemporal.length < 8) {
+        toast.error('Contraseña débil', 'La contraseña debe tener al menos 8 caracteres');
+        return;
+      }
+      if (!/[A-Z]/.test(formData.claveTemporal)) {
+        toast.error('Contraseña débil', 'La contraseña debe contener al menos una mayúscula');
+        return;
+      }
+      if (!/[a-z]/.test(formData.claveTemporal)) {
+        toast.error('Contraseña débil', 'La contraseña debe contener al menos una minúscula');
+        return;
+      }
+      if (!/[0-9]/.test(formData.claveTemporal)) {
+        toast.error('Contraseña débil', 'La contraseña debe contener al menos un número');
+        return;
+      }
+    }
+
+    // ✅ VALIDACIÓN DE LÓGICA DE PERMISOS
+    // Verificar que si tiene "Borrar", también tenga "Consultar"
+    Object.keys(permisoAdmin).forEach(modulo => {
+      if (permisoAdmin[modulo].B && !permisoAdmin[modulo].C) {
+        toast.error('Permisos inconsistentes', `En el módulo "${modulo}" no puede tener permiso de Borrar sin Consultar`);
+        return;
+      }
+      if (permisoAdmin[modulo].M && !permisoAdmin[modulo].C) {
+        toast.error('Permisos inconsistentes', `En el módulo "${modulo}" no puede tener permiso de Modificar sin Consultar`);
+        return;
+      }
+    });
+
+    Object.keys(permisoFin).forEach(modulo => {
+      if (permisoFin[modulo].B && !permisoFin[modulo].C) {
+        toast.error('Permisos inconsistentes', `En el módulo financiero "${modulo}" no puede tener permiso de Borrar sin Consultar`);
+        return;
+      }
+      if (permisoFin[modulo].M && !permisoFin[modulo].C) {
+        toast.error('Permisos inconsistentes', `En el módulo financiero "${modulo}" no puede tener permiso de Modificar sin Consultar`);
+        return;
+      }
+    });
+
+    // ✅ VALIDACIÓN DE FIRMAS
+    const firmasActuales = Object.keys(formData.firmas || {}).length;
+    if (firmasActuales === 0) {
+      toast.error('Firmas requeridas', 'Debe tener al menos 1 firma antes de enviar la solicitud');
+      return;
+    }
+
+    // Si tiene módulos financieros, debe tener firma del coordinador financiero
+    const tieneModulosFinancieros = Object.keys(permisoFin).some(modulo => 
+      Object.values(permisoFin[modulo]).some(v => v === true)
+    );
+
+    if (tieneModulosFinancieros && !formData.firmas?.coordinadorFacturacionOSubgerenteFinanciero) {
+      toast.error('Firma requerida', 'Las solicitudes con módulos financieros requieren firma del Coordinador Financiero');
+      return;
+    }
+
+    // ✅ VALIDACIÓN DE CONSISTENCIA DE TIPO DE PERMISO
+    if (formData.tipoPermiso.some(t => t.toLowerCase().includes('modificación') || t.toLowerCase().includes('modificacion'))) {
+      if (!descripcionPerfil || descripcionPerfil.trim().length < 20) {
+        toast.error('Descripción insuficiente', 'Para modificaciones, debe describir detalladamente qué se está modificando (mínimo 20 caracteres)');
+        return;
+      }
+    }
+
+    if (formData.tipoPermiso.some(t => t.toLowerCase().includes('anulación') || t.toLowerCase().includes('anulacion'))) {
+      if (!descripcionPerfil || descripcionPerfil.trim().length < 20) {
+        toast.error('Razón requerida', 'Para anulaciones, debe especificar la razón detalladamente (mínimo 20 caracteres)');
+        return;
+      }
+    }
+
+    // ✅ VALIDACIÓN DE FECHAS
+    if (formData.fechaSolicitud) {
+      const fechaSol = new Date(formData.fechaSolicitud);
+      const hoy = new Date();
+      if (fechaSol > hoy) {
+        toast.error('Fecha inválida', 'La fecha de solicitud no puede ser futura');
+        return;
+      }
+    }
+
+    // Validar fecha de creación de cuenta (si existe)
+    if (formData.fechaCreacion && formData.fechaSolicitud) {
+      const fechaCreacion = new Date(formData.fechaCreacion);
+      const fechaSolicitud = new Date(formData.fechaSolicitud);
+      if (fechaCreacion < fechaSolicitud) {
+        toast.error('Fecha inconsistente', 'La fecha de creación de cuenta no puede ser anterior a la fecha de solicitud');
+        return;
+      }
+    }
+
+    // ✅ VALIDACIÓN DE LONGITUD MÁXIMA (prevenir ataques)
+    if (formData.nombreCompleto.length > 100) {
+      toast.error('Texto muy largo', 'El nombre no debe exceder 100 caracteres');
+      return;
+    }
+    if (formData.cargo.length > 100) {
+      toast.error('Texto muy largo', 'El cargo no debe exceder 100 caracteres');
+      return;
+    }
+    if (formData.areaOServicio.length > 100) {
+      toast.error('Texto muy largo', 'El área/servicio no debe exceder 100 caracteres');
       return;
     }
 
@@ -513,6 +886,12 @@ export default function RegistroAdministrativo() {
         response = await solicitudesAdministrativas.create(payload);
         console.log('✅ Solicitud creada:', response.data);
         toast.success('Solicitud creada exitosamente', 'La solicitud ha sido guardada en la base de datos');
+        
+        // Actualizar timestamp de último envío exitoso
+        localStorage.setItem('ultimo_envio_admin', Date.now().toString());
+        // Resetear intentos fallidos
+        localStorage.removeItem('intentos_fallidos_admin');
+        localStorage.removeItem('tiempo_bloqueo_admin');
       }
       
       // Limpiar formulario guardado en localStorage
@@ -523,6 +902,17 @@ export default function RegistroAdministrativo() {
     } catch (error: any) {
       console.error('❌ Error al crear solicitud:', error);
       console.error('Detalles:', error.response?.data);
+      
+      // Incrementar contador de intentos fallidos
+      const intentos = parseInt(localStorage.getItem('intentos_fallidos_admin') || '0') + 1;
+      localStorage.setItem('intentos_fallidos_admin', intentos.toString());
+      
+      // Si llega a 5 intentos, bloquear por 15 minutos
+      if (intentos >= 5) {
+        const tiempoBloqueo = Date.now() + (15 * 60 * 1000); // 15 minutos
+        localStorage.setItem('tiempo_bloqueo_admin', tiempoBloqueo.toString());
+        toast.error('Cuenta bloqueada', 'Demasiados intentos fallidos. Bloqueado por 15 minutos');
+      }
       toast.error('Error al crear solicitud', error.response?.data?.message || error.message);
     } finally {
       setLoading(false);

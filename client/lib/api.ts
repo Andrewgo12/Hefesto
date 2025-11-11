@@ -44,6 +44,8 @@ export const solicitudesAdministrativas = {
     aprobar: (id: number, data?: any) => api.post(`/solicitudes/administrativas/${id}/aprobar`, data),
     rechazar: (id: number, data?: any) => api.post(`/solicitudes/administrativas/${id}/rechazar`, data),
     estadisticas: () => api.get('/solicitudes/administrativas/estadisticas'),
+    verificarCedula: (cedula: string) => api.get(`/solicitudes/administrativas/verificar-cedula/${cedula}`),
+    verificarLogin: (login: string) => api.get(`/solicitudes/administrativas/verificar-login/${login}`),
 };
 
 // ============================================
@@ -59,6 +61,9 @@ export const solicitudesHistoriaClinica = {
     aprobar: (id: number, data?: any) => api.post(`/solicitudes/historia-clinica/${id}/aprobar`, data),
     rechazar: (id: number, data?: any) => api.post(`/solicitudes/historia-clinica/${id}/rechazar`, data),
     estadisticas: () => api.get('/solicitudes/historia-clinica/estadisticas'),
+    verificarCedula: (cedula: string) => api.get(`/solicitudes/historia-clinica/verificar-cedula/${cedula}`),
+    verificarCorreo: (correo: string) => api.get(`/solicitudes/historia-clinica/verificar-correo/${correo}`),
+    verificarRegistro: (registro: string) => api.get(`/solicitudes/historia-clinica/verificar-registro/${registro}`),
 };
 
 // ============================================
