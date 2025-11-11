@@ -6,24 +6,53 @@ use Illuminate\Database\Eloquent\Model;
 
 class CredencialFirma extends Model
 {
-    protected $table = 'credenciales_firma';
+    protected $table = 'credenciales_firmas';
 
     protected $fillable = [
         'cargo',
-        'credencial',
-        'descripcion',
+        'nombre_completo',
+        'email',
+        'cedula',
+        'area_departamento',
         'activo',
-        'intentos_fallidos',
-        'ultimo_uso',
+        'descripcion',
+        'tipo_formulario',
+        'orden',
+        'firma_digital',
+        'firma_tipo',
+        'firma_actualizada_en',
     ];
 
     protected $casts = [
         'activo' => 'boolean',
-        'intentos_fallidos' => 'integer',
-        'ultimo_uso' => 'datetime',
+        'orden' => 'integer',
+        'firma_actualizada_en' => 'datetime',
     ];
 
-    protected $hidden = [
-        'credencial', // No exponer la credencial en JSON
-    ];
+    /**
+     * Scope para obtener solo credenciales activas
+     */
+    public function scopeActivas($query)
+    {
+        return $query->where('activo', true);
+    }
+
+    /**
+     * Scope para filtrar por tipo de formulario
+     */
+    public function scopePorTipo($query, $tipo)
+    {
+        return $query->where(function($q) use ($tipo) {
+            $q->where('tipo_formulario', $tipo)
+              ->orWhere('tipo_formulario', 'ambos');
+        });
+    }
+
+    /**
+     * Scope para ordenar por orden
+     */
+    public function scopeOrdenado($query)
+    {
+        return $query->orderBy('orden', 'asc')->orderBy('cargo', 'asc');
+    }
 }

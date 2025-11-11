@@ -791,12 +791,19 @@ class ExportacionController extends Controller
                     : $solicitud->firmas;
                 
                 if (is_array($firmas)) {
+                    \Log::info('Procesando firmas:', ['firmas' => $firmas]);
                     foreach ($firmas as $cargo => $firma) {
                         $cargoLower = strtolower($cargo);
                         $usuario = $firma['usuario'] ?? '';
                         $fecha = $firma['fecha'] ?? date('Y-m-d H:i:s');
                         $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
                         $firmaData = $firma['firma'] ?? '';
+                        
+                        \Log::info("Procesando firma de: {$cargo}", [
+                            'usuario' => $usuario,
+                            'firma_data' => substr($firmaData, 0, 100),
+                            'tipo' => strpos($firmaData, 'data:image') === 0 ? 'imagen' : (strpos($firmaData, 'FIRMA_TEXTO:') === 0 ? 'texto_firma' : 'texto_simple')
+                        ]);
                         
                         // Determinar celda según cargo
                         // Mapear celda usando función normalizada (soporta tildes, espacios, mayúsculas)
@@ -810,6 +817,8 @@ class ExportacionController extends Controller
                         } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI', 'vo bo gestion'])) {
                             $celda = 'O44';
                         }
+                        
+                        \Log::info("Celda asignada para {$cargo}: " . ($celda ?? 'NINGUNA'));
                         
                         if ($celda) {
                             // Insertar imagen si es base64

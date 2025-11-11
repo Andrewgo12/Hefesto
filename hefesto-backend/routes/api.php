@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\UsuarioController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ReporteController;
 use App\Http\Controllers\Api\PermisoController;
+use App\Http\Controllers\Api\CredencialFirmaController;
 
 // Ruta pública para pruebas
 Route::get('/ping', function () {
@@ -175,4 +176,16 @@ Route::middleware(['auth:sanctum'])->prefix('catalogos')->group(function () {
 Route::middleware(['auth:sanctum'])->prefix('notificaciones')->group(function () {
     Route::post('/', [NotificacionController::class, 'store']);
     Route::delete('/{id}', [NotificacionController::class, 'destroy']);
+});
+
+// Rutas de Credenciales de Firmas (con auth)
+Route::middleware(['auth:sanctum'])->prefix('credenciales-firmas')->group(function () {
+    Route::get('/', [CredencialFirmaController::class, 'index']);
+    Route::get('/tipo/{tipo}', [CredencialFirmaController::class, 'porTipo']);
+    Route::get('/{id}', [CredencialFirmaController::class, 'show']);
+    Route::post('/', [CredencialFirmaController::class, 'store']);
+    Route::put('/{id}', [CredencialFirmaController::class, 'update']);
+    Route::delete('/{id}', [CredencialFirmaController::class, 'destroy']);
+    Route::post('/{id}/toggle-activo', [CredencialFirmaController::class, 'toggleActivo']);
+    Route::post('/reordenar', [CredencialFirmaController::class, 'reordenar']);
 });
