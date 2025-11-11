@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import FirmaDigital from "@/components/FirmaDigital";
+import SimpleCaptcha from "@/components/SimpleCaptcha";
 import { Download, Send, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { solicitudesAdministrativas, catalogos } from "@/lib/api";
@@ -327,6 +328,7 @@ export default function RegistroAdministrativo() {
 
   // Selección especial para 'anexos': 1 / 2 / 3
   const [anexosNivel, setAnexosNivel] = useState<'1' | '2' | '3' | ''>('');
+  const [captchaVerificado, setCaptchaVerificado] = useState(false);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -389,10 +391,10 @@ export default function RegistroAdministrativo() {
 
     // 🚫 RATE LIMITING - Prevenir spam de solicitudes
     const ultimoEnvio = localStorage.getItem('ultimo_envio_admin');
-    const ahora = Date.now();
+    const ahoraTimestamp = Date.now();
     
     if (ultimoEnvio) {
-      const tiempoTranscurrido = ahora - parseInt(ultimoEnvio);
+      const tiempoTranscurrido = ahoraTimestamp - parseInt(ultimoEnvio);
       const TIEMPO_MINIMO = 30000; // 30 segundos entre envíos
       
       if (tiempoTranscurrido < TIEMPO_MINIMO) {
@@ -406,8 +408,8 @@ export default function RegistroAdministrativo() {
     const intentosFallidos = parseInt(localStorage.getItem('intentos_fallidos_admin') || '0');
     if (intentosFallidos >= 5) {
       const tiempoBloqueo = localStorage.getItem('tiempo_bloqueo_admin');
-      if (tiempoBloqueo && ahora < parseInt(tiempoBloqueo)) {
-        const minutosRestantes = Math.ceil((parseInt(tiempoBloqueo) - ahora) / 60000);
+      if (tiempoBloqueo && ahoraTimestamp < parseInt(tiempoBloqueo)) {
+        const minutosRestantes = Math.ceil((parseInt(tiempoBloqueo) - ahoraTimestamp) / 60000);
         toast.error('Cuenta bloqueada temporalmente', `Demasiados intentos fallidos. Intente nuevamente en ${minutosRestantes} minutos`);
         return;
       } else {
@@ -465,6 +467,8 @@ export default function RegistroAdministrativo() {
       return;
     }
 
+    // ⏰ Sistema disponible 24/7 - Sin restricciones de horario
+
     // ✅ VALIDACIÓN DE NOMBRE COMPLETO
     if (!formData.nombreCompleto || formData.nombreCompleto.trim() === '') {
       toast.error('Campo obligatorio', 'El campo "Nombre completo" es obligatorio');
@@ -478,6 +482,21 @@ export default function RegistroAdministrativo() {
       toast.error('Nombre inválido', 'El nombre solo debe contener letras y espacios');
       return;
     }
+    
+    // Validar que no contenga números
+    if (/\d/.test(formData.nombreCompleto)) {
+      toast.error('Nombre inválido', 'El nombre no puede contener números');
+      return;
+    }
+    
+    // Validar nombres genéricos o de prueba
+    const nombresProhibidos = ['test', 'prueba', 'admin', 'usuario', 'ejemplo', 'demo', 'temporal', 'xxx', 'aaa', 'bbb'];
+    const nombreLower = formData.nombreCompleto.toLowerCase();
+    if (nombresProhibidos.some(prohibido => nombreLower.includes(prohibido))) {
+      toast.error('Nombre no válido', 'No se permiten nombres genéricos o de prueba (test, prueba, admin, etc.)');
+      return;
+    }
+    
     const palabrasNombre = formData.nombreCompleto.trim().split(/\s+/);
     if (palabrasNombre.length < 2) {
       toast.error('Nombre incompleto', 'Debe ingresar al menos nombre y apellido');
@@ -810,6 +829,28 @@ export default function RegistroAdministrativo() {
     if (formData.areaOServicio.length > 100) {
       toast.error('Texto muy largo', 'El área/servicio no debe exceder 100 caracteres');
       return;
+    }
+
+    // 🤖 VALIDACIÓN DE CAPTCHA
+    if (!captchaVerificado) {
+      toast.error('Verificación requerida', 'Debe completar la verificación anti-bot');
+      return;
+    }
+
+    // 👔 VALIDACIÓN DE JERARQUÍA (simulada - en producción consultar BD)
+    // Verificar que el jefe inmediato sea un cargo superior
+    const cargosSuperiores = ['director', 'coordinador', 'jefe', 'gerente', 'subgerente', 'supervisor'];
+    const cargoSolicitante = formData.cargo?.toLowerCase() || '';
+    
+    // Si hay firma de jefe inmediato, validar que sea un cargo superior
+    if (formData.firmas?.jefeInmediato) {
+      const nombreJefe = formData.firmas.jefeInmediato.usuario?.toLowerCase() || '';
+      const esCargoSuperior = cargosSuperiores.some(cargo => nombreJefe.includes(cargo));
+      
+      if (!esCargoSuperior && !cargoSolicitante.includes('auxiliar') && !cargoSolicitante.includes('asistente')) {
+        toast.warning('Jerarquía inconsistente', 'La firma del jefe inmediato debe ser de un cargo superior');
+        // No bloqueamos, solo advertimos
+      }
     }
 
     if (!formData.aceptaResponsabilidad) {
