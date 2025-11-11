@@ -35,9 +35,7 @@ export default function Login() {
         localStorage.setItem('user_email', response.data.user.email);
         
         toast.success('Bienvenido', `Sesión iniciada como ${response.data.user.name}`);
-        
-        // Recargar la página para que el AppContext cargue los datos
-        window.location.href = '/';
+        navigate('/');
       }
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.message || 'Error al iniciar sesión';

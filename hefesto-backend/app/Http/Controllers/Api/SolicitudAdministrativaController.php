@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SolicitudAdministrativa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Schema;
 
 class SolicitudAdministrativaController extends Controller
 {
@@ -200,17 +201,32 @@ class SolicitudAdministrativaController extends Controller
             $solicitud = SolicitudAdministrativa::findOrFail($id);
             $usuario = auth()->user();
             
-            $solicitud->update([
+            // Solo actualizar campos que existen en la tabla
+            $updateData = [
                 'estado' => 'Aprobado',
-                'fase_actual' => 'Aprobado',
-                'login_asignado' => $request->login_asignado,
-                'fecha_aprobacion' => now(),
-                'usuario_aprobador_id' => $usuario?->id,
-                'observaciones_estado' => $request->comentario ?? 'Solicitud aprobada',
-            ]);
+            ];
+            
+            // Agregar campos opcionales solo si existen en la tabla
+            if (Schema::hasColumn('solicitudes_administrativas', 'fase_actual')) {
+                $updateData['fase_actual'] = 'Aprobado';
+            }
+            if (Schema::hasColumn('solicitudes_administrativas', 'login_asignado')) {
+                $updateData['login_asignado'] = $request->login_asignado;
+            }
+            if (Schema::hasColumn('solicitudes_administrativas', 'fecha_aprobacion')) {
+                $updateData['fecha_aprobacion'] = now();
+            }
+            if (Schema::hasColumn('solicitudes_administrativas', 'usuario_aprobador_id')) {
+                $updateData['usuario_aprobador_id'] = $usuario?->id;
+            }
+            if (Schema::hasColumn('solicitudes_administrativas', 'observaciones_estado')) {
+                $updateData['observaciones_estado'] = $request->comentario ?? 'Solicitud aprobada';
+            }
+            
+            $solicitud->update($updateData);
             
             // Registrar cambio de estado solo si existe la tabla
-            if (schema()->hasTable('historial_estados')) {
+            if (Schema::hasTable('historial_estados')) {
                 try {
                     $solicitud->historialEstados()->create([
                         'estado_anterior' => 'Pendiente',
@@ -261,16 +277,29 @@ class SolicitudAdministrativaController extends Controller
             
             $motivo = $request->motivo ?? $request->comentario ?? 'No especificado';
             
-            $solicitud->update([
+            // Solo actualizar campos que existen en la tabla
+            $updateData = [
                 'estado' => 'Rechazado',
-                'fase_actual' => 'Rechazado',
-                'fecha_rechazo' => now(),
-                'usuario_rechazador_id' => $usuario?->id,
-                'observaciones_estado' => $motivo,
-            ]);
+            ];
+            
+            // Agregar campos opcionales solo si existen en la tabla
+            if (Schema::hasColumn('solicitudes_administrativas', 'fase_actual')) {
+                $updateData['fase_actual'] = 'Rechazado';
+            }
+            if (Schema::hasColumn('solicitudes_administrativas', 'fecha_rechazo')) {
+                $updateData['fecha_rechazo'] = now();
+            }
+            if (Schema::hasColumn('solicitudes_administrativas', 'usuario_rechazador_id')) {
+                $updateData['usuario_rechazador_id'] = $usuario?->id;
+            }
+            if (Schema::hasColumn('solicitudes_administrativas', 'observaciones_estado')) {
+                $updateData['observaciones_estado'] = $motivo;
+            }
+            
+            $solicitud->update($updateData);
             
             // Registrar cambio de estado solo si existe la tabla
-            if (schema()->hasTable('historial_estados')) {
+            if (Schema::hasTable('historial_estados')) {
                 try {
                     $solicitud->historialEstados()->create([
                         'estado_anterior' => $solicitud->getOriginal('estado'),

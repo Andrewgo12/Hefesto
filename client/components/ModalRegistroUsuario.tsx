@@ -21,7 +21,8 @@ export default function ModalRegistroUsuario({ open, onClose, onSuccess }: Modal
     email: '',
     password: '',
     password_confirmation: '',
-    rol: 'Usuario'
+    rol: 'Usuario',
+    estado: 'activo'
   });
   const [errors, setErrors] = useState<any>({});
 
@@ -58,7 +59,8 @@ export default function ModalRegistroUsuario({ open, onClose, onSuccess }: Modal
           email: '',
           password: '',
           password_confirmation: '',
-          rol: 'Usuario'
+          rol: 'Usuario',
+          estado: 'activo'
         });
 
         // Llamar callback de éxito
@@ -216,6 +218,19 @@ export default function ModalRegistroUsuario({ open, onClose, onSuccess }: Modal
             )}
           </div>
 
+          {/* Estado */}
+          <div className="space-y-2">
+            <Label htmlFor="estado">Estado</Label>
+            <Select value={formData.estado} onValueChange={(value) => handleChange('estado', value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="activo">Activo</SelectItem>
+                <SelectItem value="inactivo">Inactivo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Botones */}
           <div className="flex gap-3 pt-4">

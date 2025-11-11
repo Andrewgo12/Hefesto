@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Eye, Search, Filter, Download, Printer } from "lucide-react";
+import { CheckCircle2, XCircle, Eye, Search, Filter, Download, Printer, FileText } from "lucide-react";
 import { useState } from "react";
 import { toast } from "@/lib/toast";
 import { useApp } from "@/contexts/AppContext";
@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
 import { AnimatedSection } from "@/components/AnimatedSection";
 import { fadeInUp, fadeInDown, staggerContainer, staggerItem } from "@/lib/animations";
+import PDFAdministrativo from "@/components/PDFAdministrativo";
+import PDFHistoriaClinica from "@/components/PDFHistoriaClinica";
 const USE_API = import.meta.env.VITE_USE_API === 'true';
 
 interface Solicitud {
@@ -40,6 +42,7 @@ export default function ControlAprobacion() {
   const [loginAsignado, setLoginAsignado] = useState('');
   const [procesando, setProcesando] = useState(false);
   const [showDetalles, setShowDetalles] = useState(false);
+  const [showPDF, setShowPDF] = useState(false);
   
   // Estados para paginación
   const [paginaActual, setPaginaActual] = useState(1);
@@ -255,7 +258,7 @@ export default function ControlAprobacion() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              {['Todas', 'Pendiente firma(s)', 'En proceso', 'En revisión', 'Aprobado'].map((estado, idx) => (
+              {['Todas', 'Pendiente', 'En revisión', 'Aprobado', 'Rechazado'].map((estado, idx) => (
                 <motion.div
                   key={estado}
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -387,10 +390,13 @@ export default function ControlAprobacion() {
                               size="sm"
                               variant="ghost"
                               className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-all duration-300"
-                              onClick={() => handleDescargar(sol)}
-                              title="Descargar Excel"
+                              onClick={() => {
+                                setSelectedSolicitud(sol);
+                                setShowPDF(true);
+                              }}
+                              title="Ver formato PDF"
                             >
-                              <Download className="w-4 h-4" />
+                              <FileText className="w-4 h-4" />
                             </Button>
                           </motion.div>
                           <motion.div
@@ -400,11 +406,11 @@ export default function ControlAprobacion() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="text-slate-600 hover:text-slate-700 hover:bg-slate-50 transition-all duration-300"
-                              onClick={() => handleImprimir(sol)}
-                              title="Imprimir"
+                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-300"
+                              onClick={() => handleDescargar(sol)}
+                              title="Descargar Excel"
                             >
-                              <Printer className="w-4 h-4" />
+                              <Download className="w-4 h-4" />
                             </Button>
                           </motion.div>
                           {(sol.estado === 'Pendiente' || sol.estado === 'En revisión') && (
@@ -788,6 +794,27 @@ export default function ControlAprobacion() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Vista PDF */}
+        {showPDF && selectedSolicitud && (
+          selectedSolicitud.tipo === 'Administrativo' ? (
+            <PDFAdministrativo 
+              solicitud={selectedSolicitud} 
+              onClose={() => {
+                setShowPDF(false);
+                setSelectedSolicitud(null);
+              }} 
+            />
+          ) : (
+            <PDFHistoriaClinica 
+              solicitud={selectedSolicitud} 
+              onClose={() => {
+                setShowPDF(false);
+                setSelectedSolicitud(null);
+              }} 
+            />
+          )
+        )}
     </div>
   );
 }
