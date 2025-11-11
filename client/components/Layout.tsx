@@ -3,7 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   HiUser as HiUserIcon, HiUserAdd as HiUserAddIcon, HiClipboardList as HiClipboardListIcon,
   HiShieldCheck as HiShieldCheckIcon, HiIdentification as HiIdentificationIcon,
-  HiAdjustments as HiAdjustmentsIcon, HiLockClosed as HiLockClosedIcon
+  HiAdjustments as HiAdjustmentsIcon, HiLockClosed as HiLockClosedIcon,
+  HiKey as HiKeyIcon
 } from 'react-icons/hi';
 import { Menu, X, ChevronRight } from "lucide-react";
 import {
@@ -52,6 +53,7 @@ const navigationItems: NavItem[] = [
     icon: Settings,
     submenu: [
       { label: "Movimientos del Sistema", href: "/configuracion/movimientos", icon: HiAdjustmentsIcon },
+      { label: "Credenciales de Firmas", href: "/configuracion/credenciales-firmas", icon: HiKeyIcon },
     ],
   },
   {

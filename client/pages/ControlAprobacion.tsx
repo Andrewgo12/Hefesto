@@ -2,10 +2,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Eye, Search, Filter, Download, Printer, FileText } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, XCircle, Eye, Search, Filter, Download, Printer, FileText, Edit } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "@/lib/toast";
 import { useApp } from "@/contexts/AppContext";
+import { useNavigate } from "react-router-dom";
+import ModalEditarSolicitud from "@/components/ModalEditarSolicitud";
+import ModalEditarHistoriaClinica from "@/components/ModalEditarHistoriaClinica";
 import { exportacion } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +35,7 @@ interface Solicitud {
 
 export default function ControlAprobacion() {
   const { solicitudes: todasSolicitudes, actualizarEstadoSolicitud } = useApp();
+  const navigate = useNavigate();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroEstado, setFiltroEstado] = useState("Todas");
@@ -43,10 +47,34 @@ export default function ControlAprobacion() {
   const [procesando, setProcesando] = useState(false);
   const [showDetalles, setShowDetalles] = useState(false);
   const [showPDF, setShowPDF] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [modalEditarOpen, setModalEditarOpen] = useState(false);
+  const [solicitudEditando, setSolicitudEditando] = useState<number | null>(null);
+  const [tipoSolicitudEditando, setTipoSolicitudEditando] = useState<'Administrativo' | 'Historia Clínica' | null>(null);
   
   // Estados para paginación
   const [paginaActual, setPaginaActual] = useState(1);
   const itemsPorPagina = 15;
+
+  // Verificar si el usuario es admin
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    setIsAdmin(user.rol === 'Administrador' || user.rol === 'admin');
+  }, []);
+
+  // Función para editar solicitud
+  const handleEditar = (solicitud: any) => {
+    const idReal = solicitud.id_original || solicitud.datos?.id || solicitud.id;
+    const tipo = solicitud.tipo;
+    setSolicitudEditando(idReal);
+    setTipoSolicitudEditando(tipo);
+    setModalEditarOpen(true);
+  };
+
+  const handleEditarSuccess = () => {
+    // Recargar solicitudes después de editar
+    window.location.reload();
+  };
 
   const handleAccion = async () => {
     if (!selectedSolicitud) {
@@ -413,7 +441,25 @@ export default function ControlAprobacion() {
                               <Download className="w-4 h-4" />
                             </Button>
                           </motion.div>
-                          {(sol.estado === 'Pendiente' || sol.estado === 'En revisión') && (
+                          
+                          {/* Botón EDITAR - Disponible para TODOS */}
+                          <motion.div
+                            whileHover={{ scale: 1.2 }}
+                            whileTap={{ scale: 0.9 }}
+                          >
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-all duration-300"
+                              onClick={() => handleEditar(sol)}
+                              title="Editar solicitud"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </motion.div>
+
+                          {/* Botones APROBAR/RECHAZAR - Solo para ADMIN */}
+                          {isAdmin && (sol.estado === 'Pendiente' || sol.estado === 'En revisión') && (
                             <>
                               <motion.div
                                 whileHover={{ scale: 1.2, rotate: 5 }}
@@ -428,7 +474,7 @@ export default function ControlAprobacion() {
                                     setAccion('aprobar');
                                     setShowModal(true);
                                   }}
-                                  title="Aprobar"
+                                  title="Aprobar (Solo Admin)"
                                 >
                                   <CheckCircle2 className="w-4 h-4" />
                                 </Button>
@@ -446,7 +492,7 @@ export default function ControlAprobacion() {
                                     setAccion('rechazar');
                                     setShowModal(true);
                                   }}
-                                  title="Rechazar"
+                                  title="Rechazar (Solo Admin)"
                                 >
                                   <XCircle className="w-4 h-4" />
                                 </Button>
@@ -815,6 +861,33 @@ export default function ControlAprobacion() {
             />
           )
         )}
+
+      {/* Modal de Edición */}
+      {solicitudEditando && tipoSolicitudEditando === 'Administrativo' && (
+        <ModalEditarSolicitud
+          open={modalEditarOpen}
+          onClose={() => {
+            setModalEditarOpen(false);
+            setSolicitudEditando(null);
+            setTipoSolicitudEditando(null);
+          }}
+          solicitudId={solicitudEditando}
+          onSuccess={handleEditarSuccess}
+        />
+      )}
+      
+      {solicitudEditando && tipoSolicitudEditando === 'Historia Clínica' && (
+        <ModalEditarHistoriaClinica
+          open={modalEditarOpen}
+          onClose={() => {
+            setModalEditarOpen(false);
+            setSolicitudEditando(null);
+            setTipoSolicitudEditando(null);
+          }}
+          solicitudId={solicitudEditando}
+          onSuccess={handleEditarSuccess}
+        />
+      )}
     </div>
   );
 }

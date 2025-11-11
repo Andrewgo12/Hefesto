@@ -7,7 +7,7 @@ import { Download, Send, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { solicitudesAdministrativas, catalogos } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import type { FormularioAdministrativo, ModulosServinteAdministrativo, ModulosServinteFinanciero, OpcionesWeb, FirmasAdministrativo } from "@shared/types/formularios";
 import { motion } from "framer-motion";
 import { AnimatedSection } from "@/components/AnimatedSection";
@@ -17,6 +17,8 @@ const STORAGE_KEY = 'hefesto_registro_administrativo';
 
 export default function RegistroAdministrativo() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const idEditar = searchParams.get('editar');
   
   // Cargar datos guardados de localStorage al iniciar
   const [formData, setFormData] = useState<Partial<FormularioAdministrativo>>(() => {
@@ -79,11 +81,124 @@ export default function RegistroAdministrativo() {
   const [areas, setAreas] = useState<any[]>([]);
   const [cargos, setCargos] = useState<any[]>([]);
   const [cargandoCatalogos, setCargandoCatalogos] = useState(true);
+  const [cargandoSolicitud, setCargandoSolicitud] = useState(false);
 
   // Cargar catálogos al iniciar
   useEffect(() => {
     cargarCatalogos();
   }, []);
+
+  // Cargar datos de la solicitud si estamos editando
+  useEffect(() => {
+    if (idEditar) {
+      cargarSolicitudParaEditar(idEditar);
+    }
+  }, [idEditar]);
+
+  const cargarSolicitudParaEditar = async (id: string) => {
+    try {
+      setCargandoSolicitud(true);
+      toast.info('Cargando solicitud...', 'Por favor espera');
+      const response = await solicitudesAdministrativas.getById(parseInt(id));
+      const solicitud = response.data;
+      
+      if (solicitud) {
+        console.log('📥 Datos recibidos de la API:', solicitud);
+        
+        // Parsear JSON strings si es necesario
+        const modulosAdmin = typeof solicitud.modulos_administrativos === 'string' 
+          ? JSON.parse(solicitud.modulos_administrativos) 
+          : solicitud.modulos_administrativos || {};
+        
+        const modulosFinan = typeof solicitud.modulos_financieros === 'string'
+          ? JSON.parse(solicitud.modulos_financieros)
+          : solicitud.modulos_financieros || {};
+        
+        const opcionesWeb = typeof solicitud.opciones_web === 'string'
+          ? JSON.parse(solicitud.opciones_web)
+          : solicitud.opciones_web || {};
+        
+        const firmas = typeof solicitud.firmas === 'string'
+          ? JSON.parse(solicitud.firmas)
+          : solicitud.firmas || {};
+        
+        console.log('📦 Módulos administrativos parseados:', modulosAdmin);
+        console.log('📦 Módulos financieros parseados:', modulosFinan);
+        
+        // Mapear los datos de la API al formato del formulario
+        const datosExistentes: Partial<FormularioAdministrativo> = {
+          codigoFormato: solicitud.codigo_formato || 'FOR-GDI-SIS-004',
+          version: solicitud.version || '1',
+          fechaEmision: solicitud.fecha_emision || '23/11/2020',
+          fechaSolicitud: solicitud.fecha_solicitud || new Date().toLocaleString('es-CO', { hour12: false }),
+          nombreCompleto: solicitud.nombre_completo || '',
+          cedula: solicitud.cedula || '',
+          cargo: solicitud.cargo || '',
+          areaOServicio: solicitud.area_servicio || '',
+          telefonoExtension: solicitud.telefono_extension || '',
+          tipoVinculacion: solicitud.tipo_vinculacion || 'Planta',
+          modulosAdministrativos: modulosAdmin,
+          modulosFinancieros: modulosFinan,
+          opcionesWeb: opcionesWeb,
+          firmas: firmas,
+          loginAsignado: solicitud.login_asignado || '',
+          claveTemporal: solicitud.clave_temporal || '',
+          aceptaResponsabilidad: solicitud.acepta_responsabilidad === 1 || solicitud.acepta_responsabilidad === true,
+        };
+        
+        console.log('✅ Datos mapeados para el formulario:', datosExistentes);
+        setFormData(datosExistentes);
+        
+        // Cargar permisos detallados (A, C, M, B) para módulos administrativos
+        const permisosAdminCargados: Record<string, Record<string, boolean>> = {};
+        Object.keys(modulosAdmin).forEach((modulo) => {
+          const permisos = modulosAdmin[modulo];
+          permisosAdminCargados[modulo] = {
+            A: permisos.A === 1 || permisos.A === '1' || permisos.adicionar === 1 || permisos.adicionar === '1',
+            C: permisos.C === 1 || permisos.C === '1' || permisos.consultar === 1 || permisos.consultar === '1',
+            M: permisos.M === 1 || permisos.M === '1' || permisos.modificar === 1 || permisos.modificar === '1',
+            B: permisos.B === 1 || permisos.B === '1' || permisos.borrar === 1 || permisos.borrar === '1',
+          };
+        });
+        console.log('✅ Permisos administrativos cargados:', permisosAdminCargados);
+        
+        // Verificar que los valores son booleanos
+        Object.keys(permisosAdminCargados).forEach(modulo => {
+          console.log(`  ${modulo}:`, permisosAdminCargados[modulo]);
+        });
+        
+        setPermisoAdmin(permisosAdminCargados);
+        
+        // Cargar permisos detallados (A, C, M, B) para módulos financieros
+        const permisosFinCargados: Record<string, Record<string, boolean>> = {};
+        Object.keys(modulosFinan).forEach((modulo) => {
+          const permisos = modulosFinan[modulo];
+          permisosFinCargados[modulo] = {
+            A: permisos.A === 1 || permisos.A === '1' || permisos.adicionar === 1 || permisos.adicionar === '1',
+            C: permisos.C === 1 || permisos.C === '1' || permisos.consultar === 1 || permisos.consultar === '1',
+            M: permisos.M === 1 || permisos.M === '1' || permisos.modificar === 1 || permisos.modificar === '1',
+            B: permisos.B === 1 || permisos.B === '1' || permisos.borrar === 1 || permisos.borrar === '1',
+          };
+        });
+        setPermisoFin(permisosFinCargados);
+        console.log('✅ Permisos financieros cargados:', permisosFinCargados);
+        
+        // Cargar nivel de anexos
+        if (solicitud.anexos_nivel) {
+          setAnexosNivel(solicitud.anexos_nivel as '1' | '2' | '3');
+          console.log('✅ Nivel de anexos cargado:', solicitud.anexos_nivel);
+        }
+        
+        toast.success('Solicitud cargada', 'Puedes continuar editando');
+      }
+    } catch (error: any) {
+      console.error('❌ Error al cargar solicitud:', error);
+      toast.error('Error', 'No se pudo cargar la solicitud para editar');
+      navigate('/control/aprobacion');
+    } finally {
+      setCargandoSolicitud(false);
+    }
+  };
 
   const cargarCatalogos = async () => {
     try {
@@ -113,8 +228,40 @@ export default function RegistroAdministrativo() {
 
   // Guardar en localStorage cada vez que cambie formData
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
-  }, [formData]);
+    if (!idEditar) {
+      // Solo guardar en localStorage si NO estamos editando
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+    }
+  }, [formData, idEditar]);
+
+  // Inicializar permisos cuando se carga formData (para edición)
+  useEffect(() => {
+    if (formData.modulosAdministrativos && Object.keys(formData.modulosAdministrativos).length > 0) {
+      const permisosInit: Record<string, Record<string, boolean>> = {};
+      Object.keys(formData.modulosAdministrativos).forEach((modulo) => {
+        if (!permisoAdmin[modulo]) {
+          permisosInit[modulo] = { A: false, C: false, M: false, B: false };
+        }
+      });
+      if (Object.keys(permisosInit).length > 0) {
+        setPermisoAdmin(prev => ({ ...prev, ...permisosInit }));
+      }
+    }
+  }, [formData.modulosAdministrativos]);
+
+  useEffect(() => {
+    if (formData.modulosFinancieros && Object.keys(formData.modulosFinancieros).length > 0) {
+      const permisosInit: Record<string, Record<string, boolean>> = {};
+      Object.keys(formData.modulosFinancieros).forEach((modulo) => {
+        if (!permisoFin[modulo]) {
+          permisosInit[modulo] = { A: false, C: false, M: false, B: false };
+        }
+      });
+      if (Object.keys(permisosInit).length > 0) {
+        setPermisoFin(prev => ({ ...prev, ...permisosInit }));
+      }
+    }
+  }, [formData.modulosFinancieros]);
 
   // Limpiar localStorage al enviar exitosamente
   const limpiarFormularioGuardado = () => {
@@ -232,6 +379,66 @@ export default function RegistroAdministrativo() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // ✅ VALIDACIÓN DE CAMPOS OBLIGATORIOS
+    const camposObligatorios = [
+      { campo: formData.nombreCompleto, nombre: 'Nombre completo' },
+      { campo: formData.cedula, nombre: 'Cédula' },
+      { campo: formData.cargo, nombre: 'Cargo' },
+      { campo: formData.areaOServicio, nombre: 'Área o servicio' },
+      { campo: formData.telefonoExtension, nombre: 'Teléfono/Extensión' },
+      { campo: formData.tipoVinculacion, nombre: 'Tipo de vinculación' },
+    ];
+
+    // Verificar campos básicos
+    for (const { campo, nombre } of camposObligatorios) {
+      if (!campo || campo.trim() === '') {
+        toast.error('Campo obligatorio', `El campo "${nombre}" es obligatorio`);
+        return;
+      }
+    }
+
+    // Verificar que al menos un módulo administrativo tenga permisos
+    const tieneModulosAdmin = Object.keys(permisoAdmin).some(modulo => 
+      Object.values(permisoAdmin[modulo]).some(v => v === true)
+    );
+
+    if (!tieneModulosAdmin) {
+      toast.error('Módulos requeridos', 'Debe seleccionar al menos un permiso en SERVINTE ADMINISTRATIVO');
+      return;
+    }
+
+    // Verificar que al menos un módulo financiero tenga permisos
+    const tieneModulosFin = Object.keys(permisoFin).some(modulo => 
+      Object.values(permisoFin[modulo]).some(v => v === true)
+    );
+
+    if (!tieneModulosFin) {
+      toast.error('Módulos requeridos', 'Debe seleccionar al menos un permiso en SERVINTE FINANCIERO');
+      return;
+    }
+
+    // Verificar opciones web
+    const tieneOpcionesWeb = formData.opcionesWeb?.internet || 
+                             formData.opcionesWeb?.correoElectronico || 
+                             formData.opcionesWeb?.transferenciaArchivos;
+
+    if (!tieneOpcionesWeb) {
+      toast.error('Opciones Web requeridas', 'Debe seleccionar al menos una opción web');
+      return;
+    }
+
+    // Verificar tipo de perfil
+    if (!formData.perfilDe || formData.perfilDe.trim() === '') {
+      toast.error('Perfil requerido', 'Debe especificar el tipo de perfil a crear');
+      return;
+    }
+
+    // Verificar descripción del perfil
+    if (!descripcionPerfil || descripcionPerfil.trim() === '') {
+      toast.error('Descripción requerida', 'Debe describir para qué es el perfil');
+      return;
+    }
+
     if (!formData.aceptaResponsabilidad) {
       toast.warning('Debe aceptar la responsabilidad', 'Por favor, marque la casilla de aceptación antes de continuar');
       return;
@@ -294,17 +501,25 @@ export default function RegistroAdministrativo() {
 
       console.log('📤 Enviando payload a BD:', payload);
       
-      // Enviar al backend
-      const response = await solicitudesAdministrativas.create(payload);
-      console.log('✅ Respuesta backend:', response.data);
-      
-      toast.success('Solicitud creada exitosamente', 'La solicitud ha sido guardada en la base de datos');
+      // Enviar al backend (CREATE o UPDATE según el caso)
+      let response;
+      if (idEditar) {
+        // Estamos editando, usar UPDATE
+        response = await solicitudesAdministrativas.update(parseInt(idEditar), payload);
+        console.log('✅ Solicitud actualizada:', response.data);
+        toast.success('Solicitud actualizada', 'Los cambios han sido guardados correctamente');
+      } else {
+        // Estamos creando, usar CREATE
+        response = await solicitudesAdministrativas.create(payload);
+        console.log('✅ Solicitud creada:', response.data);
+        toast.success('Solicitud creada exitosamente', 'La solicitud ha sido guardada en la base de datos');
+      }
       
       // Limpiar formulario guardado en localStorage
       limpiarFormularioGuardado();
       
-      // Recargar la página para obtener datos actualizados del backend
-      window.location.href = '/';
+      // Redirigir a control de aprobación
+      navigate('/control/aprobacion');
     } catch (error: any) {
       console.error('❌ Error al crear solicitud:', error);
       console.error('Detalles:', error.response?.data);
@@ -324,7 +539,7 @@ export default function RegistroAdministrativo() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              FORMATO CREACIÓN DE USUARIOS ADMINISTRATIVOS Y FINANCIEROS
+              {idEditar ? '✏️ EDITAR SOLICITUD - ' : ''}FORMATO CREACIÓN DE USUARIOS ADMINISTRATIVOS Y FINANCIEROS
             </motion.h1>
             <motion.p 
               className="text-[10px] sm:text-xs text-slate-600 mt-1"
@@ -489,7 +704,13 @@ export default function RegistroAdministrativo() {
                       {/* SERVINTE ADMINISTRATIVO */}
                       <div className="border-2 border-blue-200 rounded-xl p-3 bg-blue-50/30">
                         <h3 className="font-bold text-center text-blue-900 mb-3 text-sm">SERVINTE ADMINISTRATIVO</h3>
-                        <table className="w-full text-[11px]">
+                        {cargandoSolicitud ? (
+                          <div className="text-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                            <p className="text-sm text-slate-600 mt-2">Cargando permisos...</p>
+                          </div>
+                        ) : (
+                        <table key={JSON.stringify(permisoAdmin)} className="w-full text-[11px]">
                           <thead className="bg-blue-100">
                             <tr>
                               <th className="p-2 text-left text-xs">Módulo</th>
@@ -528,26 +749,40 @@ export default function RegistroAdministrativo() {
                                     </div>
                                   </td>
                                 ) : (
-                                  permisos.map((p) => (
+                                  permisos.map((p) => {
+                                    const isChecked = permisoAdmin[modulo]?.[p] === true;
+                                    if (idx === 0) console.log(`Checkbox ${modulo}.${p}: ${isChecked} (valor: ${permisoAdmin[modulo]?.[p]})`);
+                                    return (
                                     <td key={p} className="p-1 text-center">
                                       <Checkbox
-                                        checked={!!permisoAdmin[modulo]?.[p]}
-                                        onCheckedChange={(checked) => togglePermiso('admin', modulo, p, checked as boolean)}
+                                        checked={isChecked}
+                                        onCheckedChange={(checked) => {
+                                          console.log(`Toggle ${modulo}.${p} to ${checked}`);
+                                          togglePermiso('admin', modulo, p, checked as boolean);
+                                        }}
                                         className="rounded border-2 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 h-4 w-4"
                                       />
                                     </td>
-                                  ))
+                                    );
+                                  })
                                 )}
                               </motion.tr>
                             ))}
                           </tbody>
                         </table>
+                        )}
                       </div>
 
                       {/* SERVINTE FINANCIERO */}
                       <div className="border-2 border-green-200 rounded-xl p-3 bg-green-50/30">
                         <h3 className="font-bold text-center text-green-900 mb-3 text-sm">SERVINTE FINANCIERO</h3>
-                        <table className="w-full text-[11px]">
+                        {cargandoSolicitud ? (
+                          <div className="text-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+                            <p className="text-sm text-slate-600 mt-2">Cargando permisos...</p>
+                          </div>
+                        ) : (
+                        <table key={JSON.stringify(permisoFin)} className="w-full text-[11px]">
                           <thead className="bg-green-100">
                             <tr>
                               <th className="p-2 text-left text-xs">Módulo</th>
@@ -565,8 +800,11 @@ export default function RegistroAdministrativo() {
                                 {permisos.map((p) => (
                                   <td key={p} className="p-1 text-center">
                                     <Checkbox
-                                      checked={!!permisoFin[modulo]?.[p]}
-                                      onCheckedChange={(checked) => togglePermiso('fin', modulo, p, checked as boolean)}
+                                      checked={permisoFin[modulo]?.[p] === true}
+                                      onCheckedChange={(checked) => {
+                                        console.log(`Toggle FIN ${modulo}.${p} to ${checked}`);
+                                        togglePermiso('fin', modulo, p, checked as boolean);
+                                      }}
                                       className="rounded border-2 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 h-4 w-4"
                                     />
                                   </td>
@@ -575,6 +813,7 @@ export default function RegistroAdministrativo() {
                             ))}
                           </tbody>
                         </table>
+                        )}
                         
                         {/* Firma del Coordinador Financiero */}
                         <div className="mt-4 pt-3 border-t-2 border-green-200">

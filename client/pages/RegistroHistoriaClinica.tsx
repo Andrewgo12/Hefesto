@@ -160,6 +160,43 @@ export default function RegistroHistoriaClinica() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // ✅ VALIDACIÓN DE CAMPOS OBLIGATORIOS
+    const camposObligatorios = [
+      { campo: formData.nombreCompleto, nombre: 'Nombre completo' },
+      { campo: formData.cedula, nombre: 'Cédula' },
+      { campo: formData.celular, nombre: 'Celular' },
+      { campo: formData.correoElectronico, nombre: 'Correo electrónico' },
+      { campo: formData.registroCodigo, nombre: 'Registro/Código' },
+      { campo: formData.areaOServicio, nombre: 'Área o servicio' },
+      { campo: formData.especialidad, nombre: 'Especialidad' },
+    ];
+
+    // Verificar campos básicos
+    for (const { campo, nombre } of camposObligatorios) {
+      if (!campo || campo.trim() === '') {
+        toast.error('Campo obligatorio', `El campo "${nombre}" es obligatorio`);
+        return;
+      }
+    }
+
+    // Verificar perfil seleccionado
+    if (!formData.perfil) {
+      toast.error('Perfil requerido', 'Debe seleccionar un perfil');
+      return;
+    }
+
+    // Verificar tipo de autor (Interno/Externo)
+    if (!formData.tipoVinculacion) {
+      toast.error('Tipo de autor requerido', 'Debe seleccionar si es Interno o Externo');
+      return;
+    }
+
+    // Verificar aval institucional
+    if (!formData.avalInstitucional || (Array.isArray(formData.avalInstitucional) && formData.avalInstitucional.length === 0)) {
+      toast.error('Aval requerido', 'Debe ingresar el nombre de quien avala');
+      return;
+    }
+
     if (!formData.aceptaResponsabilidad) {
       toast.warning('Debe aceptar la responsabilidad', 'Por favor, marque la casilla de aceptación antes de continuar');
       return;

@@ -18,6 +18,7 @@ import Movimientos from "./pages/Movimientos";
 import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
 import Layout from "@/components/Layout";
+import GestionCredencialesFirmas from "./pages/GestionCredencialesFirmas";
 
 // Componente para proteger rutas
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -72,6 +73,7 @@ const App = () => (
               {/* Configuración routes */}
               <Route path="configuracion" element={<Navigate to="/configuracion/movimientos" replace />} />
               <Route path="configuracion/movimientos" element={<Movimientos />} />
+              <Route path="configuracion/credenciales-firmas" element={<GestionCredencialesFirmas />} />
               <Route path="configuracion/*" element={<Movimientos />} />
 
               {/* Perfil routes */}
