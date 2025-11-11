@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             CredencialesFirmaSeeder::class,
             CatalogosSeeder::class,
             FlujosAprobacionSeeder::class,
+            FirmasDigitalesTestSeeder::class,
         ]);
     }
 }

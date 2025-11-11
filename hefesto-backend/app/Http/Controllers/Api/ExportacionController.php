@@ -247,10 +247,15 @@ class ExportacionController extends Controller
                     if (isset($modulos[$modulo])) {
                         if (is_array($modulos[$modulo])) {
                             // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
-                            if (($modulos[$modulo]['A'] ?? false) || ($modulos[$modulo]['adicionar'] ?? false)) $sheet->setCellValue('D' . $fila, 'X');
-                            if (($modulos[$modulo]['C'] ?? false) || ($modulos[$modulo]['consultar'] ?? false)) $sheet->setCellValue('F' . $fila, 'X');
-                            if (($modulos[$modulo]['M'] ?? false) || ($modulos[$modulo]['modificar'] ?? false)) $sheet->setCellValue('H' . $fila, 'X');
-                            if (($modulos[$modulo]['B'] ?? false) || ($modulos[$modulo]['borrar'] ?? false)) $sheet->setCellValue('J' . $fila, 'X');
+                            $adicionar = $this->isTrue($modulos[$modulo]['A'] ?? $modulos[$modulo]['adicionar'] ?? false);
+                            $consultar = $this->isTrue($modulos[$modulo]['C'] ?? $modulos[$modulo]['consultar'] ?? false);
+                            $modificar = $this->isTrue($modulos[$modulo]['M'] ?? $modulos[$modulo]['modificar'] ?? false);
+                            $borrar = $this->isTrue($modulos[$modulo]['B'] ?? $modulos[$modulo]['borrar'] ?? false);
+                            
+                            if ($adicionar) $sheet->setCellValue('D' . $fila, 'X');
+                            if ($consultar) $sheet->setCellValue('F' . $fila, 'X');
+                            if ($modificar) $sheet->setCellValue('H' . $fila, 'X');
+                            if ($borrar) $sheet->setCellValue('J' . $fila, 'X');
                         } elseif ($modulos[$modulo]) {
                             $sheet->setCellValue('F' . $fila, 'X');
                         }
@@ -270,10 +275,15 @@ class ExportacionController extends Controller
                     if (isset($modulos[$modulo])) {
                         if (is_array($modulos[$modulo])) {
                             // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
-                            if (($modulos[$modulo]['A'] ?? false) || ($modulos[$modulo]['adicionar'] ?? false)) $sheet->setCellValue('Q' . $fila, 'X');
-                            if (($modulos[$modulo]['C'] ?? false) || ($modulos[$modulo]['consultar'] ?? false)) $sheet->setCellValue('R' . $fila, 'X');
-                            if (($modulos[$modulo]['M'] ?? false) || ($modulos[$modulo]['modificar'] ?? false)) $sheet->setCellValue('S' . $fila, 'X');
-                            if (($modulos[$modulo]['B'] ?? false) || ($modulos[$modulo]['borrar'] ?? false)) $sheet->setCellValue('U' . $fila, 'X');
+                            $adicionar = $this->isTrue($modulos[$modulo]['A'] ?? $modulos[$modulo]['adicionar'] ?? false);
+                            $consultar = $this->isTrue($modulos[$modulo]['C'] ?? $modulos[$modulo]['consultar'] ?? false);
+                            $modificar = $this->isTrue($modulos[$modulo]['M'] ?? $modulos[$modulo]['modificar'] ?? false);
+                            $borrar = $this->isTrue($modulos[$modulo]['B'] ?? $modulos[$modulo]['borrar'] ?? false);
+                            
+                            if ($adicionar) $sheet->setCellValue('Q' . $fila, 'X');
+                            if ($consultar) $sheet->setCellValue('R' . $fila, 'X');
+                            if ($modificar) $sheet->setCellValue('S' . $fila, 'X');
+                            if ($borrar) $sheet->setCellValue('U' . $fila, 'X');
                         } elseif ($modulos[$modulo]) {
                             $sheet->setCellValue('R' . $fila, 'X');
                         }
@@ -310,12 +320,12 @@ class ExportacionController extends Controller
                     $celda = null;
                     if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
                         $celda = 'F40';
-                    } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo'])) {
-                        $celda = 'A45';
-                    } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento'])) {
-                        $celda = 'G45';
-                    } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI'])) {
-                        $celda = 'O45';
+                    } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo', 'avalado', 'avalado por', 'vo bo jefe inmediato'])) {
+                        $celda = 'A44';
+                    } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento', 'vo bo talento humano'])) {
+                        $celda = 'G44';
+                    } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI', 'vo bo gestion'])) {
+                        $celda = 'O44';
                     }
                     
                     if ($celda) {
@@ -520,9 +530,9 @@ class ExportacionController extends Controller
                         if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
                             $celda = 'A29';
                         } elseif ($this->cargoCoincide($cargo, ['capacitador historia', 'capacitador HC', 'capacitador clínica', 'capacitador clinica'])) {
-                            $celda = 'I24';
+                            $celda = 'J22';
                         } elseif ($this->cargoCoincide($cargo, ['capacitador epidemiología', 'capacitador epidemiologia', 'capacitador epi'])) {
-                            $celda = 'I28';
+                            $celda = 'J26';
                         } elseif ($this->cargoCoincide($cargo, ['aval', 'aval institucional', 'avalado'])) {
                             $celda = 'M17';
                         }
@@ -679,10 +689,15 @@ class ExportacionController extends Controller
                         if (isset($modulos[$modulo])) {
                             if (is_array($modulos[$modulo])) {
                                 // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
-                                if (($modulos[$modulo]['A'] ?? false) || ($modulos[$modulo]['adicionar'] ?? false)) $sheet->setCellValue('D' . $fila, 'X');
-                                if (($modulos[$modulo]['C'] ?? false) || ($modulos[$modulo]['consultar'] ?? false)) $sheet->setCellValue('F' . $fila, 'X');
-                                if (($modulos[$modulo]['M'] ?? false) || ($modulos[$modulo]['modificar'] ?? false)) $sheet->setCellValue('H' . $fila, 'X');
-                                if (($modulos[$modulo]['B'] ?? false) || ($modulos[$modulo]['borrar'] ?? false)) $sheet->setCellValue('J' . $fila, 'X');
+                                $adicionar = $this->isTrue($modulos[$modulo]['A'] ?? $modulos[$modulo]['adicionar'] ?? false);
+                                $consultar = $this->isTrue($modulos[$modulo]['C'] ?? $modulos[$modulo]['consultar'] ?? false);
+                                $modificar = $this->isTrue($modulos[$modulo]['M'] ?? $modulos[$modulo]['modificar'] ?? false);
+                                $borrar = $this->isTrue($modulos[$modulo]['B'] ?? $modulos[$modulo]['borrar'] ?? false);
+                                
+                                if ($adicionar) $sheet->setCellValue('D' . $fila, 'X');
+                                if ($consultar) $sheet->setCellValue('F' . $fila, 'X');
+                                if ($modificar) $sheet->setCellValue('H' . $fila, 'X');
+                                if ($borrar) $sheet->setCellValue('J' . $fila, 'X');
                             } elseif ($modulos[$modulo]) {
                                 // Formato simple: marcar solo Consultar
                                 $sheet->setCellValue('F' . $fila, 'X');
@@ -712,10 +727,15 @@ class ExportacionController extends Controller
                         if (isset($modulos[$modulo])) {
                             if (is_array($modulos[$modulo])) {
                                 // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
-                                if (($modulos[$modulo]['A'] ?? false) || ($modulos[$modulo]['adicionar'] ?? false)) $sheet->setCellValue('Q' . $fila, 'X');
-                                if (($modulos[$modulo]['C'] ?? false) || ($modulos[$modulo]['consultar'] ?? false)) $sheet->setCellValue('R' . $fila, 'X');
-                                if (($modulos[$modulo]['M'] ?? false) || ($modulos[$modulo]['modificar'] ?? false)) $sheet->setCellValue('S' . $fila, 'X');
-                                if (($modulos[$modulo]['B'] ?? false) || ($modulos[$modulo]['borrar'] ?? false)) $sheet->setCellValue('U' . $fila, 'X');
+                                $adicionar = $this->isTrue($modulos[$modulo]['A'] ?? $modulos[$modulo]['adicionar'] ?? false);
+                                $consultar = $this->isTrue($modulos[$modulo]['C'] ?? $modulos[$modulo]['consultar'] ?? false);
+                                $modificar = $this->isTrue($modulos[$modulo]['M'] ?? $modulos[$modulo]['modificar'] ?? false);
+                                $borrar = $this->isTrue($modulos[$modulo]['B'] ?? $modulos[$modulo]['borrar'] ?? false);
+                                
+                                if ($adicionar) $sheet->setCellValue('Q' . $fila, 'X');
+                                if ($consultar) $sheet->setCellValue('R' . $fila, 'X');
+                                if ($modificar) $sheet->setCellValue('S' . $fila, 'X');
+                                if ($borrar) $sheet->setCellValue('U' . $fila, 'X');
                             } elseif ($modulos[$modulo]) {
                                 // Formato simple: marcar solo Consultar
                                 $sheet->setCellValue('R' . $fila, 'X');
@@ -783,12 +803,12 @@ class ExportacionController extends Controller
                         $celda = null;
                         if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
                             $celda = 'F40';
-                        } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo'])) {
-                            $celda = 'A45';
-                        } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento'])) {
-                            $celda = 'G45';
-                        } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI'])) {
-                            $celda = 'O45';
+                        } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo', 'avalado', 'avalado por', 'vo bo jefe inmediato'])) {
+                            $celda = 'A44';
+                        } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento', 'vo bo talento humano'])) {
+                            $celda = 'G44';
+                        } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI', 'vo bo gestion'])) {
+                            $celda = 'O44';
                         }
                         
                         if ($celda) {
@@ -1053,9 +1073,9 @@ class ExportacionController extends Controller
                         if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
                             $celda = 'A29';
                         } elseif ($this->cargoCoincide($cargo, ['capacitador historia', 'capacitador HC', 'capacitador clínica', 'capacitador clinica'])) {
-                            $celda = 'I24';
+                            $celda = 'J22';
                         } elseif ($this->cargoCoincide($cargo, ['capacitador epidemiología', 'capacitador epidemiologia', 'capacitador epi'])) {
-                            $celda = 'I28';
+                            $celda = 'J26';
                         } elseif ($this->cargoCoincide($cargo, ['aval', 'aval institucional', 'avalado'])) {
                             $celda = 'M17';
                         }
