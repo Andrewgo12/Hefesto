@@ -568,44 +568,18 @@ export default function RegistroAdministrativo() {
       return;
     }
 
-    // ✅ VALIDACIÓN DE MÓDULOS ADMINISTRATIVOS
+    // ✅ VALIDACIÓN DE MÓDULOS (OPCIONAL - Solo advertencia)
     const tieneModulosAdmin = Object.keys(permisoAdmin).some(modulo => 
       Object.values(permisoAdmin[modulo]).some(v => v === true)
     );
 
-    if (!tieneModulosAdmin) {
-      toast.error('Módulos requeridos', 'Debe seleccionar al menos un permiso en SERVINTE ADMINISTRATIVO');
-      return;
-    }
-
-    // Verificar que cada módulo seleccionado tenga al menos un permiso válido
-    const modulosConPermisos = Object.keys(permisoAdmin).filter(modulo => 
-      Object.values(permisoAdmin[modulo]).some(v => v === true)
-    );
-
-    if (modulosConPermisos.length === 0) {
-      toast.error('Permisos incompletos', 'Debe asignar al menos un permiso (A, C, M, B) a los módulos administrativos');
-      return;
-    }
-
-    // ✅ VALIDACIÓN DE MÓDULOS FINANCIEROS
     const tieneModulosFin = Object.keys(permisoFin).some(modulo => 
       Object.values(permisoFin[modulo]).some(v => v === true)
     );
 
-    if (!tieneModulosFin) {
-      toast.error('Módulos requeridos', 'Debe seleccionar al menos un permiso en SERVINTE FINANCIERO');
-      return;
-    }
-
-    // Verificar que cada módulo financiero tenga al menos un permiso válido
-    const modulosFinConPermisos = Object.keys(permisoFin).filter(modulo => 
-      Object.values(permisoFin[modulo]).some(v => v === true)
-    );
-
-    if (modulosFinConPermisos.length === 0) {
-      toast.error('Permisos incompletos', 'Debe asignar al menos un permiso (A, C, M, B) a los módulos financieros');
-      return;
+    // Solo advertir si no hay permisos, pero permitir continuar
+    if (!tieneModulosAdmin && !tieneModulosFin) {
+      toast.warning('Sin permisos asignados', 'Puede agregar permisos más tarde en el proceso de aprobación');
     }
 
     // ✅ VALIDACIÓN DE ANEXOS (si se seleccionó el módulo)
@@ -616,14 +590,13 @@ export default function RegistroAdministrativo() {
       }
     }
 
-    // ✅ VALIDACIÓN DE OPCIONES WEB
+    // ✅ VALIDACIÓN DE OPCIONES WEB (OPCIONAL - Solo advertencia)
     const tieneOpcionesWeb = formData.opcionesWeb?.internet || 
                              formData.opcionesWeb?.correoElectronico || 
                              formData.opcionesWeb?.transferenciaArchivos;
 
     if (!tieneOpcionesWeb) {
-      toast.error('Opciones Web requeridas', 'Debe seleccionar al menos una opción web');
-      return;
+      toast.warning('Sin opciones web', 'Puede configurar opciones web más tarde');
     }
 
     // Validar campo "Otros" si tiene contenido
@@ -638,53 +611,48 @@ export default function RegistroAdministrativo() {
       }
     }
 
-    // ✅ VALIDACIÓN DE TIPO DE PERMISO
-    if (!formData.tipoPermiso || formData.tipoPermiso.length === 0) {
-      toast.error('Tipo de permiso requerido', 'Debe seleccionar al menos un tipo de permiso (Temporal, Permanente, etc.)');
-      return;
+    // ✅ VALIDACIÓN DE TIPO DE PERMISO (OPCIONAL)
+    if (formData.tipoPermiso && formData.tipoPermiso.length > 0) {
+      // Validar que no se seleccionen tipos contradictorios
+      const tieneTemp = formData.tipoPermiso.some(t => t.toLowerCase().includes('temporal'));
+      const tienePerm = formData.tipoPermiso.some(t => t.toLowerCase().includes('permanente'));
+      const tieneAnul = formData.tipoPermiso.some(t => t.toLowerCase().includes('anulación') || t.toLowerCase().includes('anulacion'));
+
+      if (tieneTemp && tienePerm) {
+        toast.error('Tipos incompatibles', 'No puede seleccionar "Temporal" y "Permanente" al mismo tiempo');
+        return;
+      }
+
+      if (tieneAnul && formData.tipoPermiso.length > 1) {
+        toast.error('Tipo incompatible', 'Si selecciona "Anulación", no puede seleccionar otros tipos');
+        return;
+      }
+    } else {
+      toast.warning('Sin tipo de permiso', 'Puede especificar el tipo de permiso más tarde');
     }
 
-    // Validar que no se seleccionen tipos contradictorios
-    const tieneTemp = formData.tipoPermiso.some(t => t.toLowerCase().includes('temporal'));
-    const tienePerm = formData.tipoPermiso.some(t => t.toLowerCase().includes('permanente'));
-    const tieneAnul = formData.tipoPermiso.some(t => t.toLowerCase().includes('anulación') || t.toLowerCase().includes('anulacion'));
-
-    if (tieneTemp && tienePerm) {
-      toast.error('Tipos incompatibles', 'No puede seleccionar "Temporal" y "Permanente" al mismo tiempo');
-      return;
+    // ✅ VALIDACIÓN DE TIPO DE PERFIL (OPCIONAL)
+    if (formData.perfilDe && formData.perfilDe.trim() !== '') {
+      if (formData.perfilDe.trim().length < 5) {
+        toast.error('Perfil inválido', 'El tipo de perfil debe tener al menos 5 caracteres');
+        return;
+      }
+      if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\-]+$/.test(formData.perfilDe)) {
+        toast.error('Perfil inválido', 'El perfil solo debe contener letras, números, espacios y guiones');
+        return;
+      }
     }
 
-    if (tieneAnul && formData.tipoPermiso.length > 1) {
-      toast.error('Tipo incompatible', 'Si selecciona "Anulación", no puede seleccionar otros tipos');
-      return;
-    }
-
-    // ✅ VALIDACIÓN DE TIPO DE PERFIL
-    if (!formData.perfilDe || formData.perfilDe.trim() === '') {
-      toast.error('Perfil requerido', 'Debe especificar el tipo de perfil a crear');
-      return;
-    }
-    if (formData.perfilDe.trim().length < 5) {
-      toast.error('Perfil inválido', 'El tipo de perfil debe tener al menos 5 caracteres');
-      return;
-    }
-    if (!/^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s\-]+$/.test(formData.perfilDe)) {
-      toast.error('Perfil inválido', 'El perfil solo debe contener letras, números, espacios y guiones');
-      return;
-    }
-
-    // ✅ VALIDACIÓN DE DESCRIPCIÓN DEL PERFIL
-    if (!descripcionPerfil || descripcionPerfil.trim() === '') {
-      toast.error('Descripción requerida', 'Debe describir para qué es el perfil');
-      return;
-    }
-    if (descripcionPerfil.trim().length < 10) {
-      toast.error('Descripción muy corta', 'La descripción debe tener al menos 10 caracteres');
-      return;
-    }
-    if (descripcionPerfil.trim().length > 200) {
-      toast.error('Descripción muy larga', 'La descripción no debe exceder 200 caracteres');
-      return;
+    // ✅ VALIDACIÓN DE DESCRIPCIÓN DEL PERFIL (OPCIONAL)
+    if (descripcionPerfil && descripcionPerfil.trim() !== '') {
+      if (descripcionPerfil.trim().length < 10) {
+        toast.error('Descripción muy corta', 'La descripción debe tener al menos 10 caracteres');
+        return;
+      }
+      if (descripcionPerfil.trim().length > 200) {
+        toast.error('Descripción muy larga', 'La descripción no debe exceder 200 caracteres');
+        return;
+      }
     }
 
     // ✅ VALIDACIÓN DE CREDENCIALES (si se proporcionaron)
@@ -765,57 +733,8 @@ export default function RegistroAdministrativo() {
       }
     });
 
-    // ✅ VALIDACIÓN DE FIRMAS
-    const firmasActuales = Object.keys(formData.firmas || {}).length;
-    if (firmasActuales === 0) {
-      toast.error('Firmas requeridas', 'Debe tener al menos 1 firma antes de enviar la solicitud');
-      return;
-    }
-
-    // Si tiene módulos financieros, debe tener firma del coordinador financiero
-    const tieneModulosFinancieros = Object.keys(permisoFin).some(modulo => 
-      Object.values(permisoFin[modulo]).some(v => v === true)
-    );
-
-    if (tieneModulosFinancieros && !formData.firmas?.coordinadorFacturacionOSubgerenteFinanciero) {
-      toast.error('Firma requerida', 'Las solicitudes con módulos financieros requieren firma del Coordinador Financiero');
-      return;
-    }
-
-    // ✅ VALIDACIÓN DE CONSISTENCIA DE TIPO DE PERMISO
-    if (formData.tipoPermiso.some(t => t.toLowerCase().includes('modificación') || t.toLowerCase().includes('modificacion'))) {
-      if (!descripcionPerfil || descripcionPerfil.trim().length < 20) {
-        toast.error('Descripción insuficiente', 'Para modificaciones, debe describir detalladamente qué se está modificando (mínimo 20 caracteres)');
-        return;
-      }
-    }
-
-    if (formData.tipoPermiso.some(t => t.toLowerCase().includes('anulación') || t.toLowerCase().includes('anulacion'))) {
-      if (!descripcionPerfil || descripcionPerfil.trim().length < 20) {
-        toast.error('Razón requerida', 'Para anulaciones, debe especificar la razón detalladamente (mínimo 20 caracteres)');
-        return;
-      }
-    }
-
-    // ✅ VALIDACIÓN DE FECHAS
-    if (formData.fechaSolicitud) {
-      const fechaSol = new Date(formData.fechaSolicitud);
-      const hoy = new Date();
-      if (fechaSol > hoy) {
-        toast.error('Fecha inválida', 'La fecha de solicitud no puede ser futura');
-        return;
-      }
-    }
-
-    // Validar fecha de creación de cuenta (si existe)
-    if (formData.fechaCreacion && formData.fechaSolicitud) {
-      const fechaCreacion = new Date(formData.fechaCreacion);
-      const fechaSolicitud = new Date(formData.fechaSolicitud);
-      if (fechaCreacion < fechaSolicitud) {
-        toast.error('Fecha inconsistente', 'La fecha de creación de cuenta no puede ser anterior a la fecha de solicitud');
-        return;
-      }
-    }
+    // ✅ FIRMAS, PERMISOS Y FECHAS SON OPCIONALES
+    // Se pueden completar después en el proceso de aprobación
 
     // ✅ VALIDACIÓN DE LONGITUD MÁXIMA (prevenir ataques)
     if (formData.nombreCompleto.length > 100) {
@@ -831,28 +750,9 @@ export default function RegistroAdministrativo() {
       return;
     }
 
-    // 🤖 VALIDACIÓN DE CAPTCHA
-    if (!captchaVerificado) {
-      toast.error('Verificación requerida', 'Debe completar la verificación anti-bot');
-      return;
-    }
-
-    // 👔 VALIDACIÓN DE JERARQUÍA (simulada - en producción consultar BD)
-    // Verificar que el jefe inmediato sea un cargo superior
-    const cargosSuperiores = ['director', 'coordinador', 'jefe', 'gerente', 'subgerente', 'supervisor'];
-    const cargoSolicitante = formData.cargo?.toLowerCase() || '';
+    // 🤖 CAPTCHA Y JERARQUÍA SON OPCIONALES
+    // Solo se valida la aceptación de responsabilidad
     
-    // Si hay firma de jefe inmediato, validar que sea un cargo superior
-    if (formData.firmas?.jefeInmediato) {
-      const nombreJefe = formData.firmas.jefeInmediato.usuario?.toLowerCase() || '';
-      const esCargoSuperior = cargosSuperiores.some(cargo => nombreJefe.includes(cargo));
-      
-      if (!esCargoSuperior && !cargoSolicitante.includes('auxiliar') && !cargoSolicitante.includes('asistente')) {
-        toast.warning('Jerarquía inconsistente', 'La firma del jefe inmediato debe ser de un cargo superior');
-        // No bloqueamos, solo advertimos
-      }
-    }
-
     if (!formData.aceptaResponsabilidad) {
       toast.warning('Debe aceptar la responsabilidad', 'Por favor, marque la casilla de aceptación antes de continuar');
       return;
@@ -1151,7 +1051,9 @@ export default function RegistroAdministrativo() {
                             </tr>
                           </thead>
                           <tbody>
-                            {Object.keys(formData.modulosAdministrativos || {}).map((modulo, idx) => (
+                            {Object.keys(formData.modulosAdministrativos || {}).map((modulo, idx) => {
+                              console.log(`📋 Renderizando módulo admin: ${modulo}`, permisoAdmin[modulo]);
+                              return (
                               <motion.tr 
                                 key={modulo} 
                                 className="border-b border-slate-100 hover:bg-blue-50/50 transition-colors"
@@ -1198,7 +1100,8 @@ export default function RegistroAdministrativo() {
                                   })
                                 )}
                               </motion.tr>
-                            ))}
+                              );
+                            })}
                           </tbody>
                         </table>
                         )}
