@@ -62,7 +62,7 @@ export default function Control() {
   const pendingApprovals: PendingRequest[] = solicitudes
     .filter(sol => sol.estado === 'Pendiente')
     .map(sol => ({
-      id: sol.id,
+      id: typeof sol.id === 'string' ? parseInt(sol.id.split('-')[1]) : sol.id,
       name: sol.nombreCompleto,
       type: sol.tipo === 'Administrativo' ? 'Administrativo' : 'Médico',
       department: sol.cargo || sol.especialidad || 'N/A',
@@ -260,8 +260,8 @@ export default function Control() {
                         key={req.id}
                         onClick={() => setSelectedRequest(req)}
                         className={`w-full text-left p-2 sm:p-3 rounded border transition-colors text-xs sm:text-sm ${selectedRequest?.id === req.id
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-slate-200 hover:bg-slate-50"
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-slate-200 hover:bg-slate-50"
                           }`}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -470,8 +470,8 @@ export default function Control() {
                       <td className="py-3 px-3">
                         <motion.span
                           className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${user.status === "Activo"
-                              ? "bg-green-50 text-green-800 border border-green-200"
-                              : "bg-slate-100 text-slate-800 border border-slate-200"
+                            ? "bg-green-50 text-green-800 border border-green-200"
+                            : "bg-slate-100 text-slate-800 border border-slate-200"
                             }`}
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
@@ -739,8 +739,8 @@ export default function Control() {
                   <div className="bg-white rounded-lg p-3 shadow-sm">
                     <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Estado</Label>
                     <span className={`inline-flex items-center mt-1 px-3 py-1.5 rounded-full text-sm font-semibold ${selectedUserDetail.status === "Activo"
-                        ? "bg-green-100 text-green-800 border border-green-300"
-                        : "bg-slate-100 text-slate-800 border border-slate-300"
+                      ? "bg-green-100 text-green-800 border border-green-300"
+                      : "bg-slate-100 text-slate-800 border border-slate-300"
                       }`}>
                       <span className={`w-2 h-2 rounded-full mr-2 ${selectedUserDetail.status === "Activo" ? "bg-green-500" : "bg-slate-500"
                         }`}></span>
