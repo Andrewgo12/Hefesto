@@ -251,4 +251,46 @@ class SolicitudHistoriaClinicaController extends Controller
         
         return response()->json($stats);
     }
+
+    /**
+     * Verificar si una cédula ya existe en el sistema
+     */
+    public function verificarCedula($cedula)
+    {
+        $existe = SolicitudHistoriaClinica::where('cedula', $cedula)->exists();
+        
+        return response()->json([
+            'existe' => $existe,
+            'cedula' => $cedula,
+            'mensaje' => $existe ? 'La cédula ya está registrada' : 'Cédula disponible'
+        ]);
+    }
+
+    /**
+     * Verificar si un correo ya existe en el sistema
+     */
+    public function verificarCorreo($correo)
+    {
+        $existe = SolicitudHistoriaClinica::where('correo_electronico', $correo)->exists();
+        
+        return response()->json([
+            'existe' => $existe,
+            'correo' => $correo,
+            'mensaje' => $existe ? 'El correo ya está registrado' : 'Correo disponible'
+        ]);
+    }
+
+    /**
+     * Verificar si un registro/código ya existe en el sistema
+     */
+    public function verificarRegistro($registro)
+    {
+        $existe = SolicitudHistoriaClinica::where('registro_codigo', $registro)->exists();
+        
+        return response()->json([
+            'existe' => $existe,
+            'registro' => $registro,
+            'mensaje' => $existe ? 'El registro ya está en uso' : 'Registro disponible'
+        ]);
+    }
 }

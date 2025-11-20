@@ -41,6 +41,8 @@ Route::middleware(['auth:sanctum'])->prefix('solicitudes')->group(function () {
         Route::get('/', [SolicitudAdministrativaController::class, 'index']);
         Route::post('/', [SolicitudAdministrativaController::class, 'store']);
         Route::get('/estadisticas', [SolicitudAdministrativaController::class, 'estadisticas']);
+        Route::get('/verificar-cedula/{cedula}', [SolicitudAdministrativaController::class, 'verificarCedula']);
+        Route::get('/verificar-login/{login}', [SolicitudAdministrativaController::class, 'verificarLogin']);
         Route::get('/{id}', [SolicitudAdministrativaController::class, 'show']);
         Route::put('/{id}', [SolicitudAdministrativaController::class, 'update']);
         Route::delete('/{id}', [SolicitudAdministrativaController::class, 'destroy']);
@@ -53,6 +55,9 @@ Route::middleware(['auth:sanctum'])->prefix('solicitudes')->group(function () {
         Route::get('/', [SolicitudHistoriaClinicaController::class, 'index']);
         Route::post('/', [SolicitudHistoriaClinicaController::class, 'store']);
         Route::get('/estadisticas', [SolicitudHistoriaClinicaController::class, 'estadisticas']);
+        Route::get('/verificar-cedula/{cedula}', [SolicitudHistoriaClinicaController::class, 'verificarCedula']);
+        Route::get('/verificar-correo/{correo}', [SolicitudHistoriaClinicaController::class, 'verificarCorreo']);
+        Route::get('/verificar-registro/{registro}', [SolicitudHistoriaClinicaController::class, 'verificarRegistro']);
         Route::get('/{id}', [SolicitudHistoriaClinicaController::class, 'show']);
         Route::put('/{id}', [SolicitudHistoriaClinicaController::class, 'update']);
         Route::delete('/{id}', [SolicitudHistoriaClinicaController::class, 'destroy']);

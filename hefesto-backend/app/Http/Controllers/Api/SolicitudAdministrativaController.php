@@ -354,4 +354,32 @@ class SolicitudAdministrativaController extends Controller
         
         return response()->json($stats);
     }
+
+    /**
+     * Verificar si una cédula ya existe en el sistema
+     */
+    public function verificarCedula($cedula)
+    {
+        $existe = SolicitudAdministrativa::where('cedula', $cedula)->exists();
+        
+        return response()->json([
+            'existe' => $existe,
+            'cedula' => $cedula,
+            'mensaje' => $existe ? 'La cédula ya está registrada' : 'Cédula disponible'
+        ]);
+    }
+
+    /**
+     * Verificar si un login ya existe en el sistema
+     */
+    public function verificarLogin($login)
+    {
+        $existe = SolicitudAdministrativa::where('login_asignado', $login)->exists();
+        
+        return response()->json([
+            'existe' => $existe,
+            'login' => $login,
+            'mensaje' => $existe ? 'El login ya está en uso' : 'Login disponible'
+        ]);
+    }
 }
