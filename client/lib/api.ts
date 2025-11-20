@@ -259,4 +259,22 @@ export const exportacion = {
     }
 };
 
+// ============================================
+// CREDENCIALES DE FIRMA
+// ============================================
+
+export const credencialesFirma = {
+    getAll: (params?: { activas?: boolean; tipo_formulario?: string }) =>
+        api.get('/credenciales-firmas', { params }),
+    getById: (id: number) => api.get(`/credenciales-firmas/${id}`),
+    porTipo: (tipo: 'administrativa' | 'historia_clinica' | 'ambos') =>
+        api.get(`/credenciales-firmas/tipo/${tipo}`),
+    create: (data: any) => api.post('/credenciales-firmas', data),
+    update: (id: number, data: any) => api.put(`/credenciales-firmas/${id}`, data),
+    delete: (id: number) => api.delete(`/credenciales-firmas/${id}`),
+    toggleActivo: (id: number) => api.post(`/credenciales-firmas/${id}/toggle-activo`),
+    reordenar: (credenciales: Array<{ id: number; orden: number }>) =>
+        api.post('/credenciales-firmas/reordenar', { credenciales }),
+};
+
 export default api;

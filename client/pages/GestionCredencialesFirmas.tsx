@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useRoles } from '@/hooks/useRoles';
 import { Navigate } from 'react-router-dom';
+import { credencialesFirma } from '@/lib/api';
 
 interface CredencialFirma {
   id: number;
@@ -72,9 +73,8 @@ export default function GestionCredencialesFirmas() {
   const cargarCredenciales = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/credenciales-firmas');
-      const data = await response.json();
-      setCredenciales(data);
+      const response = await credencialesFirma.getAll();
+      setCredenciales(response.data);
     } catch (error) {
       toast({
         title: 'Error',
@@ -120,41 +120,24 @@ export default function GestionCredencialesFirmas() {
 
   const guardarCredencial = async () => {
     try {
-      const url = editando
-        ? `/api/credenciales-firmas/${editando.id}`
-        : '/api/credenciales-firmas';
-
-      const method = editando ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        toast({
-          title: 'Éxito',
-          description: editando
-            ? 'Credencial actualizada correctamente'
-            : 'Credencial creada correctamente',
-        });
-        setDialogOpen(false);
-        cargarCredenciales();
+      if (editando) {
+        await credencialesFirma.update(editando.id, formData);
       } else {
-        const error = await response.json();
-        toast({
-          title: 'Error',
-          description: error.message || 'Error al guardar la credencial',
-          variant: 'destructive',
-        });
+        await credencialesFirma.create(formData);
       }
-    } catch (error) {
+
+      toast({
+        title: 'Éxito',
+        description: editando
+          ? 'Credencial actualizada correctamente'
+          : 'Credencial creada correctamente',
+      });
+      setDialogOpen(false);
+      cargarCredenciales();
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Error al guardar la credencial',
+        description: error.response?.data?.message || 'Error al guardar la credencial',
         variant: 'destructive',
       });
     }
@@ -162,17 +145,12 @@ export default function GestionCredencialesFirmas() {
 
   const toggleActivo = async (id: number) => {
     try {
-      const response = await fetch(`/api/credenciales-firmas/${id}/toggle-activo`, {
-        method: 'POST',
+      await credencialesFirma.toggleActivo(id);
+      toast({
+        title: 'Éxito',
+        description: 'Estado actualizado correctamente',
       });
-
-      if (response.ok) {
-        toast({
-          title: 'Éxito',
-          description: 'Estado actualizado correctamente',
-        });
-        cargarCredenciales();
-      }
+      cargarCredenciales();
     } catch (error) {
       toast({
         title: 'Error',
@@ -186,17 +164,12 @@ export default function GestionCredencialesFirmas() {
     if (!confirm('¿Está seguro de eliminar esta credencial?')) return;
 
     try {
-      const response = await fetch(`/api/credenciales-firmas/${id}`, {
-        method: 'DELETE',
+      await credencialesFirma.delete(id);
+      toast({
+        title: 'Éxito',
+        description: 'Credencial eliminada correctamente',
       });
-
-      if (response.ok) {
-        toast({
-          title: 'Éxito',
-          description: 'Credencial eliminada correctamente',
-        });
-        cargarCredenciales();
-      }
+      cargarCredenciales();
     } catch (error) {
       toast({
         title: 'Error',
