@@ -38,8 +38,7 @@ return new class extends Migration
             
             $table->timestamps();
             
-            // Índices
-            $table->index(['solicitable_type', 'solicitable_id']);
+            // Índices (morphs() ya crea el índice para solicitable_type y solicitable_id)
             $table->index('estado_nuevo');
             $table->index('usuario_id');
             $table->index('created_at');

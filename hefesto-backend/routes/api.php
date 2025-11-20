@@ -92,8 +92,8 @@ Route::prefix('notificaciones')->group(function () {
     Route::post('/leer-todas', [NotificacionController::class, 'marcarTodasLeidas']);
 });
 
-// Rutas de exportación y previsualización
-Route::prefix('exportar')->group(function () {
+// Rutas de exportación y previsualización (protegidas con autenticación)
+Route::middleware(['auth:sanctum'])->prefix('exportar')->group(function () {
     // Descargar Excel
     Route::get('/administrativa/{id}', [ExportacionController::class, 'exportarAdministrativa']);
     Route::get('/historia-clinica/{id}', [ExportacionController::class, 'exportarHistoriaClinica']);

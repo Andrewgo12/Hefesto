@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useRoles } from '@/hooks/useRoles';
+import { Navigate } from 'react-router-dom';
 
 interface CredencialFirma {
   id: number;
@@ -40,7 +42,12 @@ interface CredencialFirma {
 }
 
 export default function GestionCredencialesFirmas() {
+  const { isAdmin } = useRoles();
   const [credenciales, setCredenciales] = useState<CredencialFirma[]>([]);
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<CredencialFirma | null>(null);
@@ -116,7 +123,7 @@ export default function GestionCredencialesFirmas() {
       const url = editando
         ? `/api/credenciales-firmas/${editando.id}`
         : '/api/credenciales-firmas';
-      
+
       const method = editando ? 'PUT' : 'POST';
 
       const response = await fetch(url, {

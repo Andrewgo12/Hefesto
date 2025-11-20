@@ -42,6 +42,11 @@ trait HasPermissions
      */
     public function tienePermiso(string $permiso): bool
     {
+        // El usuario admin siempre tiene todos los permisos
+        if ($this->email === 'admin@hefesto.local' || $this->rol === 'Administrador') {
+            return true;
+        }
+        
         $roles = DB::table('role_user')
             ->where('user_id', $this->id)
             ->pluck('role_id');
@@ -123,33 +128,28 @@ trait HasPermissions
     }
 
     /**
-     * Verifica si el usuario es administrador (Técnico del Sistema)
+     * Verifica si el usuario es administrador
      * 
      * @return bool
      */
     public function esAdministrador(): bool
     {
-        return $this->tieneRol('Técnico del Sistema');
+        // El usuario admin siempre es administrador
+        if ($this->email === 'admin@hefesto.local' || $this->rol === 'Administrador') {
+            return true;
+        }
+        
+        return $this->tieneRol('Administrador');
     }
 
     /**
-     * Verifica si el usuario es supervisor
+     * Verifica si el usuario es usuario normal
      * 
      * @return bool
      */
-    public function esSupervisor(): bool
+    public function esUsuario(): bool
     {
-        return $this->tieneRol('Administrativo - Supervisor');
-    }
-
-    /**
-     * Verifica si el usuario es médico
-     * 
-     * @return bool
-     */
-    public function esMedico(): bool
-    {
-        return $this->tieneRol('Médico - Consulta');
+        return $this->tieneRol('Usuario');
     }
 
     /**

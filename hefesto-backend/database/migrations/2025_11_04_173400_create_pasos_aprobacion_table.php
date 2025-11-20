@@ -17,7 +17,7 @@ return new class extends Migration
             $table->integer('orden'); // 1, 2, 3... (orden de las firmas)
             $table->string('nombre_paso'); // Ej: 'Jefe inmediato', 'Talento Humano'
             $table->string('cargo_requerido'); // Cargo que debe firmar
-            $table->foreignId('credencial_firma_id')->nullable()->constrained('credenciales_firma')->onDelete('set null');
+            $table->foreignId('credencial_firma_id')->nullable()->constrained('credenciales_firmas')->onDelete('set null');
             $table->text('descripcion')->nullable();
             $table->boolean('obligatorio')->default(true);
             $table->boolean('permite_rechazo')->default(true);

@@ -4,8 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, XCircle, Eye, Pencil, User } from "lucide-react";
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, Navigate } from "react-router-dom";
 import { toast } from "@/lib/toast";
+import { useRoles } from "@/hooks/useRoles";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useApp } from "@/contexts/AppContext";
@@ -34,16 +35,21 @@ interface UserPermission {
 }
 
 export default function Control() {
+  const { isAdmin } = useRoles();
   const { view = "aprobacion" } = useParams<{ view: string }>();
   const { solicitudes, usuarios, actualizarEstadoSolicitud, actualizarUsuario } = useApp();
+
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
   const [selectedRequest, setSelectedRequest] = useState<PendingRequest | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   // Estado para vista de permisos
   const [selectedUser, setSelectedUser] = useState("");
   const [selectedRole, setSelectedRole] = useState("");
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  
+
   // Estados para modales
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -86,17 +92,17 @@ export default function Control() {
     setPendingActionId(id);
     setShowApproveModal(true);
   };
-  
+
   const confirmApprove = async () => {
     if (!pendingActionId) return;
-    
+
     console.log('✅ Confirmando aprobación de solicitud:', pendingActionId);
     setShowApproveModal(false);
-    
+
     try {
       // Actualizar estado en el contexto global
       await actualizarEstadoSolicitud(pendingActionId, 'Aprobado', 'Solicitud aprobada desde módulo de control');
-      
+
       toast.success('Solicitud aprobada', `El usuario recibirá sus credenciales por correo electrónico.`);
       setPendingActionId(null);
       setSelectedRequest(null);
@@ -112,20 +118,20 @@ export default function Control() {
     setRejectReason("");
     setShowRejectModal(true);
   };
-  
+
   const confirmReject = async () => {
     if (!pendingActionId || !rejectReason.trim()) {
       toast.error('Motivo requerido', 'Debe ingresar un motivo para el rechazo');
       return;
     }
-    
+
     console.log('❌ Confirmando rechazo de solicitud:', pendingActionId);
     setShowRejectModal(false);
-    
+
     try {
       // Actualizar estado en el contexto global
       await actualizarEstadoSolicitud(pendingActionId, 'Rechazado', rejectReason);
-      
+
       toast.success('Solicitud rechazada', 'El solicitante será notificado del rechazo.');
       setPendingActionId(null);
       setRejectReason("");
@@ -142,20 +148,20 @@ export default function Control() {
       toast.error('Campos requeridos', 'Debe seleccionar un usuario y un rol');
       return;
     }
-    
+
     try {
       // Actualizar usuario en el contexto global
       const userId = parseInt(selectedUser);
-      actualizarUsuario(userId, { 
-        rol: selectedRole 
+      actualizarUsuario(userId, {
+        rol: selectedRole
       });
-      
+
       // Registrar actividad
       const usuario = usuarios.find(u => u.id === userId);
       if (usuario) {
         toast.success('Permisos actualizados', `Se han actualizado los permisos de ${usuario.nombre} correctamente`);
       }
-      
+
       // Limpiar selección
       setSelectedUser('');
       setSelectedRole('');
@@ -167,8 +173,8 @@ export default function Control() {
   };
 
   const toggleService = (service: string) => {
-    setSelectedServices(prev => 
-      prev.includes(service) 
+    setSelectedServices(prev =>
+      prev.includes(service)
         ? prev.filter(s => s !== service)
         : [...prev, service]
     );
@@ -189,9 +195,9 @@ export default function Control() {
 
   return (
     <div className="p-2 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-w-6xl mx-auto">
-        <AnimatedSection variants={fadeInUp}>
+      <AnimatedSection variants={fadeInUp}>
         <div className="flex flex-col gap-2">
-          <motion.h1 
+          <motion.h1
             className="text-lg sm:text-xl md:text-2xl font-semibold bg-gradient-to-r from-blue-700 via-blue-600 to-blue-800 bg-clip-text text-transparent"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -199,7 +205,7 @@ export default function Control() {
           >
             {getTitle()}
           </motion.h1>
-          <motion.p 
+          <motion.p
             className="text-xs sm:text-sm text-slate-600"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -210,25 +216,25 @@ export default function Control() {
             {view === "permisos" && "Modifica roles y permisos de usuarios existentes"}
           </motion.p>
         </div>
-        </AnimatedSection>
+      </AnimatedSection>
 
-        {/* Approval View */}
-        {view === "aprobacion" && (
-          <motion.div 
-            className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            {/* Pending List */}
-            <div className="lg:col-span-1">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
+      {/* Approval View */}
+      {view === "aprobacion" && (
+        <motion.div
+          className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          {/* Pending List */}
+          <div className="lg:col-span-1">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <Card className="p-3 sm:p-4 border-2 border-transparent hover:border-blue-300 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 rounded-xl">
-                <motion.h3 
+                <motion.h3
                   className="font-semibold text-slate-900 mb-3 sm:mb-4 text-xs sm:text-sm"
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -253,11 +259,10 @@ export default function Control() {
                       <motion.button
                         key={req.id}
                         onClick={() => setSelectedRequest(req)}
-                        className={`w-full text-left p-2 sm:p-3 rounded border transition-colors text-xs sm:text-sm ${
-                          selectedRequest?.id === req.id
+                        className={`w-full text-left p-2 sm:p-3 rounded border transition-colors text-xs sm:text-sm ${selectedRequest?.id === req.id
                             ? "border-blue-500 bg-blue-50"
                             : "border-slate-200 hover:bg-slate-50"
-                        }`}
+                          }`}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.05 }}
@@ -275,18 +280,18 @@ export default function Control() {
                   )}
                 </div>
               </Card>
-              </motion.div>
-            </div>
+            </motion.div>
+          </div>
 
-            {/* Detail View */}
-            <div className="lg:col-span-2">
-              {selectedRequest ? (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                  whileHover={{ scale: 1.01 }}
-                >
+          {/* Detail View */}
+          <div className="lg:col-span-2">
+            {selectedRequest ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                whileHover={{ scale: 1.01 }}
+              >
                 <Card className="p-3 sm:p-4 md:p-6 border-2 border-transparent hover:border-green-300 hover:shadow-2xl hover:shadow-green-200/50 transition-all duration-300 rounded-xl">
                   <h3 className="font-semibold text-slate-900 mb-4">
                     Detalles de la Solicitud
@@ -361,7 +366,7 @@ export default function Control() {
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <motion.div 
+                    <motion.div
                       className="flex-1"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -374,7 +379,7 @@ export default function Control() {
                         Aprobar
                       </Button>
                     </motion.div>
-                    <motion.div 
+                    <motion.div
                       className="flex-1"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -390,31 +395,31 @@ export default function Control() {
                     </motion.div>
                   </div>
                 </Card>
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <Card className="p-6 flex items-center justify-center h-64 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl">
-                    <p className="text-slate-600 text-sm">
-                      Selecciona una solicitud para ver detalles
-                    </p>
-                  </Card>
-                </motion.div>
-              )}
-            </div>
-          </motion.div>
-        )}
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Card className="p-6 flex items-center justify-center h-64 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl">
+                  <p className="text-slate-600 text-sm">
+                    Selecciona una solicitud para ver detalles
+                  </p>
+                </Card>
+              </motion.div>
+            )}
+          </div>
+        </motion.div>
+      )}
 
-        {/* Users View */}
-        {view === "usuarios" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+      {/* Users View */}
+      {view === "usuarios" && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
           <Card className="p-3 sm:p-4 md:p-6 border-2 border-transparent hover:border-purple-300 hover:shadow-2xl hover:shadow-purple-200/50 transition-all duration-300 rounded-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-xs sm:text-sm">
@@ -464,11 +469,10 @@ export default function Control() {
                       </td>
                       <td className="py-3 px-3">
                         <motion.span
-                          className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                            user.status === "Activo"
+                          className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${user.status === "Activo"
                               ? "bg-green-50 text-green-800 border border-green-200"
                               : "bg-slate-100 text-slate-800 border border-slate-200"
-                          }`}
+                            }`}
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
                           transition={{ type: "spring", stiffness: 300, delay: idx * 0.05 + 0.2 }}
@@ -479,9 +483,9 @@ export default function Control() {
                       </td>
                       <td className="py-3 px-3 flex gap-2">
                         <motion.div whileHover={{ scale: 1.2 }} whileTap={{ scale: 0.9 }}>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="text-xs hover:bg-blue-100 hover:text-blue-700"
                             onClick={() => {
                               setSelectedUserDetail(user);
@@ -493,9 +497,9 @@ export default function Control() {
                           </Button>
                         </motion.div>
                         <motion.div whileHover={{ scale: 1.2 }} whileTap={{ scale: 0.9 }}>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="text-xs hover:bg-green-100 hover:text-green-700"
                             onClick={() => {
                               setSelectedUser(user.id.toString());
@@ -514,16 +518,16 @@ export default function Control() {
               </table>
             </div>
           </Card>
-          </motion.div>
-        )}
+        </motion.div>
+      )}
 
-        {/* Permissions View */}
-        {view === "permisos" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+      {/* Permissions View */}
+      {view === "permisos" && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
           <Card className="p-3 sm:p-4 md:p-6 border-2 border-transparent hover:border-indigo-300 hover:shadow-2xl hover:shadow-indigo-200/50 transition-all duration-300 rounded-xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <motion.div
@@ -572,7 +576,7 @@ export default function Control() {
                 </select>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 className="md:col-span-2"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -610,7 +614,7 @@ export default function Control() {
                 </div>
               </motion.div>
 
-              <motion.div 
+              <motion.div
                 className="md:col-span-2 pt-4"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -620,7 +624,7 @@ export default function Control() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Button 
+                  <Button
                     onClick={handleSavePermissions}
                     className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 border-2 border-blue-700 hover:border-blue-500 rounded-lg"
                   >
@@ -630,156 +634,154 @@ export default function Control() {
               </motion.div>
             </div>
           </Card>
-          </motion.div>
-        )}
+        </motion.div>
+      )}
 
-        {/* Modal de Aprobación */}
-        <Dialog open={showApproveModal} onOpenChange={setShowApproveModal}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Confirmar Aprobación</DialogTitle>
-              <DialogDescription>
-                ¿Está seguro de aprobar esta solicitud? El usuario recibirá sus credenciales por correo electrónico.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowApproveModal(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={confirmApprove} className="bg-green-600 hover:bg-green-700">
-                Aprobar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      {/* Modal de Aprobación */}
+      <Dialog open={showApproveModal} onOpenChange={setShowApproveModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Aprobación</DialogTitle>
+            <DialogDescription>
+              ¿Está seguro de aprobar esta solicitud? El usuario recibirá sus credenciales por correo electrónico.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowApproveModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmApprove} className="bg-green-600 hover:bg-green-700">
+              Aprobar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Modal de Rechazo */}
-        <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Rechazar Solicitud</DialogTitle>
-              <DialogDescription>
-                Ingrese el motivo del rechazo. El solicitante será notificado.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
+      {/* Modal de Rechazo */}
+      <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rechazar Solicitud</DialogTitle>
+            <DialogDescription>
+              Ingrese el motivo del rechazo. El solicitante será notificado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="motivo">Motivo del Rechazo</Label>
+              <Textarea
+                id="motivo"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Ingrese el motivo..."
+                className="mt-2"
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRejectModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmReject} className="bg-red-600 hover:bg-red-700">
+              Rechazar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Detalles del Usuario - Diseño Mejorado */}
+      <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader className="border-b pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                {selectedUserDetail?.name.charAt(0).toUpperCase()}
+              </div>
               <div>
-                <Label htmlFor="motivo">Motivo del Rechazo</Label>
-                <Textarea
-                  id="motivo"
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="Ingrese el motivo..."
-                  className="mt-2"
-                  rows={4}
-                />
+                <DialogTitle className="text-2xl font-bold text-slate-900">
+                  {selectedUserDetail?.name}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-slate-600">
+                  Información completa del usuario
+                </DialogDescription>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowRejectModal(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={confirmReject} className="bg-red-600 hover:bg-red-700">
-                Rechazar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Modal de Detalles del Usuario - Diseño Mejorado */}
-        <Dialog open={showUserModal} onOpenChange={setShowUserModal}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader className="border-b pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                  {selectedUserDetail?.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <DialogTitle className="text-2xl font-bold text-slate-900">
-                    {selectedUserDetail?.name}
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-slate-600">
-                    Información completa del usuario
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            {selectedUserDetail && (
-              <div className="space-y-6 py-6">
-                {/* Información Principal */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-                  <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Información de Acceso
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white rounded-lg p-3 shadow-sm">
-                      <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Usuario</Label>
-                      <p className="mt-1 text-base font-medium text-slate-900">{selectedUserDetail.username}</p>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 shadow-sm">
-                      <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Rol</Label>
-                      <p className="mt-1 text-base font-medium text-slate-900">{selectedUserDetail.type}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Información Organizacional */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
-                  <h3 className="text-sm font-semibold text-green-900 mb-3">Información Organizacional</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white rounded-lg p-3 shadow-sm">
-                      <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Departamento</Label>
-                      <p className="mt-1 text-base font-medium text-slate-900">{selectedUserDetail.department}</p>
-                    </div>
-                    <div className="bg-white rounded-lg p-3 shadow-sm">
-                      <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Estado</Label>
-                      <span className={`inline-flex items-center mt-1 px-3 py-1.5 rounded-full text-sm font-semibold ${
-                        selectedUserDetail.status === "Activo"
-                          ? "bg-green-100 text-green-800 border border-green-300"
-                          : "bg-slate-100 text-slate-800 border border-slate-300"
-                      }`}>
-                        <span className={`w-2 h-2 rounded-full mr-2 ${
-                          selectedUserDetail.status === "Activo" ? "bg-green-500" : "bg-slate-500"
-                        }`}></span>
-                        {selectedUserDetail.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Información de Auditoría */}
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
-                  <h3 className="text-sm font-semibold text-purple-900 mb-3">Auditoría</h3>
+          </DialogHeader>
+          {selectedUserDetail && (
+            <div className="space-y-6 py-6">
+              {/* Información Principal */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                <h3 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Información de Acceso
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white rounded-lg p-3 shadow-sm">
-                    <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Última Modificación</Label>
-                    <p className="mt-1 text-base font-medium text-slate-900">{selectedUserDetail.lastModified}</p>
+                    <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Usuario</Label>
+                    <p className="mt-1 text-base font-medium text-slate-900">{selectedUserDetail.username}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 shadow-sm">
+                    <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Rol</Label>
+                    <p className="mt-1 text-base font-medium text-slate-900">{selectedUserDetail.type}</p>
                   </div>
                 </div>
               </div>
-            )}
-            <DialogFooter className="border-t pt-4 gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowUserModal(false)}
-                className="hover:bg-slate-100"
-              >
-                Cerrar
-              </Button>
-              <Button 
-                onClick={() => {
-                  setShowUserModal(false);
-                  setSelectedUser(selectedUserDetail?.id.toString() || "");
-                  window.location.href = '/control/permisos';
-                }}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Editar Permisos
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+
+              {/* Información Organizacional */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                <h3 className="text-sm font-semibold text-green-900 mb-3">Información Organizacional</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white rounded-lg p-3 shadow-sm">
+                    <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Departamento</Label>
+                    <p className="mt-1 text-base font-medium text-slate-900">{selectedUserDetail.department}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 shadow-sm">
+                    <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Estado</Label>
+                    <span className={`inline-flex items-center mt-1 px-3 py-1.5 rounded-full text-sm font-semibold ${selectedUserDetail.status === "Activo"
+                        ? "bg-green-100 text-green-800 border border-green-300"
+                        : "bg-slate-100 text-slate-800 border border-slate-300"
+                      }`}>
+                      <span className={`w-2 h-2 rounded-full mr-2 ${selectedUserDetail.status === "Activo" ? "bg-green-500" : "bg-slate-500"
+                        }`}></span>
+                      {selectedUserDetail.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información de Auditoría */}
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
+                <h3 className="text-sm font-semibold text-purple-900 mb-3">Auditoría</h3>
+                <div className="bg-white rounded-lg p-3 shadow-sm">
+                  <Label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Última Modificación</Label>
+                  <p className="mt-1 text-base font-medium text-slate-900">{selectedUserDetail.lastModified}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="border-t pt-4 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowUserModal(false)}
+              className="hover:bg-slate-100"
+            >
+              Cerrar
+            </Button>
+            <Button
+              onClick={() => {
+                setShowUserModal(false);
+                setSelectedUser(selectedUserDetail?.id.toString() || "");
+                window.location.href = '/control/permisos';
+              }}
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
+            >
+              <Pencil className="w-4 h-4 mr-2" />
+              Editar Permisos
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

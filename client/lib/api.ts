@@ -71,7 +71,7 @@ export const solicitudesHistoriaClinica = {
 // ============================================
 
 export const auth = {
-    login: (credentials: { email: string; password: string }) => 
+    login: (credentials: { email: string; password: string }) =>
         api.post('/login', credentials),
     register: (data: any) => api.post('/register', data),
     logout: () => api.post('/logout'),
@@ -180,27 +180,81 @@ export const usuarios = {
 
 export const exportacion = {
     // Descargar solicitud administrativa en Excel
-    descargarAdministrativa: (id: number) => {
-        const url = `${API_URL}/exportar/administrativa/${id}`;
-        window.open(url, '_blank');
+    descargarAdministrativa: async (id: number) => {
+        try {
+            const response = await api.get(`/exportar/administrativa/${id}`, {
+                responseType: 'blob',
+            });
+
+            // Obtener nombre del archivo desde headers o usar uno por defecto
+            const contentDisposition = response.headers['content-disposition'];
+            let fileName = `Solicitud_Administrativa_${id}.xlsx`;
+
+            if (contentDisposition) {
+                const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+                if (fileNameMatch && fileNameMatch[1]) {
+                    fileName = fileNameMatch[1];
+                }
+            }
+
+            // Crear enlace de descarga programático
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error al descargar solicitud administrativa:', error);
+            throw error;
+        }
     },
-    
+
     // Descargar solicitud historia clínica en Excel
-    descargarHistoriaClinica: (id: number) => {
-        const url = `${API_URL}/exportar/historia-clinica/${id}`;
-        window.open(url, '_blank');
+    descargarHistoriaClinica: async (id: number) => {
+        try {
+            const response = await api.get(`/exportar/historia-clinica/${id}`, {
+                responseType: 'blob',
+            });
+
+            // Obtener nombre del archivo desde headers o usar uno por defecto
+            const contentDisposition = response.headers['content-disposition'];
+            let fileName = `Solicitud_HistoriaClinica_${id}.xlsx`;
+
+            if (contentDisposition) {
+                const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+                if (fileNameMatch && fileNameMatch[1]) {
+                    fileName = fileNameMatch[1];
+                }
+            }
+
+            // Crear enlace de descarga programático
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error al descargar solicitud de historia clínica:', error);
+            throw error;
+        }
     },
-    
+
     // Obtener metadatos de una solicitud
-    obtenerMetadatos: (tipo: 'administrativa' | 'historia_clinica', id: number) => 
+    obtenerMetadatos: (tipo: 'administrativa' | 'historia_clinica', id: number) =>
         api.get('/exportar/metadatos', { params: { tipo, id } }),
-    
+
     // Descargar según tipo
-    descargar: (tipo: 'Administrativo' | 'Historia Clínica', id: number) => {
+    descargar: async (tipo: 'Administrativo' | 'Historia Clínica', id: number) => {
         if (tipo === 'Administrativo') {
-            return exportacion.descargarAdministrativa(id);
+            return await exportacion.descargarAdministrativa(id);
         } else {
-            return exportacion.descargarHistoriaClinica(id);
+            return await exportacion.descargarHistoriaClinica(id);
         }
     }
 };

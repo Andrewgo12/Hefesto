@@ -25,7 +25,7 @@ class FlujosAprobacionSeeder extends Seeder
         ]);
 
         // Pasos del flujo administrativo
-        $credenciales = DB::table('credenciales_firma')->pluck('id', 'cargo');
+        $credenciales = DB::table('credenciales_firmas')->pluck('id', 'cargo');
         
         DB::table('pasos_aprobacion')->insert([
             [

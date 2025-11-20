@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('credenciales_firmas', function (Blueprint $table) {
             $table->id();
             $table->string('cargo')->unique(); // Ej: "Jefe Inmediato", "Talento Humano", etc.
+            $table->string('credencial'); // Hash de la credencial
             $table->string('nombre_completo');
             $table->string('email')->unique();
             $table->string('cedula')->nullable();

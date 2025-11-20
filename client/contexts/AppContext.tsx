@@ -47,16 +47,16 @@ interface AppContextType {
   actualizarEstadoSolicitud: (id: number, estado: Solicitud['estado'], comentario?: string) => void;
   obtenerSolicitud: (id: number) => Solicitud | undefined;
   recargarDatos: () => Promise<void>;
-  
+
   // Usuarios
   usuarios: Usuario[];
   agregarUsuario: (usuario: Omit<Usuario, 'id' | 'fechaCreacion'>) => void;
   actualizarUsuario: (id: number, datos: Partial<Usuario>) => void;
-  
+
   // Actividades
   actividades: Actividad[];
   registrarActividad: (accion: string, descripcion: string, modulo: string) => void;
-  
+
   // Estadísticas
   estadisticas: {
     totalSolicitudes: number;
@@ -135,7 +135,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       setCargandoSolicitudes(true);
       console.log('🔄 AppContext: Cargando solicitudes desde API...');
-      
+
       // Intentar cargar desde API con reintentos
       const [respAdmin, respHistoria] = await Promise.all([
         solicitudesAdministrativas.getAll().catch((error) => {
@@ -147,7 +147,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           return { data: { data: [] } };
         })
       ]);
-      
+
       console.log('📦 Respuesta Admin:', respAdmin.data);
       console.log('📦 Respuesta Historia:', respHistoria.data);
 
@@ -182,10 +182,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }));
 
       const todasSolicitudes = [...solicitudesAdmin, ...solicitudesHistoria];
-      
+
       console.log('✅ Total solicitudes mapeadas:', todasSolicitudes.length);
       console.log('📋 Solicitudes:', todasSolicitudes);
-      
+
       if (todasSolicitudes.length > 0) {
         setSolicitudes(todasSolicitudes);
         console.log('✅ Solicitudes guardadas en estado');
@@ -221,7 +221,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         console.error('❌ Error cargando usuarios:', error);
         return { data: { data: [] } };
       });
-      
+
       // Manejar diferentes formatos de respuesta
       let usuariosData = [];
       if (Array.isArray(response.data)) {
@@ -231,9 +231,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       } else if (response.data?.data?.data && Array.isArray(response.data.data.data)) {
         usuariosData = response.data.data.data;
       }
-      
+
       console.log('👥 Usuarios recibidos:', usuariosData.length);
-      
+
       const usuariosBackend = usuariosData.map((user: any) => ({
         id: user.id,
         username: user.username || user.email,
@@ -312,9 +312,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       id: solicitud.id || Date.now(), // Usar ID del backend si existe, sino generar uno temporal
       fechaSolicitud: solicitud.fechaSolicitud || new Date().toISOString(),
     };
-    
+
     setSolicitudes(prev => [nueva, ...prev]);
-    
+
     registrarActividad(
       'Crear Solicitud',
       `Nueva solicitud ${solicitud.tipo}: ${solicitud.nombreCompleto}`,
@@ -324,8 +324,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const actualizarEstadoSolicitud = async (id: number, estado: Solicitud['estado'], comentario?: string) => {
     console.log('🔄 Actualizando solicitud:', id, 'a estado:', estado);
-    
-    const solicitud = solicitudes.find(s => s.id === id);
+
+    // Buscar por id_original ya que el id puede ser string compuesto (admin-1, historia-1)
+    const solicitud = solicitudes.find(s => s.id_original === id || s.id === id);
     if (!solicitud) {
       console.error('❌ Solicitud no encontrada:', id);
       return;
@@ -335,35 +336,38 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       // Determinar el tipo de solicitud y el endpoint
       const esAdministrativa = solicitud.tipo === 'Administrativo';
       const api = esAdministrativa ? solicitudesAdministrativas : solicitudesHistoriaClinica;
-      
+
+      // Usar el id_original para la API
+      const idReal = solicitud.id_original || id;
+
       // Llamar al endpoint apropiado según el estado
       if (estado === 'Aprobado') {
-        await api.aprobar(id, { comentario });
+        await api.aprobar(idReal, { comentario });
         console.log('✅ Solicitud aprobada en backend');
       } else if (estado === 'Rechazado') {
-        await api.rechazar(id, { motivo: comentario });
+        await api.rechazar(idReal, { motivo: comentario });
         console.log('✅ Solicitud rechazada en backend');
       }
-      
-      // Actualizar estado local
-      setSolicitudes(prev => 
-        prev.map(sol => 
-          sol.id === id 
+
+      // Actualizar estado local usando el id compuesto
+      setSolicitudes(prev =>
+        prev.map(sol =>
+          sol.id_original === idReal || sol.id === id
             ? { ...sol, estado }
             : sol
         )
       );
-      
+
       // Registrar actividad
       registrarActividad(
         `${estado} Solicitud`,
         `Solicitud de ${solicitud.nombreCompleto} ${estado.toLowerCase()}${comentario ? `: ${comentario}` : ''}`,
         'Control'
       );
-      
+
       // Recargar solicitudes para obtener datos actualizados
       await cargarSolicitudes();
-      
+
     } catch (error) {
       console.error('❌ Error al actualizar solicitud:', error);
       throw error;
@@ -381,9 +385,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       id: Date.now(),
       fechaCreacion: new Date().toISOString(),
     };
-    
+
     setUsuarios(prev => [nuevo, ...prev]);
-    
+
     registrarActividad(
       'Crear Usuario',
       `Nuevo usuario creado: ${usuario.nombre} (${usuario.username})`,
@@ -399,7 +403,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           : user
       )
     );
-    
+
     const usuario = usuarios.find(u => u.id === id);
     if (usuario) {
       registrarActividad(
@@ -414,7 +418,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const registrarActividad = (accion: string, descripcion: string, modulo: string) => {
     const userStr = localStorage.getItem('user');
     const user = userStr ? JSON.parse(userStr) : { email: 'Sistema' };
-    
+
     const nueva: Actividad = {
       id: Date.now(),
       usuario: user.email || 'Sistema',
@@ -423,7 +427,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       timestamp: new Date().toISOString(),
       modulo,
     };
-    
+
     setActividades(prev => [nueva, ...prev].slice(0, 100)); // Mantener últimas 100
   };
 

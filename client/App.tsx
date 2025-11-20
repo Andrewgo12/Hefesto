@@ -19,15 +19,8 @@ import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
 import Layout from "@/components/Layout";
 import GestionCredencialesFirmas from "./pages/GestionCredencialesFirmas";
-
-// Componente para proteger rutas
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const token = localStorage.getItem('auth_token');
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-  return <>{children}</>;
-};
+import Configuracion from "./pages/Configuracion";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -60,21 +53,62 @@ const App = () => (
             >
               <Route index element={<Index />} />
 
-              {/* Formularios compactos estilo Excel */}
-              <Route path="registro" element={<Navigate to="/registro/administrativo" replace />} />
+              {/* Registro y Seguimiento */}
+              <Route path="registro" element={<Registro />} />
               <Route path="registro/administrativo" element={<RegistroAdministrativo />} />
               <Route path="registro/historia-clinica" element={<RegistroHistoriaClinica />} />
 
-              {/* Control routes */}
-              <Route path="control" element={<Navigate to="/control/aprobacion" replace />} />
-              <Route path="control/aprobacion" element={<ControlAprobacion />} />
-              <Route path="control/:view" element={<Control />} />
+              {/* Control - Solo Administradores */}
+              <Route
+                path="control/aprobacion"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <ControlAprobacion />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="control/:view"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Control />
+                  </ProtectedRoute>
+                }
+              />
 
-              {/* Configuración routes */}
-              <Route path="configuracion" element={<Navigate to="/configuracion/movimientos" replace />} />
-              <Route path="configuracion/movimientos" element={<Movimientos />} />
-              <Route path="configuracion/credenciales-firmas" element={<GestionCredencialesFirmas />} />
-              <Route path="configuracion/*" element={<Movimientos />} />
+              {/* Configuración - Solo Administradores */}
+              <Route
+                path="configuracion"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Configuracion />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="configuracion/movimientos"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Movimientos />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="configuracion/credenciales-firmas"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <GestionCredencialesFirmas />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="configuracion/*"
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Movimientos />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Perfil routes */}
               <Route path="perfil" element={<Navigate to="/perfil/personal" replace />} />
