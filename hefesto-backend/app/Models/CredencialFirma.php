@@ -9,7 +9,9 @@ class CredencialFirma extends Model
     protected $table = 'credenciales_firmas';
 
     protected $fillable = [
+        'user_id',
         'cargo',
+        'credencial',
         'nombre_completo',
         'email',
         'cedula',
@@ -28,6 +30,23 @@ class CredencialFirma extends Model
         'orden' => 'integer',
         'firma_actualizada_en' => 'datetime',
     ];
+
+    /**
+     * Relación con el usuario
+     */
+    public function user()
+    {
+        return $this->belongsTo(\App\Models\User::class);
+    }
+
+    /**
+     * Verificar credencial con hash
+     */
+    public function verificarCredencial($credencial)
+    {
+        return \Hash::check($credencial, $this->credencial);
+    }
+
 
     /**
      * Scope para obtener solo credenciales activas

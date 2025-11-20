@@ -168,23 +168,47 @@ class AuthController extends Controller
     // Verificar credenciales de firma
     public function verificarCredencialFirma(Request $request)
     {
-        $credencialesValidas = [
-            'Jefe inmediato' => 'JEFE2024',
-            'Jefe de Talento Humano' => 'TALENTO2024',
-            'Jefe de Gestión de la Información' => 'GESTION2024',
-            'Coordinador de Facturación o Subgerente Financiero' => 'FINANZAS2024',
-            'Capacitador de historia clínica' => 'CAPACITAHC2024',
-            'Capacitador de epidemiología' => 'CAPACITAEPI2024',
-            'Aval institucional' => 'AVAL2024',
-        ];
+        $validator = Validator::make($request->all(), [
+            'cargo' => 'required|string',
+            'credencial' => 'required|string',
+        ]);
 
-        $cargo = $request->cargo;
-        $credencial = $request->credencial;
-
-        if (isset($credencialesValidas[$cargo]) && $credencialesValidas[$cargo] === $credencial) {
-            return response()->json(['valida' => true]);
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Datos inválidos',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        return response()->json(['valida' => false], 401);
+        // Buscar credencial en la base de datos
+        $credencialFirma = \App\Models\CredencialFirma::where('cargo', $request->cargo)
+            ->where('activo', true)
+            ->first();
+
+        if (!$credencialFirma) {
+            return response()->json([
+                'valida' => false,
+                'message' => 'Cargo no encontrado o credencial inactiva'
+            ], 404);
+        }
+
+        // Verificar credencial con hash
+        if ($credencialFirma->verificarCredencial($request->credencial)) {
+            return response()->json([
+                'valida' => true,
+                'credencial' => [
+                    'id' => $credencialFirma->id,
+                    'cargo' => $credencialFirma->cargo,
+                    'nombre_completo' => $credencialFirma->nombre_completo,
+                    'email' => $credencialFirma->email,
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'valida' => false,
+            'message' => 'Credencial incorrecta'
+        ], 401);
     }
+
 }

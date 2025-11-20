@@ -17,7 +17,11 @@ class UsuariosRealesSeeder extends Seeder
         // Limpiar datos de prueba
         $this->command->info('🗑️  Limpiando datos de prueba...');
         
+        // Deshabilitar foreign key checks
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        
         DB::table('role_user')->truncate();
+        DB::table('credenciales_firmas')->truncate();
         DB::table('users')->truncate();
         DB::table('solicitudes_administrativas')->truncate();
         DB::table('solicitudes_historia_clinica')->truncate();
@@ -26,16 +30,17 @@ class UsuariosRealesSeeder extends Seeder
         DB::table('exportaciones')->truncate();
         DB::table('reportes')->truncate();
         
+        // Rehabilitar foreign key checks
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        
         $this->command->info('✅ Datos de prueba eliminados');
         $this->command->info('');
         $this->command->info('👥 Creando usuarios reales...');
         $this->command->info('');
 
-        // Obtener roles
-        $rolAdmin = DB::table('roles')->where('nombre', 'Técnico del Sistema')->first();
-        $rolSupervisor = DB::table('roles')->where('nombre', 'Administrativo - Supervisor')->first();
-        $rolEntradaDatos = DB::table('roles')->where('nombre', 'Administrativo - Entrada de Datos')->first();
-        $rolMedico = DB::table('roles')->where('nombre', 'Médico - Consulta')->first();
+        // Obtener roles simplificados
+        $rolAdmin = DB::table('roles')->where('nombre', 'Administrador')->first();
+        $rolUsuario = DB::table('roles')->where('nombre', 'Usuario')->first();
 
         // ============================================
         // 1. ADMINISTRADOR DEL SISTEMA - KEVIN
@@ -70,16 +75,20 @@ class UsuariosRealesSeeder extends Seeder
 
         DB::table('role_user')->insert([
             'user_id' => $jefeInmediato->id,
-            'role_id' => $rolSupervisor->id,
+            'role_id' => $rolAdmin->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
         // Crear credencial de firma
-        DB::table('credenciales_firma')->insert([
+        DB::table('credenciales_firmas')->insert([
             'cargo' => 'Jefe inmediato',
-            'credencial' => 'JEFE2024',
+            'credencial' => Hash::make('JEFE2024'),
             'user_id' => $jefeInmediato->id,
+            'nombre_completo' => 'Carlos Rodríguez',
+            'email' => 'jefe.inmediato@hospital.com',
+            'tipo_formulario' => 'ambos',
+            'orden' => 1,
             'activo' => true,
             'created_at' => now(),
             'updated_at' => now(),
@@ -101,15 +110,19 @@ class UsuariosRealesSeeder extends Seeder
 
         DB::table('role_user')->insert([
             'user_id' => $jefeTalentoHumano->id,
-            'role_id' => $rolSupervisor->id,
+            'role_id' => $rolAdmin->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        DB::table('credenciales_firma')->insert([
+        DB::table('credenciales_firmas')->insert([
             'cargo' => 'Jefe de Talento Humano',
-            'credencial' => 'TALENTO2024',
+            'credencial' => Hash::make('TALENTO2024'),
             'user_id' => $jefeTalentoHumano->id,
+            'nombre_completo' => 'María González',
+            'email' => 'talento.humano@hospital.com',
+            'tipo_formulario' => 'administrativa',
+            'orden' => 2,
             'activo' => true,
             'created_at' => now(),
             'updated_at' => now(),
@@ -159,7 +172,7 @@ class UsuariosRealesSeeder extends Seeder
             ]);
 
             // Asignar rol según si es jefe o no
-            $rolAsignado = $userData['es_jefe'] ? $rolSupervisor->id : $rolEntradaDatos->id;
+            $rolAsignado = $userData['es_jefe'] ? $rolAdmin->id : $rolUsuario->id;
             
             DB::table('role_user')->insert([
                 'user_id' => $usuario->id,
@@ -170,10 +183,14 @@ class UsuariosRealesSeeder extends Seeder
 
             // Solo el jefe tiene credencial de firma
             if ($userData['es_jefe']) {
-                DB::table('credenciales_firma')->insert([
+                DB::table('credenciales_firmas')->insert([
                     'cargo' => 'Jefe de Gestión de la Información',
-                    'credencial' => 'GESTION2024',
+                    'credencial' => Hash::make('GESTION2024'),
                     'user_id' => $usuario->id,
+                    'nombre_completo' => $userData['name'],
+                    'email' => $userData['email'],
+                    'tipo_formulario' => 'ambos',
+                    'orden' => 3,
                     'activo' => true,
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -199,15 +216,19 @@ class UsuariosRealesSeeder extends Seeder
 
         DB::table('role_user')->insert([
             'user_id' => $capacitadorHC->id,
-            'role_id' => $rolMedico->id,
+            'role_id' => $rolUsuario->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        DB::table('credenciales_firma')->insert([
+        DB::table('credenciales_firmas')->insert([
             'cargo' => 'Capacitador de historia clínica',
-            'credencial' => 'CAPACITAHC2024',
+            'credencial' => Hash::make('CAPACITAHC2024'),
             'user_id' => $capacitadorHC->id,
+            'nombre_completo' => 'Dr. Jorge Ramírez',
+            'email' => 'capacitador.hc@hospital.com',
+            'tipo_formulario' => 'historia_clinica',
+            'orden' => 4,
             'activo' => true,
             'created_at' => now(),
             'updated_at' => now(),
@@ -229,15 +250,19 @@ class UsuariosRealesSeeder extends Seeder
 
         DB::table('role_user')->insert([
             'user_id' => $capacitadorEpi->id,
-            'role_id' => $rolMedico->id,
+            'role_id' => $rolUsuario->id,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        DB::table('credenciales_firma')->insert([
+        DB::table('credenciales_firmas')->insert([
             'cargo' => 'Capacitador de epidemiología',
-            'credencial' => 'CAPACITAEPI2024',
+            'credencial' => Hash::make('CAPACITAEPI2024'),
             'user_id' => $capacitadorEpi->id,
+            'nombre_completo' => 'Dra. Sandra Torres',
+            'email' => 'capacitador.epi@hospital.com',
+            'tipo_formulario' => 'historia_clinica',
+            'orden' => 5,
             'activo' => true,
             'created_at' => now(),
             'updated_at' => now(),
