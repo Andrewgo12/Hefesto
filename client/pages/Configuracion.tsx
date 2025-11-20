@@ -433,6 +433,15 @@ export default function Configuracion() {
                         title="Eliminar rol"
                       >
                         <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Lista de permisos del rol */}
+                  <div className="mt-4">
+                    <h4 className="text-sm font-medium text-slate-900 mb-2">Permisos</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {selectedRole.permissions.map((perm, idx) => (
                         <div
                           key={idx}
                           className="flex items-center gap-2 p-2 bg-slate-50 rounded"
