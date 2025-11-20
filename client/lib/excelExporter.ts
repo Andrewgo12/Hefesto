@@ -33,13 +33,13 @@ function offsetAddr(addr: string, dx: number, dy: number): string {
   return `${numberToCol(cNum)}${rNum}`;
 }
 
-function writeCell(ws: XLSX.WorkSheet, addr: string, value: any) {
+function writeCell(ws: XLSX.IWorkSheet, addr: string, value: any) {
   if (!ws[addr]) ws[addr] = {} as any;
   (ws[addr] as any).v = value ?? '';
   (ws[addr] as any).t = 's';
 }
 
-function findAddrByLabel(ws: XLSX.WorkSheet, label: string): string | null {
+function findAddrByLabel(ws: XLSX.IWorkSheet, label: string): string | null {
   const keys = Object.keys(ws).filter(k => !k.startsWith('!'));
   for (const k of keys) {
     const cell = ws[k] as any;
@@ -66,11 +66,11 @@ export async function exportarFormularioAdministrativo(
     }
     const arrayBuffer = await response.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    
+
     // Obtener la primera hoja
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    
+
     // Mapear datos a celdas específicas del Excel
     // NOTA: Ajusta las referencias de celdas según el formato real del Excel
     const celdasFormulario = {
@@ -95,7 +95,7 @@ export async function exportarFormularioAdministrativo(
       'B23': (datos as any).fechaAprobacion || '',
       'B24': (datos as any).observaciones || '',
     } as Record<string, any>;
-    
+
     // Aplicar datos por coordenada
     Object.entries(celdasFormulario).forEach(([celda, valor]) => writeCell(worksheet, celda, valor));
 
@@ -115,11 +115,11 @@ export async function exportarFormularioAdministrativo(
         writeCell(worksheet, target, fb.value);
       }
     }
-    
+
     // Generar archivo Excel
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    
+
     // Descargar archivo
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -127,7 +127,7 @@ export async function exportarFormularioAdministrativo(
     link.download = `Formato_Administrativo_${datos.cedula}_${new Date().getTime()}.xlsx`;
     link.click();
     window.URL.revokeObjectURL(url);
-    
+
     console.log('Formulario administrativo exportado correctamente');
   } catch (error) {
     console.error('Error al exportar formulario administrativo:', error);
@@ -151,11 +151,11 @@ export async function exportarFormularioHistoriaClinica(
     }
     const arrayBuffer = await response.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    
+
     // Obtener la primera hoja
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    
+
     // Mapear datos a celdas específicas del Excel
     // NOTA: Ajusta las referencias de celdas según el formato real del Excel
     const celdasFormulario = {
@@ -190,7 +190,7 @@ export async function exportarFormularioHistoriaClinica(
       'B33': (datos as any).fechaAprobacion || '',
       'B34': datos.observaciones || '',
     } as Record<string, any>;
-    
+
     // Aplicar datos por coordenada
     Object.entries(celdasFormulario).forEach(([celda, valor]) => writeCell(worksheet, celda, valor));
 
@@ -212,11 +212,11 @@ export async function exportarFormularioHistoriaClinica(
         writeCell(worksheet, target, fb.value);
       }
     }
-    
+
     // Generar archivo Excel
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    
+
     // Descargar archivo
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -224,7 +224,7 @@ export async function exportarFormularioHistoriaClinica(
     link.download = `Formato_Historia_Clinica_${datos.cedula}_${new Date().getTime()}.xlsx`;
     link.click();
     window.URL.revokeObjectURL(url);
-    
+
     console.log('Formulario de historia clínica exportado correctamente');
   } catch (error) {
     console.error('Error al exportar formulario de historia clínica:', error);
@@ -239,7 +239,7 @@ export async function exportarFormularioHistoriaClinica(
 export async function leerArchivoExcel(file: File): Promise<any> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
@@ -252,7 +252,7 @@ export async function leerArchivoExcel(file: File): Promise<any> {
         reject(error);
       }
     };
-    
+
     reader.onerror = () => reject(new Error('Error al leer el archivo'));
     reader.readAsArrayBuffer(file);
   });
@@ -317,7 +317,7 @@ if (import.meta.env.DEV) {
     tipoVinculacion: 'Planta',
     perfilDe: 'Perfil Administrativo',
     aceptaResponsabilidad: true,
-    fechaSolicitud: new Date().toISOString().slice(0,10),
+    fechaSolicitud: new Date().toISOString().slice(0, 10),
   });
   window.__mockMedico = () => ({
     nombreCompleto: 'Dra. María López',
@@ -327,8 +327,8 @@ if (import.meta.env.DEV) {
     correoElectronico: 'medico@hospital.local',
     celular: '3001234567',
     perfil: 'Médico general',
-    fechaSolicitud: new Date().toISOString().slice(0,10),
-    capacitacionHistoriaClinica: { capacitacionRealizada: true, fechaCapacitacion: new Date().toISOString().slice(0,10) },
+    fechaSolicitud: new Date().toISOString().slice(0, 10),
+    capacitacionHistoriaClinica: { capacitacionRealizada: true, fechaCapacitacion: new Date().toISOString().slice(0, 10) },
     aceptaResponsabilidad: true,
   });
 }
