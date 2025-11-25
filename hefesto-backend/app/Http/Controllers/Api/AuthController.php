@@ -68,8 +68,6 @@ class AuthController extends Controller
             'permisos' => $permisos,
             'token' => $token,
             'es_administrador' => $user->esAdministrador(),
-            'es_supervisor' => $user->esSupervisor(),
-            'es_medico' => $user->esMedico(),
         ]);
     }
 

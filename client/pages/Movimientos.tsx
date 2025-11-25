@@ -7,6 +7,8 @@ import { roles as rolesApi, parametros as parametrosApi } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
 
 interface Role {
   id: number;
@@ -28,18 +30,18 @@ export default function Movimientos() {
   const [showCredencialesModal, setShowCredencialesModal] = useState(false);
   const [showParametrosModal, setShowParametrosModal] = useState(false);
   const [showRespaldosModal, setShowRespaldosModal] = useState(false);
-  
+
   // Estados para modales de confirmación
   const [showDeleteRoleModal, setShowDeleteRoleModal] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
-  
+
   // Estados para modales de input
   const [showNewRoleModal, setShowNewRoleModal] = useState(false);
   const [showEditRoleModal, setShowEditRoleModal] = useState(false);
   const [showCredentialModal, setShowCredentialModal] = useState(false);
   const [showEditParamModal, setShowEditParamModal] = useState(false);
-  
+
   const [newRoleName, setNewRoleName] = useState("");
   const [editRoleName, setEditRoleName] = useState("");
   const [roleToEdit, setRoleToEdit] = useState<Role | null>(null);
@@ -147,13 +149,13 @@ export default function Movimientos() {
     setNewRoleName("");
     setShowNewRoleModal(true);
   };
-  
+
   const confirmNewRole = async () => {
     if (!newRoleName.trim()) {
       toast.error('Nombre requerido', 'Debe ingresar un nombre para el rol');
       return;
     }
-    
+
     try {
       // Crear rol en la API
       const response = await rolesApi.create({
@@ -161,10 +163,10 @@ export default function Movimientos() {
         description: 'Nuevo rol creado',
         permissions: []
       });
-      
+
       // Recargar roles desde BD
       await cargarRoles();
-      
+
       setShowNewRoleModal(false);
       toast.success('Rol creado', `El rol "${newRoleName}" ha sido creado en la base de datos`);
     } catch (error) {
@@ -178,23 +180,23 @@ export default function Movimientos() {
     setEditRoleName(role.name);
     setShowEditRoleModal(true);
   };
-  
+
   const confirmEditRole = async () => {
     if (!editRoleName.trim() || !roleToEdit) {
       toast.error('Nombre requerido', 'Debe ingresar un nombre para el rol');
       return;
     }
-    
+
     try {
       // Actualizar rol en la API
       await rolesApi.update(roleToEdit.id, {
         name: editRoleName,
         description: roleToEdit.description
       });
-      
+
       // Recargar roles desde BD
       await cargarRoles();
-      
+
       setShowEditRoleModal(false);
       toast.success('Rol actualizado', 'El rol ha sido actualizado en la base de datos');
     } catch (error) {
@@ -207,17 +209,17 @@ export default function Movimientos() {
     setRoleToDelete(role);
     setShowDeleteRoleModal(true);
   };
-  
+
   const confirmDeleteRole = async () => {
     if (!roleToDelete) return;
-    
+
     try {
       // Eliminar rol en la API
       await rolesApi.delete(roleToDelete.id);
-      
+
       // Recargar roles desde BD
       await cargarRoles();
-      
+
       setSelectedRole(null);
       setShowDeleteRoleModal(false);
       setRoleToDelete(null);
@@ -234,13 +236,13 @@ export default function Movimientos() {
     setCredentialValue("");
     setShowCredentialModal(true);
   };
-  
+
   const confirmCredential = () => {
     if (!credentialValue.trim()) {
       toast.error('Valor requerido', 'Debe ingresar un valor para la credencial');
       return;
     }
-    
+
     setShowCredentialModal(false);
     toast.success('Credencial actualizada', `La credencial para "${credentialType}" ha sido actualizada`);
   };
@@ -251,20 +253,20 @@ export default function Movimientos() {
     setParamNewValue(param.value);
     setShowEditParamModal(true);
   };
-  
+
   const confirmEditParam = async () => {
     if (!paramNewValue.trim() || !paramToEdit) {
       toast.error('Valor requerido', 'Debe ingresar un valor para el parámetro');
       return;
     }
-    
+
     try {
       // Actualizar parámetro en la API
       await parametrosApi.update(paramToEdit.name, paramNewValue);
-      
+
       // Recargar parámetros desde BD
       await cargarParametros();
-      
+
       setShowEditParamModal(false);
       toast.success('Parámetro actualizado', 'El parámetro ha sido actualizado en la base de datos');
     } catch (error) {
@@ -274,27 +276,56 @@ export default function Movimientos() {
   };
 
   // Handlers para respaldos
-  const handleCrearRespaldo = () => {
-    toast.loading('Creando respaldo...');
-    setTimeout(() => {
-      toast.success('Respaldo creado', 'El respaldo se ha creado exitosamente');
-    }, 1500);
+  const handleCrearRespaldo = async () => {
+    try {
+      toast.loading('Creando respaldo...');
+      // Llamar a API de respaldos (si existe endpoint)
+      // await api.post('/respaldos/crear');
+
+      // Por ahora simulado hasta que exista el endpoint
+      setTimeout(() => {
+        toast.success('Respaldo creado', 'El respaldo se ha creado exitosamente');
+      }, 1500);
+    } catch (error) {
+      toast.error('Error', 'No se pudo crear el respaldo');
+    }
   };
 
   const handleRestaurarRespaldo = () => {
     setShowRestoreModal(true);
   };
-  
-  const confirmRestore = () => {
-    setShowRestoreModal(false);
-    toast.loading('Restaurando respaldo...');
-    setTimeout(() => {
-      toast.success('Respaldo restaurado', 'El sistema ha sido restaurado correctamente');
-    }, 1500);
+
+  const confirmRestore = async () => {
+    try {
+      setShowRestoreModal(false);
+      toast.loading('Restaurando respaldo...');
+      // Llamar a API de respaldos (si existe endpoint)
+      // await api.post('/respaldos/restaurar');
+
+      // Por ahora simulado hasta que exista el endpoint
+      setTimeout(() => {
+        toast.success('Respaldo restaurado', 'El sistema ha sido restaurado correctamente');
+      }, 1500);
+    } catch (error) {
+      toast.error('Error', 'No se pudo restaurar el respaldo');
+    }
   };
 
-  const handleDescargarRespaldo = () => {
-    toast.success('Descargando respaldo', 'El archivo de respaldo se está descargando');
+  const handleDescargarRespaldo = async () => {
+    try {
+      toast.success('Descargando respaldo', 'El archivo de respaldo se está descargando');
+      // Llamar a API de respaldos (si existe endpoint)
+      // const response = await api.get('/respaldos/descargar', { responseType: 'blob' });
+      // const url = window.URL.createObjectURL(new Blob([response.data]));
+      // const link = document.createElement('a');
+      // link.href = url;
+      // link.setAttribute('download', `backup_${new Date().toISOString()}.sql`);
+      // document.body.appendChild(link);
+      // link.click();
+      // link.remove();
+    } catch (error) {
+      toast.error('Error', 'No se pudo descargar el respaldo');
+    }
   };
 
   return (
@@ -309,87 +340,100 @@ export default function Movimientos() {
       </div>
 
       {/* Grid de opciones */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
         {/* Gestión de Roles */}
-        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowRolesModal(true)}>
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <Settings className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-slate-900 mb-2">
-                Gestión de Roles
-              </h3>
-              <p className="text-sm text-slate-600 mb-3">
-                Define y gestiona roles y permisos del sistema
-              </p>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="px-2 py-1 bg-slate-100 rounded">{roles.length} roles</span>
+        <motion.div variants={staggerItem}>
+          <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer h-full" onClick={() => setShowRolesModal(true)}>
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Settings className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900 mb-2">
+                  Gestión de Roles
+                </h3>
+                <p className="text-sm text-slate-600 mb-3">
+                  Define y gestiona roles y permisos del sistema
+                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="px-2 py-1 bg-slate-100 rounded">{roles.length} roles</span>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
 
         {/* Credenciales */}
-        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowCredencialesModal(true)}>
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Key className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-slate-900 mb-2">
-                Administración de Credenciales
-              </h3>
-              <p className="text-sm text-slate-600 mb-3">
-                Controla la creación y recuperación de credenciales
-              </p>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="px-2 py-1 bg-slate-100 rounded">4 configuraciones</span>
+        <motion.div variants={staggerItem}>
+          <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer h-full" onClick={() => setShowCredencialesModal(true)}>
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <Key className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900 mb-2">
+                  Administración de Credenciales
+                </h3>
+                <p className="text-sm text-slate-600 mb-3">
+                  Controla la creación y recuperación de credenciales
+                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="px-2 py-1 bg-slate-100 rounded">4 configuraciones</span>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
 
         {/* Parámetros del Sistema */}
-        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowParametrosModal(true)}>
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Database className="w-6 h-6 text-purple-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-slate-900 mb-2">
-                Parámetros del Sistema
-              </h3>
-              <p className="text-sm text-slate-600 mb-3">
-                Configura parámetros de seguridad y funcionamiento
-              </p>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="px-2 py-1 bg-slate-100 rounded">{parameters.length} parámetros</span>
+        <motion.div variants={staggerItem}>
+          <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer h-full" onClick={() => setShowParametrosModal(true)}>
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Database className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900 mb-2">
+                  Parámetros del Sistema
+                </h3>
+                <p className="text-sm text-slate-600 mb-3">
+                  Configura parámetros de seguridad y funcionamiento
+                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="px-2 py-1 bg-slate-100 rounded">{parameters.length} parámetros</span>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
 
         {/* Respaldos */}
-        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowRespaldosModal(true)}>
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-amber-100 rounded-lg">
-              <HardDrive className="w-6 h-6 text-amber-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-slate-900 mb-2">
-                Respaldos y Mantenimiento
-              </h3>
-              <p className="text-sm text-slate-600 mb-3">
-                Crea, restaura y descarga respaldos del sistema
-              </p>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="px-2 py-1 bg-slate-100 rounded">Último: 01/15/2024</span>
+        <motion.div variants={staggerItem}>
+          <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer h-full" onClick={() => setShowRespaldosModal(true)}>
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-amber-100 rounded-lg">
+                <HardDrive className="w-6 h-6 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-slate-900 mb-2">
+                  Respaldos y Mantenimiento
+                </h3>
+                <p className="text-sm text-slate-600 mb-3">
+                  Crea, restaura y descarga respaldos del sistema
+                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="px-2 py-1 bg-slate-100 rounded">Último: 01/15/2024</span>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
-      </div>
+          </Card>
+        </motion.div>
+      </motion.div>
 
       {/* MODAL 1: Gestión de Roles */}
       <Dialog open={showRolesModal} onOpenChange={setShowRolesModal}>
@@ -415,11 +459,10 @@ export default function Movimientos() {
                   <button
                     key={role.id}
                     onClick={() => setSelectedRole(role)}
-                    className={`w-full text-left p-3 rounded border transition-colors ${
-                      selectedRole?.id === role.id
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-slate-200 hover:bg-slate-50"
-                    }`}
+                    className={`w-full text-left p-3 rounded border transition-colors ${selectedRole?.id === role.id
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-slate-200 hover:bg-slate-50"
+                      }`}
                   >
                     <p className="font-medium text-slate-900 text-sm">{role.name}</p>
                     <p className="text-xs text-slate-600 mt-1">{role.usersCount} usuarios</p>
@@ -451,15 +494,15 @@ export default function Movimientos() {
                     </div>
 
                     <div className="mt-4 flex gap-2">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => handleEditarRol(selectedRole)}
                       >
                         Editar
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => handleEliminarRol(selectedRole)}
                       >
@@ -502,8 +545,8 @@ export default function Movimientos() {
               <p className="text-sm text-slate-600 mb-4">
                 Permite que usuarios cambien su contraseña de forma segura
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => handleConfigurarCredencial('Recuperación de Contraseña')}
               >
@@ -518,8 +561,8 @@ export default function Movimientos() {
               <p className="text-sm text-slate-600 mb-4">
                 Aumenta la seguridad requiriendo verificación adicional
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => handleConfigurarCredencial('Autenticación 2FA')}
               >
@@ -534,8 +577,8 @@ export default function Movimientos() {
               <p className="text-sm text-slate-600 mb-4">
                 Configura el tiempo máximo de sesión activa
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => handleConfigurarCredencial('Expiración de Sesión')}
               >
@@ -550,8 +593,8 @@ export default function Movimientos() {
               <p className="text-sm text-slate-600 mb-4">
                 Bloquea o desbloquea usuarios del sistema
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => handleConfigurarCredencial('Bloqueo de Usuarios')}
               >
@@ -614,8 +657,8 @@ export default function Movimientos() {
                       {param.description}
                     </td>
                     <td className="py-3 px-3">
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleEditarParametro(param)}
                       >
@@ -657,20 +700,20 @@ export default function Movimientos() {
             </div>
 
             <div className="flex gap-3">
-              <Button 
+              <Button
                 onClick={handleCrearRespaldo}
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
               >
                 Crear Respaldo
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 onClick={handleRestaurarRespaldo}
                 className="flex-1"
               >
                 Restaurar Último
               </Button>
-              <Button 
+              <Button
                 variant="outline"
                 onClick={handleDescargarRespaldo}
                 className="flex-1"
@@ -684,7 +727,7 @@ export default function Movimientos() {
                 ℹ️ Información Importante
               </p>
               <p className="text-xs text-blue-700 mt-2">
-                Los respaldos incluyen toda la configuración del sistema, roles, usuarios y parámetros. 
+                Los respaldos incluyen toda la configuración del sistema, roles, usuarios y parámetros.
                 Se recomienda crear respaldos antes de realizar cambios importantes.
               </p>
             </div>

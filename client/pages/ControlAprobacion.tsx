@@ -2,27 +2,33 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Eye, Search, Filter, Download, Printer, FileText, Edit } from "lucide-react";
+import { CheckCircle2, XCircle, Search, Filter, Download, Printer, FileText, Edit } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "@/lib/toast";
 import { useApp } from "@/contexts/AppContext";
 import { useNavigate } from "react-router-dom";
 import ModalEditarSolicitud from "@/components/ModalEditarSolicitud";
 import ModalEditarHistoriaClinica from "@/components/ModalEditarHistoriaClinica";
+import PDFAdministrativo from "@/components/PDFAdministrativo";
+import PDFHistoriaClinica from "@/components/PDFHistoriaClinica";
 import { exportacion } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { motion } from "framer-motion";
-import { AnimatedSection } from "@/components/AnimatedSection";
-import { fadeInUp, fadeInDown, staggerContainer, staggerItem } from "@/lib/animations";
-import PDFAdministrativo from "@/components/PDFAdministrativo";
-import PDFHistoriaClinica from "@/components/PDFHistoriaClinica";
-const USE_API = import.meta.env.VITE_USE_API === 'true';
+import { Label } from "@/components/ui/label";
+import ExcelJS from 'exceljs';
+import { parseSignature } from "@/lib/signatureFonts";
+const fadeInDown = {
+  hidden: { opacity: 0, y: -20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+};
+
+const AnimatedSection = motion.div;
 
 interface Solicitud {
-  id: number;
-  nombre_completo: string;
+  id: number | string;
+  id_original?: number;
+  nombreCompleto: string;
   cedula: string;
   tipo: 'Administrativo' | 'Historia Clínica';
   estado: string;
@@ -31,6 +37,7 @@ interface Solicitud {
   area_servicio?: string;
   especialidad?: string;
   perfil?: string;
+  datos?: any;
 }
 
 export default function ControlAprobacion() {
@@ -55,12 +62,6 @@ export default function ControlAprobacion() {
   // Estados para paginación
   const [paginaActual, setPaginaActual] = useState(1);
   const itemsPorPagina = 15;
-
-  // Verificar si el usuario es admin
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    setIsAdmin(user.rol === 'Administrador' || user.rol === 'admin');
-  }, []);
 
   // Función para editar solicitud
   const handleEditar = (solicitud: any) => {
@@ -163,6 +164,69 @@ export default function ControlAprobacion() {
 
     return matchesSearch && matchesEstado;
   });
+
+  // Función para exportar tabla a Excel
+  const handleExportarExcel = async () => {
+    try {
+      if (solicitudesFiltradas.length === 0) {
+        toast.error('Error', 'No hay datos para exportar');
+        return;
+      }
+
+      toast.info('Exportando...', 'Generando archivo Excel');
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Solicitudes');
+
+      // Definir columnas
+      worksheet.columns = [
+        { header: 'ID', key: 'id', width: 10 },
+        { header: 'Fecha Solicitud', key: 'fecha', width: 20 },
+        { header: 'Tipo', key: 'tipo', width: 15 },
+        { header: 'Estado', key: 'estado', width: 15 },
+        { header: 'Solicitante', key: 'solicitante', width: 30 },
+        { header: 'Cédula', key: 'cedula', width: 15 },
+        { header: 'Cargo/Perfil', key: 'cargo', width: 20 },
+        { header: 'Área/Servicio', key: 'area', width: 20 },
+      ];
+
+      // Agregar filas
+      solicitudesFiltradas.forEach(sol => {
+        worksheet.addRow({
+          id: sol.id,
+          fecha: new Date(sol.fechaSolicitud).toLocaleString('es-CO'),
+          tipo: sol.tipo,
+          estado: sol.estado,
+          solicitante: sol.nombreCompleto,
+          cedula: sol.cedula,
+          cargo: sol.cargo || sol.perfil || '',
+          area: sol.area_servicio || sol.especialidad || '',
+        });
+      });
+
+      // Estilar encabezado
+      worksheet.getRow(1).font = { bold: true };
+
+      // Generar buffer
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      // Guardar archivo nativamente
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Reporte_Solicitudes_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Éxito', 'Archivo exportado correctamente');
+    } catch (error) {
+      console.error('Error al exportar Excel:', error);
+      toast.error('Error', 'No se pudo generar el archivo Excel');
+    }
+  };
 
   // Calcular paginación
   const totalPaginas = Math.ceil(solicitudesFiltradas.length / itemsPorPagina);
@@ -308,6 +372,25 @@ export default function ControlAprobacion() {
                   </Button>
                 </motion.div>
               ))}
+
+              {/* Botón Exportar Excel */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5, type: "spring", stiffness: 300 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleExportarExcel}
+                  className="text-xs sm:text-sm bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300 hover:shadow-md transition-all duration-300"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Exportar Excel
+                </Button>
+              </motion.div>
             </div>
           </div>
         </Card>
@@ -392,23 +475,7 @@ export default function ControlAprobacion() {
                         <td className="p-3 text-xs text-slate-600">{formatearFecha(sol.fechaSolicitud)}</td>
                         <td className="p-3">
                           <div className="flex gap-1">
-                            <motion.div
-                              whileHover={{ scale: 1.2 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-all duration-300"
-                                onClick={() => {
-                                  setSelectedSolicitud(sol);
-                                  setShowDetalles(true);
-                                }}
-                                title="Ver detalles completos"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </motion.div>
+
                             <motion.div
                               whileHover={{ scale: 1.2 }}
                               whileTap={{ scale: 0.9 }}
@@ -426,6 +493,8 @@ export default function ControlAprobacion() {
                                 <FileText className="w-4 h-4" />
                               </Button>
                             </motion.div>
+
+                            {/* Botón Descargar Excel */}
                             <motion.div
                               whileHover={{ scale: 1.2 }}
                               whileTap={{ scale: 0.9 }}
@@ -450,7 +519,10 @@ export default function ControlAprobacion() {
                                 size="sm"
                                 variant="ghost"
                                 className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-all duration-300"
-                                onClick={() => handleEditar(sol)}
+                                onClick={() => {
+                                  console.log('✏️ Click en editar:', sol);
+                                  handleEditar(sol);
+                                }}
                                 title="Editar solicitud"
                               >
                                 <Edit className="w-4 h-4" />
@@ -701,7 +773,7 @@ export default function ControlAprobacion() {
                             <div className="w-full h-20 flex items-center justify-center bg-white rounded-lg border border-slate-200 mb-2 p-2">
                               {firma.firma?.startsWith('FIRMA_TEXTO:') ? (
                                 <p className="font-signature text-lg text-slate-800">
-                                  {firma.firma.replace('FIRMA_TEXTO:', '')}
+                                  {parseSignature(firma.firma).name}
                                 </p>
                               ) : (
                                 <img

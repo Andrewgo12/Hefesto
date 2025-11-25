@@ -65,9 +65,8 @@ class User extends Authenticatable
      */
     public function esAdministrador(): bool
     {
-        return $this->rol === 'Administrador' || $this->tienePermiso('admin.acceso_total');
+        return strtolower($this->rol) === 'administrador' || $this->tienePermiso('admin.acceso_total');
     }
-
     /**
      * Obtener el nombre completo del usuario
      */

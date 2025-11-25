@@ -4,9 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { solicitudesHistoriaClinica } from '@/lib/api';
 import { toast } from '@/lib/toast';
-import { Save, X } from 'lucide-react';
+import { Save, X, AlertTriangle, RefreshCw } from 'lucide-react';
+import {
+  validarSolicitudHistoriaClinica,
+  sanitizarDatos,
+  guardarTemporalmente,
+  recuperarTemporales,
+  limpiarTemporales
+} from '@/lib/formValidation';
 
 interface ModalEditarHistoriaClinicaProps {
   open: boolean;
@@ -25,6 +33,10 @@ export default function ModalEditarHistoriaClinica({ open, onClose, solicitudId,
     tipo_permiso: [],
   });
   const [permisoHC, setPermisoHC] = useState<Record<string, Record<string, boolean>>>({});
+  const [datosModificados, setDatosModificados] = useState(false);
+  const [erroresValidacion, setErroresValidacion] = useState<string[]>([]);
+  const [advertenciasValidacion, setAdvertenciasValidacion] = useState<string[]>([]);
+  const [intentosGuardado, setIntentosGuardado] = useState(0);
 
   const permisos = ['A', 'C', 'M', 'B'] as const;
 
@@ -34,9 +46,42 @@ export default function ModalEditarHistoriaClinica({ open, onClose, solicitudId,
     }
   }, [open, solicitudId]);
 
+  // Detectar cambios en el formulario
+  useEffect(() => {
+    if (open) {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        if (datosModificados) {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      };
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
+  }, [open, datosModificados]);
+
   const cargarSolicitud = async () => {
     try {
       setCargando(true);
+
+      // Verificar si hay datos temporales guardados
+      const datosTemp = recuperarTemporales('historia_clinica', solicitudId);
+      if (datosTemp) {
+        const confirmar = window.confirm(
+          '⚠️ Tienes cambios sin guardar. ¿Deseas recuperarlos?'
+        );
+        if (confirmar) {
+          setFormData(datosTemp.formData);
+          setPermisoHC(datosTemp.permisoHC);
+          setDatosModificados(true);
+          toast.info('Datos recuperados', 'Se restauraron tus cambios anteriores');
+          setCargando(false);
+          return;
+        } else {
+          limpiarTemporales('historia_clinica', solicitudId);
+        }
+      }
+
       const response = await solicitudesHistoriaClinica.getById(solicitudId);
       const solicitud = response.data;
 
@@ -59,7 +104,7 @@ export default function ModalEditarHistoriaClinica({ open, onClose, solicitudId,
         ? JSON.parse(solicitud.tipo_permiso)
         : solicitud.tipo_permiso || [];
 
-      setFormData({
+      const datos = {
         nombre_completo: solicitud.nombre_completo || '',
         cedula: solicitud.cedula || '',
         cargo: solicitud.cargo || '',
@@ -78,7 +123,9 @@ export default function ModalEditarHistoriaClinica({ open, onClose, solicitudId,
         codigo_formato: solicitud.codigo_formato || 'FOR-GDI-SIS-005',
         version: solicitud.version || '1',
         fecha_emision: solicitud.fecha_emision || '23/11/2020',
-      });
+      };
+
+      setFormData(datos);
 
       // Cargar permisos de historia clínica
       const permisosHCCargados: Record<string, Record<string, boolean>> = {};
@@ -110,6 +157,22 @@ export default function ModalEditarHistoriaClinica({ open, onClose, solicitudId,
       ...prev,
       [modulo]: { ...prev[modulo], [permiso]: value }
     }));
+    setDatosModificados(true);
+
+    // Guardar temporalmente
+    setTimeout(() => {
+      guardarTemporalmente('historia_clinica', solicitudId, { formData, permisoHC });
+    }, 500);
+  };
+
+  const handleCambioFormulario = (cambios: any) => {
+    setFormData({ ...formData, ...cambios });
+    setDatosModificados(true);
+
+    // Guardar temporalmente
+    setTimeout(() => {
+      guardarTemporalmente('historia_clinica', solicitudId, { formData: { ...formData, ...cambios }, permisoHC });
+    }, 500);
   };
 
   const handleGuardar = async () => {
@@ -356,7 +419,7 @@ export default function ModalEditarHistoriaClinica({ open, onClose, solicitudId,
             {/* Firmas */}
             <div className="border-2 border-amber-200 rounded-lg p-4">
               <h3 className="font-bold text-amber-900 mb-3">FIRMAS DIGITALES</h3>
-              
+
               {/* Firma Jefe Inmediato */}
               <div className="mb-4 border-2 border-blue-200 rounded-lg p-3 bg-blue-50">
                 <h4 className="font-semibold text-blue-900 mb-2">Jefe Inmediato</h4>
@@ -371,8 +434,8 @@ export default function ModalEditarHistoriaClinica({ open, onClose, solicitudId,
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => {
                       const user = JSON.parse(localStorage.getItem('user') || '{}');
                       setFormData({
@@ -408,8 +471,8 @@ export default function ModalEditarHistoriaClinica({ open, onClose, solicitudId,
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => {
                       const user = JSON.parse(localStorage.getItem('user') || '{}');
                       setFormData({

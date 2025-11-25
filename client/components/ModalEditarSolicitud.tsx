@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { solicitudesAdministrativas } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { Save, X } from 'lucide-react';
+import logger from '@/lib/logger';
 
 interface ModalEditarSolicitudProps {
   open: boolean;
@@ -51,11 +52,13 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
       const response = await solicitudesAdministrativas.getById(solicitudId);
       const solicitud = response.data;
 
-      console.log('📥 Datos cargados:', solicitud);
-      console.log('📥 Tipo de permiso:', solicitud.tipo_permiso);
-      console.log('📥 Perfil de:', solicitud.perfil_de);
-      console.log('📥 Opciones web:', solicitud.opciones_web);
-      console.log('📥 Firmas:', solicitud.firmas);
+      logger.data('Datos cargados', solicitud);
+      logger.debug('Solicitud parseada', {
+        tipo_permiso: solicitud.tipo_permiso,
+        perfil_de: solicitud.perfil_de,
+        opciones_web: solicitud.opciones_web,
+        firmas: solicitud.firmas
+      });
 
       // Parsear JSON strings
       const modulosAdmin = typeof solicitud.modulos_administrativos === 'string'
@@ -78,9 +81,11 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
         ? JSON.parse(solicitud.tipo_permiso)
         : solicitud.tipo_permiso || [];
 
-      console.log('🔍 Tipo permiso parseado:', tipoPermiso);
-      console.log('🔍 Perfil de:', solicitud.perfil_de);
-      console.log('🔍 Opciones web parseadas:', opcionesWeb);
+      logger.debug('Datos parseados', {
+        tipoPermiso,
+        perfil_de: solicitud.perfil_de,
+        opcionesWeb
+      });
 
       setFormData({
         nombre_completo: solicitud.nombre_completo || '',
@@ -108,33 +113,31 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
       const permisosAdminCargados: Record<string, Record<string, boolean>> = {};
       Object.keys(modulosAdmin).forEach((modulo) => {
         const perms = modulosAdmin[modulo];
-        console.log(`🔍 Procesando módulo admin "${modulo}":`, perms);
+        logger.process(`Procesando módulo admin "${modulo}"`, perms);
         permisosAdminCargados[modulo] = {
           A: perms.A === 1 || perms.A === '1' || perms.A === true || perms.adicionar === 1 || perms.adicionar === '1' || perms.adicionar === true,
           C: perms.C === 1 || perms.C === '1' || perms.C === true || perms.consultar === 1 || perms.consultar === '1' || perms.consultar === true,
           M: perms.M === 1 || perms.M === '1' || perms.M === true || perms.modificar === 1 || perms.modificar === '1' || perms.modificar === true,
           B: perms.B === 1 || perms.B === '1' || perms.B === true || perms.borrar === 1 || perms.borrar === '1' || perms.borrar === true,
         };
-        console.log(`  ✅ Resultado:`, permisosAdminCargados[modulo]);
       });
-      console.log('✅ TODOS los permisos admin cargados:', permisosAdminCargados);
+      logger.success('Permisos admin cargados', permisosAdminCargados);
       setPermisoAdmin(permisosAdminCargados);
 
       // Cargar permisos financieros
       const permisosFinCargados: Record<string, Record<string, boolean>> = {};
-      console.log('🔍 Módulos financieros a procesar:', Object.keys(modulosFinan));
+      logger.info('Módulos financieros a procesar', Object.keys(modulosFinan));
       Object.keys(modulosFinan).forEach((modulo) => {
         const perms = modulosFinan[modulo];
-        console.log(`🔍 Procesando módulo fin "${modulo}":`, perms);
+        logger.process(`Procesando módulo fin "${modulo}"`, perms);
         permisosFinCargados[modulo] = {
           A: perms.A === 1 || perms.A === '1' || perms.A === true || perms.adicionar === 1 || perms.adicionar === '1' || perms.adicionar === true,
           C: perms.C === 1 || perms.C === '1' || perms.C === true || perms.consultar === 1 || perms.consultar === '1' || perms.consultar === true,
           M: perms.M === 1 || perms.M === '1' || perms.M === true || perms.modificar === 1 || perms.modificar === '1' || perms.modificar === true,
           B: perms.B === 1 || perms.B === '1' || perms.B === true || perms.borrar === 1 || perms.borrar === '1' || perms.borrar === true,
         };
-        console.log(`  ✅ Resultado fin:`, permisosFinCargados[modulo]);
       });
-      console.log('✅ TODOS los permisos fin cargados:', permisosFinCargados);
+      logger.success('Permisos financieros cargados', permisosFinCargados);
       setPermisoFin(permisosFinCargados);
 
       // Cargar nivel de anexos
@@ -193,14 +196,16 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
         fecha_solicitud: formData.fecha_solicitud || new Date().toISOString(),
       };
 
-      console.log('💾 Guardando payload:', payload);
-      console.log('📝 Tipo permiso:', formData.tipo_permiso);
-      console.log('👤 Perfil de:', formData.perfil_de);
-      console.log('🌐 Opciones web:', formData.opciones_web);
+      logger.save('Guardando payload', payload);
+      logger.debug('Datos del formulario', {
+        tipo_permiso: formData.tipo_permiso,
+        perfil_de: formData.perfil_de,
+        opciones_web: formData.opciones_web
+      });
 
       const response = await solicitudesAdministrativas.update(solicitudId, payload);
-      console.log('✅ Respuesta del servidor:', response.data);
-      
+      logger.success('Respuesta del servidor', response.data);
+
       toast.success('Solicitud actualizada', 'Los cambios se guardaron correctamente');
       onSuccess();
       onClose();
@@ -385,52 +390,52 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                 </thead>
                 <tbody>
                   {Object.keys(formData.modulos_administrativos || {}).map((modulo) => {
-                    console.log(`📊 Renderizando módulo "${modulo}":`, permisoAdmin[modulo]);
+                    logger.render(`módulo "${modulo}"`, permisoAdmin[modulo]);
                     return (
-                    <tr key={modulo} className="border-b">
-                      <td className="p-2 capitalize">{modulo.replace(/([A-Z])/g, ' $1').toLowerCase()}</td>
-                      {modulo === 'anexos' ? (
-                        <td colSpan={4} className="p-2">
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                checked={anexosNivel === '1'}
-                                onChange={() => setAnexosNivel('1')}
-                              />
-                              N1
-                            </label>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                checked={anexosNivel === '2'}
-                                onChange={() => setAnexosNivel('2')}
-                              />
-                              N2
-                            </label>
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                checked={anexosNivel === '3'}
-                                onChange={() => setAnexosNivel('3')}
-                              />
-                              N3
-                            </label>
-                          </div>
-                        </td>
-                      ) : (
-                        permisos.map((p) => (
-                          <td key={p} className="p-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={permisoAdmin[modulo]?.[p] === true}
-                              onChange={(e) => togglePermiso('admin', modulo, p, e.target.checked)}
-                              className="w-4 h-4 cursor-pointer accent-blue-600"
-                            />
+                      <tr key={modulo} className="border-b">
+                        <td className="p-2 capitalize">{modulo.replace(/([A-Z])/g, ' $1').toLowerCase()}</td>
+                        {modulo === 'anexos' ? (
+                          <td colSpan={4} className="p-2">
+                            <div className="flex gap-4">
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  checked={anexosNivel === '1'}
+                                  onChange={() => setAnexosNivel('1')}
+                                />
+                                N1
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  checked={anexosNivel === '2'}
+                                  onChange={() => setAnexosNivel('2')}
+                                />
+                                N2
+                              </label>
+                              <label className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  checked={anexosNivel === '3'}
+                                  onChange={() => setAnexosNivel('3')}
+                                />
+                                N3
+                              </label>
+                            </div>
                           </td>
-                        ))
-                      )}
-                    </tr>
+                        ) : (
+                          permisos.map((p) => (
+                            <td key={p} className="p-2 text-center">
+                              <input
+                                type="checkbox"
+                                checked={permisoAdmin[modulo]?.[p] === true}
+                                onChange={(e) => togglePermiso('admin', modulo, p, e.target.checked)}
+                                className="w-4 h-4 cursor-pointer accent-blue-600"
+                              />
+                            </td>
+                          ))
+                        )}
+                      </tr>
                     );
                   })}
                 </tbody>
@@ -605,7 +610,7 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                   />
                 </div>
               </div>
-              
+
               {/* Firma Usuario Solicitante */}
               <div className="mt-4 border-2 border-slate-300 rounded-lg p-3 bg-slate-50">
                 <h4 className="font-semibold text-slate-900 mb-2">Firma del usuario solicitante</h4>
@@ -620,8 +625,8 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => {
                       const user = JSON.parse(localStorage.getItem('user') || '{}');
                       setFormData({
@@ -647,7 +652,7 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
             {/* Vo. Bo. y Firmas */}
             <div className="border-2 border-amber-200 rounded-lg p-4">
               <h3 className="font-bold text-amber-900 mb-3">Vo. Bo. Y FIRMAS DE AUTORIZACIÓN (5 firmas requeridas)</h3>
-              
+
               {/* Firma Jefe Inmediato */}
               <div className="mb-4 border-2 border-blue-200 rounded-lg p-3 bg-blue-50">
                 <h4 className="font-semibold text-blue-900 mb-2">Jefe Inmediato</h4>
@@ -662,8 +667,8 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => {
                       const user = JSON.parse(localStorage.getItem('user') || '{}');
                       setFormData({
@@ -699,8 +704,8 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => {
                       const user = JSON.parse(localStorage.getItem('user') || '{}');
                       setFormData({
@@ -736,8 +741,8 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => {
                       const user = JSON.parse(localStorage.getItem('user') || '{}');
                       setFormData({
@@ -773,8 +778,8 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => {
                       const user = JSON.parse(localStorage.getItem('user') || '{}');
                       setFormData({

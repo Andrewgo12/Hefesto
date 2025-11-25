@@ -110,6 +110,11 @@ class SolicitudAdministrativaController extends Controller
         
         $solicitud = SolicitudAdministrativa::create($data);
         
+        // Procesar firmas si vienen en la petición
+        if (isset($data['firmas']) && !empty($firmasArray)) {
+            $this->procesarFirmas($solicitud, $data['firmas'], $request);
+        }
+        
         // Registrar en historial de estados
         $solicitud->historialEstados()->create([
             'estado_anterior' => null,
@@ -169,22 +174,142 @@ class SolicitudAdministrativaController extends Controller
             'telefono_extension' => 'sometimes|required|string|max:50',
             'tipo_vinculacion' => 'sometimes|required|in:Planta,Agremiado,Contrato',
             'estado' => 'sometimes|required|in:Pendiente,En revisión,Aprobado,Rechazado',
+            'firmas' => 'nullable|string', // Aceptar JSON de firmas
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $solicitud->update($validator->validated());
+        $data = $validator->validated();
+        
+        // Procesar firmas si vienen en la petición
+        if (isset($data['firmas'])) {
+            $this->procesarFirmas($solicitud, $data['firmas'], $request);
+            
+            // Recalcular contadores de firmas
+            $firmasArray = json_decode($data['firmas'], true) ?: [];
+            if (!empty($firmasArray) && is_array($firmasArray)) {
+                $totalFirmas = count($firmasArray);
+                $firmasCompletas = collect($firmasArray)->filter(fn($f) => !empty($f['firma'] ?? $f['usuario'] ?? null))->count();
+                $data['firmas_pendientes'] = max(0, $totalFirmas - $firmasCompletas);
+                $data['firmas_completadas'] = $firmasCompletas;
+            }
+        }
+
+        $solicitud->update($data);
         
         // Registrar en historial
+        $usuario = auth()->user();
         $solicitud->historial()->create([
             'accion' => 'Modificada',
             'comentario' => $request->comentario ?? 'Solicitud modificada',
-            'usuario_id' => auth()->id() ?? 1,
+            'usuario_id' => $usuario?->id ?? 1,
         ]);
         
-        return response()->json($solicitud);
+        return response()->json([
+            'message' => 'Solicitud actualizada exitosamente',
+            'data' => $solicitud->fresh()
+        ]);
+    }
+    
+    /**
+     * Procesa las firmas del JSON y las guarda en la tabla firmas_solicitud
+     */
+    private function procesarFirmas($solicitud, $firmasJson, $request)
+    {
+        try {
+            $firmasArray = json_decode($firmasJson, true);
+            if (!is_array($firmasArray) || empty($firmasArray)) {
+                return;
+            }
+
+            // Mapeo de nombres de firma a cargos en pasos_aprobacion
+            $mapeoFirmas = [
+                'usuarioSolicitante' => 'Usuario Solicitante',
+                'jefeInmediato' => 'Jefe inmediato',
+                'jefeTalentoHumano' => 'Jefe de Talento Humano',
+                'jefeGestionInformacion' => 'Jefe de Gestión de la Información',
+                'coordinadorTIC' => 'Jefe de Gestión de la Información', // Alias
+                'coordinadorFacturacionOSubgerenteFinanciero' => 'Coordinador de Facturación o Subgerente Financiero',
+            ];
+
+            $usuario = auth()->user();
+
+            foreach ($firmasArray as $nombreFirma => $datosFirma) {
+                // Verificar que la firma tenga datos válidos
+                if (empty($datosFirma) || !is_array($datosFirma)) {
+                    continue;
+                }
+
+                // Verificar que tenga al menos usuario o firma
+                if (empty($datosFirma['usuario'] ?? null) && empty($datosFirma['firma'] ?? null)) {
+                    continue;
+                }
+
+                // Obtener el cargo correspondiente
+                $cargoRequerido = $mapeoFirmas[$nombreFirma] ?? null;
+                if (!$cargoRequerido) {
+                    \Log::warning("Firma desconocida: {$nombreFirma}");
+                    continue;
+                }
+
+                // Buscar el paso de aprobación correspondiente
+                $pasoAprobacion = \DB::table('pasos_aprobacion')
+                    ->join('flujos_aprobacion', 'pasos_aprobacion.flujo_id', '=', 'flujos_aprobacion.id')
+                    ->where('flujos_aprobacion.tipo_solicitud', 'administrativo')
+                    ->where('pasos_aprobacion.cargo_requerido', $cargoRequerido)
+                    ->select('pasos_aprobacion.id', 'pasos_aprobacion.nombre_paso', 'pasos_aprobacion.cargo_requerido')
+                    ->first();
+
+                if (!$pasoAprobacion) {
+                    \Log::warning("No se encontró paso de aprobación para cargo: {$cargoRequerido}");
+                    continue;
+                }
+
+                // Verificar si ya existe una firma para este paso
+                $firmaExistente = \DB::table('firmas_solicitud')
+                    ->where('solicitud_type', 'App\\Models\\SolicitudAdministrativa')
+                    ->where('solicitud_id', $solicitud->id)
+                    ->where('paso_aprobacion_id', $pasoAprobacion->id)
+                    ->first();
+
+                if ($firmaExistente) {
+                    // Actualizar firma existente
+                    \DB::table('firmas_solicitud')
+                        ->where('id', $firmaExistente->id)
+                        ->update([
+                            'firmado_por' => $usuario?->id,
+                            'nombre_firmante' => $datosFirma['usuario'] ?? 'Usuario',
+                            'estado' => 'aprobado',
+                            'fecha_firma' => isset($datosFirma['fecha']) ? \Carbon\Carbon::parse($datosFirma['fecha'])->format('Y-m-d H:i:s') : now(),
+                            'ip_address' => $request->ip(),
+                            'updated_at' => now(),
+                        ]);
+                } else {
+                    // Crear nueva firma
+                    \DB::table('firmas_solicitud')->insert([
+                        'solicitud_type' => 'App\\Models\\SolicitudAdministrativa',
+                        'solicitud_id' => $solicitud->id,
+                        'paso_aprobacion_id' => $pasoAprobacion->id,
+                        'firmado_por' => $usuario?->id,
+                        'nombre_firmante' => $datosFirma['usuario'] ?? 'Usuario',
+                        'cargo_firmante' => $pasoAprobacion->cargo_requerido,
+                        'credencial_usada' => null, // Se puede agregar validación de credencial aquí
+                        'estado' => 'aprobado',
+                        'observaciones' => null,
+                        'motivo_rechazo' => null,
+                        'fecha_firma' => isset($datosFirma['fecha']) ? \Carbon\Carbon::parse($datosFirma['fecha'])->format('Y-m-d H:i:s') : now(),
+                        'ip_address' => $request->ip(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error al procesar firmas: ' . $e->getMessage());
+            // No lanzar excepción para no bloquear la actualización de la solicitud
+        }
     }
     
     public function destroy($id)

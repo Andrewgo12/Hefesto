@@ -8,6 +8,7 @@ interface User {
     email: string;
     rol: string;
     roles?: Array<{ nombre: string }>;
+    es_administrador?: boolean;
 }
 
 export function useRoles() {
@@ -17,29 +18,44 @@ export function useRoles() {
 
     useEffect(() => {
         const userStr = localStorage.getItem('user');
+        console.log('🔍 useRoles - Raw user string:', userStr);
+
         if (userStr) {
             try {
                 const user: User = JSON.parse(userStr);
+                console.log('👤 useRoles - Parsed user:', user);
+                console.log('🔑 useRoles - es_administrador:', user.es_administrador);
+                console.log('📧 useRoles - email:', user.email);
+                console.log('👔 useRoles - rol:', user.rol);
+                console.log('📜 useRoles - roles array:', user.roles);
 
                 // Determinar rol del usuario
                 let role: UserRole = 'Usuario';
 
                 // Verificar si es administrador
+                const rolLower = user.rol?.toLowerCase() || '';
                 if (
+                    user.es_administrador === true ||
                     user.email === 'admin@hefesto.local' ||
-                    user.rol === 'Administrador' ||
-                    user.rol === 'admin' ||
-                    user.roles?.some(r => r.nombre === 'Administrador')
+                    rolLower === 'administrador' ||
+                    rolLower === 'admin' ||
+                    user.roles?.some(r => r.nombre?.toLowerCase() === 'administrador')
                 ) {
                     role = 'Administrador';
+                    console.log('✅ useRoles - Usuario ES ADMINISTRADOR');
+                } else {
+                    console.log('❌ useRoles - Usuario NO es administrador');
                 }
 
+                console.log('🎭 useRoles - Final role:', role);
                 setUserRole(role);
                 setIsAdmin(role === 'Administrador');
                 setIsUser(role === 'Usuario');
             } catch (error) {
-                console.error('Error parsing user data:', error);
+                console.error('❌ useRoles - Error parsing user data:', error);
             }
+        } else {
+            console.log('⚠️ useRoles - No user data in localStorage');
         }
     }, []);
 
@@ -55,8 +71,8 @@ export function useRoles() {
         canExportReports: isAdmin,
         canManageCatalogs: isAdmin,
         canManageCredentials: isAdmin,
-        canCreateRequests: true, // Todos pueden crear solicitudes
-        canViewOwnRequests: true, // Todos pueden ver sus propias solicitudes
+        canCreateRequests: !!userRole, // Requiere estar autenticado con rol asignado
+        canViewOwnRequests: !!userRole, // Requiere estar autenticado
         canViewAllRequests: isAdmin, // Solo admin puede ver todas
     };
 }
@@ -71,11 +87,12 @@ export const ROLES = {
 export function isAdminUser(user: User | null): boolean {
     if (!user) return false;
 
+    const rolLower = user.rol?.toLowerCase() || '';
     return (
         user.email === 'admin@hefesto.local' ||
-        user.rol === 'Administrador' ||
-        user.rol === 'admin' ||
-        user.roles?.some(r => r.nombre === 'Administrador') ||
+        rolLower === 'administrador' ||
+        rolLower === 'admin' ||
+        user.roles?.some(r => r.nombre?.toLowerCase() === 'administrador') ||
         false
     );
 }

@@ -26,6 +26,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useRoles } from '@/hooks/useRoles';
 import { Navigate } from 'react-router-dom';
 import { credencialesFirma } from '@/lib/api';
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
 
 interface CredencialFirma {
   id: number;
@@ -45,10 +47,6 @@ interface CredencialFirma {
 export default function GestionCredencialesFirmas() {
   const { isAdmin } = useRoles();
   const [credenciales, setCredenciales] = useState<CredencialFirma[]>([]);
-
-  if (!isAdmin) {
-    return <Navigate to="/" replace />;
-  }
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editando, setEditando] = useState<CredencialFirma | null>(null);
@@ -65,6 +63,11 @@ export default function GestionCredencialesFirmas() {
     orden: 0,
     activo: true,
   });
+
+  // Check admin AFTER all hooks
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
 
   useEffect(() => {
     cargarCredenciales();
@@ -214,58 +217,71 @@ export default function GestionCredencialesFirmas() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={abrirDialogoNuevo}>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <Key className="h-8 w-8 text-blue-600" />
-              <Plus className="h-5 w-5 text-slate-400" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CardTitle className="text-2xl font-bold">{credenciales.length}</CardTitle>
-            <CardDescription className="mt-1">Total de Credenciales</CardDescription>
-          </CardContent>
-        </Card>
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-4 gap-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div variants={staggerItem}>
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full" onClick={abrirDialogoNuevo}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <Key className="h-8 w-8 text-blue-600" />
+                <Plus className="h-5 w-5 text-slate-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-2xl font-bold">{credenciales.length}</CardTitle>
+              <CardDescription className="mt-1">Total de Credenciales</CardDescription>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <Users className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CardTitle className="text-2xl font-bold">{contarPorTipo('administrativa')}</CardTitle>
-            <CardDescription className="mt-1">Formularios Administrativos</CardDescription>
-          </CardContent>
-        </Card>
+        <motion.div variants={staggerItem}>
+          <Card className="hover:shadow-lg transition-shadow h-full">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <Users className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-2xl font-bold">{contarPorTipo('administrativa')}</CardTitle>
+              <CardDescription className="mt-1">Formularios Administrativos</CardDescription>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <Users className="h-8 w-8 text-green-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CardTitle className="text-2xl font-bold">{contarPorTipo('historia_clinica')}</CardTitle>
-            <CardDescription className="mt-1">Historia Clínica</CardDescription>
-          </CardContent>
-        </Card>
+        <motion.div variants={staggerItem}>
+          <Card className="hover:shadow-lg transition-shadow h-full">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <Users className="h-8 w-8 text-green-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-2xl font-bold">{contarPorTipo('historia_clinica')}</CardTitle>
+              <CardDescription className="mt-1">Historia Clínica</CardDescription>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <Power className="h-8 w-8 text-green-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CardTitle className="text-2xl font-bold">
-              {credenciales.filter(c => c.activo).length}
-            </CardTitle>
-            <CardDescription className="mt-1">Credenciales Activas</CardDescription>
-          </CardContent>
-        </Card>
-      </div>
+        <motion.div variants={staggerItem}>
+          <Card className="hover:shadow-lg transition-shadow h-full">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <Power className="h-8 w-8 text-green-600" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-2xl font-bold">
+                {credenciales.filter(c => c.activo).length}
+              </CardTitle>
+              <CardDescription className="mt-1">Credenciales Activas</CardDescription>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
 
       {/* Action Button */}
       <div className="flex justify-end">
@@ -276,83 +292,90 @@ export default function GestionCredencialesFirmas() {
       </div>
 
       {/* Lista de Credenciales */}
-      <div className="grid gap-4">
+      <motion.div
+        className="grid gap-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
         {credenciales.map((credencial) => (
-          <Card key={credencial.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="text-lg">{credencial.cargo}</CardTitle>
-                    {getTipoBadge(credencial.tipo_formulario)}
-                    {credencial.activo ? (
-                      <Badge variant="default" className="bg-green-500">
-                        <Power className="mr-1 h-3 w-3" />
-                        Activo
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">
-                        <PowerOff className="mr-1 h-3 w-3" />
-                        Inactivo
-                      </Badge>
+          <motion.div key={credencial.id} variants={staggerItem}>
+            <Card className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="text-lg">{credencial.cargo}</CardTitle>
+                      {getTipoBadge(credencial.tipo_formulario)}
+                      {credencial.activo ? (
+                        <Badge variant="default" className="bg-green-500">
+                          <Power className="mr-1 h-3 w-3" />
+                          Activo
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">
+                          <PowerOff className="mr-1 h-3 w-3" />
+                          Inactivo
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription className="mt-2">
+                      <span className="font-medium">{credencial.nombre_completo}</span> • {credencial.email}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => toggleActivo(credencial.id)}
+                      title={credencial.activo ? 'Desactivar' : 'Activar'}
+                    >
+                      {credencial.activo ? (
+                        <PowerOff className="h-4 w-4" />
+                      ) : (
+                        <Power className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => abrirDialogoEditar(credencial)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => eliminarCredencial(credencial.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              {(credencial.area_departamento || credencial.descripcion) && (
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    {credencial.area_departamento && (
+                      <div>
+                        <span className="text-muted-foreground">Área:</span>
+                        <span className="ml-2 font-medium">{credencial.area_departamento}</span>
+                      </div>
+                    )}
+                    {credencial.cedula && (
+                      <div>
+                        <span className="text-muted-foreground">Cédula:</span>
+                        <span className="ml-2 font-medium">{credencial.cedula}</span>
+                      </div>
                     )}
                   </div>
-                  <CardDescription className="mt-2">
-                    <span className="font-medium">{credencial.nombre_completo}</span> • {credencial.email}
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => toggleActivo(credencial.id)}
-                    title={credencial.activo ? 'Desactivar' : 'Activar'}
-                  >
-                    {credencial.activo ? (
-                      <PowerOff className="h-4 w-4" />
-                    ) : (
-                      <Power className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => abrirDialogoEditar(credencial)}
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => eliminarCredencial(credencial.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            {(credencial.area_departamento || credencial.descripcion) && (
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  {credencial.area_departamento && (
-                    <div>
-                      <span className="text-muted-foreground">Área:</span>
-                      <span className="ml-2 font-medium">{credencial.area_departamento}</span>
-                    </div>
+                  {credencial.descripcion && (
+                    <p className="text-sm text-muted-foreground mt-2">{credencial.descripcion}</p>
                   )}
-                  {credencial.cedula && (
-                    <div>
-                      <span className="text-muted-foreground">Cédula:</span>
-                      <span className="ml-2 font-medium">{credencial.cedula}</span>
-                    </div>
-                  )}
-                </div>
-                {credencial.descripcion && (
-                  <p className="text-sm text-muted-foreground mt-2">{credencial.descripcion}</p>
-                )}
-              </CardContent>
-            )}
-          </Card>
+                </CardContent>
+              )}
+            </Card>
+          </motion.div>
         ))}
 
         {credenciales.length === 0 && (
@@ -367,7 +390,7 @@ export default function GestionCredencialesFirmas() {
             </CardContent>
           </Card>
         )}
-      </div>
+      </motion.div>
 
       {/* Dialog para Crear/Editar */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

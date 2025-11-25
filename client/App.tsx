@@ -12,15 +12,13 @@ import Login from "./pages/Login";
 import Registro from "./pages/Registro";
 import RegistroAdministrativo from "./pages/RegistroAdministrativo";
 import RegistroHistoriaClinica from "./pages/RegistroHistoriaClinica";
-import Control from "./pages/Control";
 import ControlAprobacion from "./pages/ControlAprobacion";
-import Movimientos from "./pages/Movimientos";
+import Control from "./pages/Control";
+import Llaves from "./pages/Llaves";
 import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
 import Layout from "@/components/Layout";
-import GestionCredencialesFirmas from "./pages/GestionCredencialesFirmas";
-import Configuracion from "./pages/Configuracion";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+// ProtectedRoute removed - using role checks within components instead
 
 const queryClient = new QueryClient();
 
@@ -30,12 +28,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true,
-          }}
-        >
+        <BrowserRouter>
           <Routes>
             {/* Ruta pública de login */}
             <Route path="/login" element={<Login />} />
@@ -44,11 +37,22 @@ const App = () => (
             <Route
               path="/"
               element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Outlet />
-                  </Layout>
-                </ProtectedRoute>
+                (() => {
+                  // Verificar autenticación
+                  const token = localStorage.getItem('auth_token');
+                  const user = localStorage.getItem('user');
+
+                  // Si no hay token ni usuario, redirigir a login
+                  if (!token && !user) {
+                    return <Navigate to="/login" replace />;
+                  }
+
+                  return (
+                    <Layout>
+                      <Outlet />
+                    </Layout>
+                  );
+                })()
               }
             >
               <Route index element={<Index />} />
@@ -58,57 +62,18 @@ const App = () => (
               <Route path="registro/administrativo" element={<RegistroAdministrativo />} />
               <Route path="registro/historia-clinica" element={<RegistroHistoriaClinica />} />
 
-              {/* Control - Solo Administradores */}
+              {/* Control - Accessible to all users */}
               <Route
                 path="control/aprobacion"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <ControlAprobacion />
-                  </ProtectedRoute>
-                }
+                element={<ControlAprobacion />}
               />
               <Route
                 path="control/:view"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <Control />
-                  </ProtectedRoute>
-                }
+                element={<Control />}
               />
 
-              {/* Configuración - Solo Administradores */}
-              <Route
-                path="configuracion"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <Configuracion />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="configuracion/movimientos"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <Movimientos />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="configuracion/credenciales-firmas"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <GestionCredencialesFirmas />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="configuracion/*"
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <Movimientos />
-                  </ProtectedRoute>
-                }
-              />
+              {/* Configuración */}
+              <Route path="configuracion/llaves" element={<Llaves />} />
 
               {/* Perfil routes */}
               <Route path="perfil" element={<Navigate to="/perfil/personal" replace />} />
@@ -125,3 +90,4 @@ const App = () => (
 );
 
 createRoot(document.getElementById("root")!).render(<App />);
+// Force rebuild for routing check

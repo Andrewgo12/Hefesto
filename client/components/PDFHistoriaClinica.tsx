@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Download, Printer, X } from "lucide-react";
 import { useRef } from "react";
+import { parseSignature } from "@/lib/signatureFonts";
 
 interface PDFHistoriaClinicaProps {
   solicitud: any;
@@ -30,7 +31,7 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
   };
 
   const datos = solicitud.datos || solicitud || {};
-  
+
   // Debug: ver qué datos tenemos
   console.log('🏥 PDF Historia Clínica - Datos completos:', {
     solicitud,
@@ -39,9 +40,9 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
     capacitacion_hc_raw: datos.capacitacion_historia_clinica,
     capacitacion_epi_raw: datos.capacitacion_epidemiologia
   });
-  
+
   // Parse datos si son strings
-  const firmas = typeof datos.firmas === 'string' 
+  const firmas = typeof datos.firmas === 'string'
     ? JSON.parse(datos.firmas || '{}')
     : datos.firmas || {};
 
@@ -94,13 +95,13 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
         </div>
 
         {/* Contenido del formulario */}
-        <div ref={printRef} className="p-8 bg-white" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt' }}>
+        <div id="pdf-content-hc" ref={printRef} className="p-8 bg-white" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt' }}>
           {/* Encabezado */}
           <div className="border-2 border-black mb-4">
             <div className="bg-blue-900 text-white p-2 text-center">
               <h1 className="text-lg font-bold uppercase">FORMATO CREACIÓN DE USUARIOS HISTORIA CLÍNICA ELECTRÓNICA</h1>
             </div>
-            
+
             <div className="grid grid-cols-4 border-t-2 border-black text-xs">
               <div className="border-r border-black p-2">
                 <p className="font-bold">CÓDIGO:</p>
@@ -359,16 +360,16 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
                       <p className="text-[10px] font-bold mb-1 uppercase text-center border-b border-black pb-1">
                         {cargo.replace(/([A-Z])/g, ' $1').trim()}
                       </p>
-                      
+
                       {/* Firma */}
                       <div className="h-16 flex items-center justify-center bg-slate-50 border border-black mb-1">
                         {firma.firma?.startsWith('FIRMA_TEXTO:') ? (
                           <p className="font-signature text-xl text-black">
-                            {firma.firma.replace('FIRMA_TEXTO:', '')}
+                            {parseSignature(firma.firma).name}
                           </p>
                         ) : firma.firma ? (
-                          <img 
-                            src={firma.firma} 
+                          <img
+                            src={firma.firma}
                             alt={`Firma ${cargo}`}
                             className="max-h-14 max-w-full object-contain"
                           />
@@ -376,7 +377,7 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
                           <p className="text-[10px] text-slate-400">Sin firma</p>
                         )}
                       </div>
-                      
+
                       {/* Información */}
                       <div className="text-center space-y-0.5">
                         <div className="border-t border-black pt-0.5">
@@ -423,12 +424,11 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
                   <tr>
                     <td className="border border-slate-400 p-2 font-bold bg-slate-100 w-1/4">ESTADO ACTUAL:</td>
                     <td className="border border-slate-400 p-2">
-                      <span className={`font-bold px-2 py-1 rounded ${
-                        solicitud.estado === 'Aprobado' ? 'bg-green-200 text-green-800' :
+                      <span className={`font-bold px-2 py-1 rounded ${solicitud.estado === 'Aprobado' ? 'bg-green-200 text-green-800' :
                         solicitud.estado === 'Rechazado' ? 'bg-red-200 text-red-800' :
-                        solicitud.estado === 'En revisión' ? 'bg-blue-200 text-blue-800' :
-                        'bg-amber-200 text-amber-800'
-                      }`}>
+                          solicitud.estado === 'En revisión' ? 'bg-blue-200 text-blue-800' :
+                            'bg-amber-200 text-amber-800'
+                        }`}>
                         {solicitud.estado}
                       </span>
                     </td>
@@ -461,6 +461,16 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
           }
           .print\\:hidden {
             display: none !important;
+          }
+          /* Hacer visible el contenido del modal para imprimir */
+          #pdf-content-hc, #pdf-content-hc * {
+            visibility: visible;
+          }
+          #pdf-content-hc {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
           }
           @page {
             size: letter;

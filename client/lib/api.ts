@@ -76,6 +76,9 @@ export const auth = {
     register: (data: any) => api.post('/register', data),
     logout: () => api.post('/logout'),
     me: () => api.get('/me'),
+    updateProfile: (data: any) => api.put('/perfil', data),
+    changePassword: (data: { current_password: string; new_password: string; new_password_confirmation: string }) =>
+        api.post('/perfil/cambiar-password', data),
     verificarCredencialFirma: (data: { cargo: string; credencial: string }) =>
         api.post('/verificar-credencial-firma', data),
 };

@@ -52,7 +52,7 @@ export default function ModalRegistroUsuario({ open, onClose, onSuccess }: Modal
 
       if (response.data) {
         toast.success('Usuario creado', `El usuario ${formData.name} ha sido registrado exitosamente`);
-        
+
         // Limpiar formulario
         setFormData({
           name: '',
@@ -60,18 +60,18 @@ export default function ModalRegistroUsuario({ open, onClose, onSuccess }: Modal
           password: '',
           password_confirmation: '',
           rol: 'Usuario',
-          estado: 'activo'
+          estado: 'inactivo'
         });
 
         // Llamar callback de éxito
         if (onSuccess) onSuccess();
-        
+
         // Cerrar modal
         onClose();
       }
     } catch (err: any) {
       console.error('Error al registrar usuario:', err);
-      
+
       if (err.response?.data?.errors) {
         setErrors(err.response.data.errors);
         const firstError = Object.values(err.response.data.errors)[0];
@@ -151,32 +151,6 @@ export default function ModalRegistroUsuario({ open, onClose, onSuccess }: Modal
             )}
           </div>
 
-          {/* Rol */}
-          <div className="space-y-2">
-            <Label htmlFor="rol" className="flex items-center gap-2">
-              <Shield className="w-4 h-4" />
-              Rol <span className="text-red-500">*</span>
-            </Label>
-            <Select value={formData.rol} onValueChange={(value) => handleChange('rol', value)}>
-              <SelectTrigger className={errors.rol ? 'border-red-500' : ''}>
-                <SelectValue placeholder="Seleccione un rol" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Administrador">Administrador</SelectItem>
-                <SelectItem value="Jefe Inmediato">Jefe Inmediato</SelectItem>
-                <SelectItem value="Jefe de Talento Humano">Jefe de Talento Humano</SelectItem>
-                <SelectItem value="Jefe de Gestión de la Información">Jefe de Gestión de la Información</SelectItem>
-                <SelectItem value="Coordinador Financiero">Coordinador Financiero</SelectItem>
-                <SelectItem value="Capacitador HC">Capacitador Historia Clínica</SelectItem>
-                <SelectItem value="Capacitador Epidemiología">Capacitador Epidemiología</SelectItem>
-                <SelectItem value="Aval Institucional">Aval Institucional</SelectItem>
-                <SelectItem value="Usuario">Usuario</SelectItem>
-              </SelectContent>
-            </Select>
-            {errors.rol && (
-              <p className="text-sm text-red-500">{errors.rol[0]}</p>
-            )}
-          </div>
 
           {/* Contraseña */}
           <div className="space-y-2">
@@ -217,21 +191,6 @@ export default function ModalRegistroUsuario({ open, onClose, onSuccess }: Modal
               <p className="text-sm text-red-500">{errors.password_confirmation[0]}</p>
             )}
           </div>
-
-          {/* Estado */}
-          <div className="space-y-2">
-            <Label htmlFor="estado">Estado</Label>
-            <Select value={formData.estado} onValueChange={(value) => handleChange('estado', value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="activo">Activo</SelectItem>
-                <SelectItem value="inactivo">Inactivo</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Botones */}
           <div className="flex gap-3 pt-4">
             <Button

@@ -1,0 +1,11 @@
+{
+    "nombre_completo": "Dr. Carlos Andrés Rodríguez Martínez",
+    "cedula": "1234567890",
+    "cargo": "Médico General",
+    "area_servicio": "Urgencias",
+    "telefono_extension": "1234",
+    "tipo_vinculacion": "Planta",
+    "modulos_administrativos": "{}",
+    "modulos_financieros": "{}",
+    "firmas": "{\"jefeInmediato\":{\"usuario\":\"Usuario Admin\",\"fecha\":\"2025-11-25T12:50:00.000Z\"}}"
+}

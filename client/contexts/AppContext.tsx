@@ -5,9 +5,13 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { solicitudesAdministrativas, solicitudesHistoriaClinica, usuarios as usuariosApi } from '@/lib/api';
+import logger from '@/lib/logger';
+import { toast } from "sonner";
 
 // Tipos
 interface Solicitud {
+  perfil: string;
+  area_servicio: string;
   id: string | number; // Puede ser string (admin-1, historia-1) o number (legacy)
   id_original?: number; // ID original de la base de datos
   tipo: 'Administrativo' | 'Historia Clínica';
@@ -65,6 +69,10 @@ interface AppContextType {
     rechazadas: number;
     usuariosActivos: number;
   };
+
+  // Configuración de Firmas
+  configuracionFirmas: Record<string, Record<string, number>>;
+  actualizarConfiguracionFirmas: (formato: string, cargo: string, usuarioId: number) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -89,35 +97,83 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const [actividades, setActividades] = useState<Actividad[]>([]);
 
+  // Estado para configuración de firmas
+  const [configuracionFirmas, setConfiguracionFirmas] = useState<Record<string, Record<string, number>>>({});
+
+  // Cargar configuración de firmas desde localStorage
+  useEffect(() => {
+    const savedConfig = localStorage.getItem('configuracion_firmas');
+    if (savedConfig) {
+      try {
+        setConfiguracionFirmas(JSON.parse(savedConfig));
+      } catch (e) {
+        console.error('Error parsing signature config:', e);
+      }
+    }
+  }, []);
+
+  const actualizarConfiguracionFirmas = (formato: string, cargo: string, usuarioId: number) => {
+    setConfiguracionFirmas(prev => {
+      const newConfig = {
+        ...prev,
+        [formato]: {
+          ...(prev[formato] || {}),
+          [cargo]: usuarioId
+        }
+      };
+      localStorage.setItem('configuracion_firmas', JSON.stringify(newConfig));
+      return newConfig;
+    });
+
+    toast.success('Configuración actualizada La asignación de firma ha sido guardada.');
+  };
+
   // Cargar datos desde la API al iniciar (solo si está autenticado)
   useEffect(() => {
+    logger.process('AppContext useEffect ejecutándose');
     const token = localStorage.getItem('auth_token');
+    const user = localStorage.getItem('user');
+    logger.debug('Token encontrado', { hasToken: !!token });
+    logger.debug('Usuario encontrado', { hasUser: !!user });
+
+    // IMPORTANTE: Solo cargar datos si hay token válido
+    // Esto evita errores 401 que causan bucles de redirección
     if (token) {
+      logger.info('Token válido encontrado, iniciando carga de datos');
       cargarSolicitudes();
       cargarUsuarios();
+    } else {
+      logger.warn('No hay token de autenticación');
+      logger.warn('Esperando inicio de sesión en /login');
+      // NO cargar datos - el usuario debe iniciar sesión primero
+      setCargandoSolicitudes(false);
+      setCargandoUsuarios(false);
     }
   }, []);
 
   // Polling automático cada 10 segundos para sincronización en tiempo real
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
-    if (!token) return; // No hacer polling si no está autenticado
+    if (!token) {
+      logger.debug('Polling deshabilitado', { reason: 'No hay token de autenticación' });
+      return; // No hacer polling si no está autenticado
+    }
 
     const intervalo = setInterval(() => {
       // Solo actualizar si la pestaña está activa (optimización)
       if (!document.hidden) {
-        console.log('🔄 Actualizando datos automáticamente...');
+        logger.process('Actualizando datos automáticamente');
         cargarSolicitudes();
         cargarUsuarios();
       } else {
-        console.log('⏸️ Pestaña inactiva, pausando actualización');
+        logger.debug('Pestaña inactiva, pausando actualización');
       }
     }, 10000); // 10 segundos
 
     // Actualizar cuando la pestaña vuelve a estar activa
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('👁️ Pestaña activa, actualizando datos...');
+        logger.debug('Pestaña activa, actualizando datos');
         cargarSolicitudes();
         cargarUsuarios();
       }
@@ -134,24 +190,49 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const cargarSolicitudes = async (reintentos = 3) => {
     try {
       setCargandoSolicitudes(true);
-      console.log('🔄 AppContext: Cargando solicitudes desde API...');
+      logger.process('Cargando solicitudes desde API');
 
       // Intentar cargar desde API con reintentos
       const [respAdmin, respHistoria] = await Promise.all([
         solicitudesAdministrativas.getAll().catch((error) => {
-          console.error('❌ Error cargando solicitudes administrativas:', error);
-          return { data: { data: [] } };
+          logger.error('Error cargando solicitudes administrativas', error);
+          return { data: { data: [] } }; // Fallback structure matching pagination
         }),
         solicitudesHistoriaClinica.getAll().catch((error) => {
-          console.error('❌ Error cargando solicitudes historia clínica:', error);
-          return { data: { data: [] } };
+          logger.error('Error cargando solicitudes historia clínica', error);
+          return { data: { data: [] } }; // Fallback structure matching pagination
         })
       ]);
 
-      console.log('📦 Respuesta Admin:', respAdmin.data);
-      console.log('📦 Respuesta Historia:', respHistoria.data);
+      logger.data('Respuesta Admin Raw', respAdmin);
+      logger.data('Respuesta Historia Raw', respHistoria);
 
-      const solicitudesAdmin = (respAdmin.data?.data || []).map((sol: any) => ({
+      // Helper para extraer datos independientemente de la estructura (paginada o simple)
+      const extraerDatos = (response: any) => {
+        if (!response || !response.data) return [];
+        // Caso 1: Respuesta paginada de Laravel (objeto con propiedad data que es array)
+        if (response.data.data && Array.isArray(response.data.data)) {
+          return response.data.data;
+        }
+        // Caso 2: Respuesta directa (array en response.data)
+        if (Array.isArray(response.data)) {
+          return response.data;
+        }
+        // Caso 3: Respuesta paginada pero en response.data (a veces axios envuelve diferente)
+        if (response.data && response.data.data && Array.isArray(response.data.data)) {
+          return response.data.data;
+        }
+
+        logger.warn('Estructura de respuesta no reconocida', response);
+        return [];
+      };
+
+      const dataAdmin = extraerDatos(respAdmin);
+      const dataHistoria = extraerDatos(respHistoria);
+
+      logger.data('Datos extraídos', { admin: dataAdmin.length, historia: dataHistoria.length });
+
+      const solicitudesAdmin = dataAdmin.map((sol: any) => ({
         id: `admin-${sol.id}`,
         id_original: sol.id,
         tipo: 'Administrativo' as const,
@@ -166,7 +247,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         datos: sol
       }));
 
-      const solicitudesHistoria = (respHistoria.data?.data || []).map((sol: any) => ({
+      const solicitudesHistoria = dataHistoria.map((sol: any) => ({
         id: `historia-${sol.id}`,
         id_original: sol.id,
         tipo: 'Historia Clínica' as const,
@@ -183,26 +264,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       const todasSolicitudes = [...solicitudesAdmin, ...solicitudesHistoria];
 
-      console.log('✅ Total solicitudes mapeadas:', todasSolicitudes.length);
-      console.log('📋 Solicitudes:', todasSolicitudes);
+      logger.success('Total solicitudes mapeadas', { count: todasSolicitudes.length });
 
       if (todasSolicitudes.length > 0) {
         setSolicitudes(todasSolicitudes);
-        console.log('✅ Solicitudes guardadas en estado');
+        logger.save('Solicitudes guardadas en estado');
       } else {
-        console.log('⚠️ No hay solicitudes en API, intentando localStorage...');
-        // Si no hay datos en API, cargar desde localStorage
+        logger.warn('No se encontraron solicitudes en la API');
+        // Intentar cargar del localStorage solo si la API devolvió 0 y tenemos datos guardados
         const saved = localStorage.getItem('hefesto_solicitudes');
         if (saved) {
-          const solicitudesLS = JSON.parse(saved);
-          setSolicitudes(solicitudesLS);
-          console.log('✅ Cargadas', solicitudesLS.length, 'solicitudes desde localStorage');
-        } else {
-          console.log('⚠️ No hay solicitudes en localStorage tampoco');
+          const parsed = JSON.parse(saved);
+          if (parsed.length > 0) {
+            logger.warn('Usando caché de localStorage como fallback visual');
+            // Opcional: setSolicitudes(parsed); // Descomentar si queremos mostrar datos viejos
+          }
         }
       }
     } catch (error) {
-      console.error('Error al cargar solicitudes:', error);
+      logger.error('Error crítico al cargar solicitudes', error);
       // Fallback a localStorage
       const saved = localStorage.getItem('hefesto_solicitudes');
       if (saved) {
@@ -216,9 +296,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const cargarUsuarios = async (reintentos = 3) => {
     try {
       setCargandoUsuarios(true);
-      console.log('🔄 AppContext: Cargando usuarios desde API...');
+      logger.process('Cargando usuarios desde API');
       const response = await usuariosApi.getAll().catch((error) => {
-        console.error('❌ Error cargando usuarios:', error);
+        logger.error('Error cargando usuarios', error);
         return { data: { data: [] } };
       });
 
@@ -232,7 +312,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         usuariosData = response.data.data.data;
       }
 
-      console.log('👥 Usuarios recibidos:', usuariosData.length);
+      logger.data('Usuarios recibidos', { count: usuariosData.length });
 
       const usuariosBackend = usuariosData.map((user: any) => ({
         id: user.id,
@@ -461,6 +541,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     actividades,
     registrarActividad,
     estadisticas,
+    configuracionFirmas,
+    actualizarConfiguracionFirmas
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

@@ -6,7 +6,7 @@ export const usePermissions = () => {
   const getUserRole = (): string => {
     const userStr = localStorage.getItem('user');
     if (!userStr) return 'Usuario';
-    
+
     try {
       const user = JSON.parse(userStr);
       return user.rol || 'Usuario';
@@ -16,9 +16,12 @@ export const usePermissions = () => {
   };
 
   const role = getUserRole();
-  
+
+  // Normalizar rol para comparaciones
+  const normalizedRole = role.toLowerCase();
+
   // Debug: mostrar rol actual
-  console.log('🔐 Rol del usuario:', role);
+  console.log('🔐 Rol del usuario:', role, '(Normalizado:', normalizedRole, ')');
 
   // Definir permisos por rol
   const permissions = {
@@ -26,27 +29,27 @@ export const usePermissions = () => {
     canAccessDashboard: true,
     canAccessRegistro: true,
     canAccessControl: true,
-    canAccessAprobacion: role === 'Administrador' || role === 'Jefe Inmediato' || role === 'Jefe de Talento Humano',
-    canAccessGestionUsuarios: role === 'Administrador',
-    canAccessPermisos: role === 'Administrador',
-    canAccessConfiguracion: role === 'Administrador',
+    canAccessAprobacion: normalizedRole === 'administrador' || normalizedRole === 'jefe inmediato' || normalizedRole === 'jefe de talento humano',
+    canAccessGestionUsuarios: normalizedRole === 'administrador',
+    canAccessPermisos: normalizedRole === 'administrador',
+    canAccessConfiguracion: normalizedRole === 'administrador',
     canAccessPerfil: true,
-    
+
     // Permisos específicos
-    canAprobarSolicitudes: role === 'Administrador' || role === 'Jefe Inmediato' || role === 'Jefe de Talento Humano',
-    canRechazarSolicitudes: role === 'Administrador' || role === 'Jefe Inmediato' || role === 'Jefe de Talento Humano',
-    canCrearUsuarios: role === 'Administrador',
-    canEditarUsuarios: role === 'Administrador',
-    canEliminarUsuarios: role === 'Administrador',
-    canGestionarRoles: role === 'Administrador',
-    canGestionarParametros: role === 'Administrador',
-    canExportarExcel: role === 'Administrador' || role === 'Jefe Inmediato' || role === 'Jefe de Talento Humano',
+    canAprobarSolicitudes: normalizedRole === 'administrador' || normalizedRole === 'jefe inmediato' || normalizedRole === 'jefe de talento humano',
+    canRechazarSolicitudes: normalizedRole === 'administrador' || normalizedRole === 'jefe inmediato' || normalizedRole === 'jefe de talento humano',
+    canCrearUsuarios: normalizedRole === 'administrador',
+    canEditarUsuarios: normalizedRole === 'administrador',
+    canEliminarUsuarios: normalizedRole === 'administrador',
+    canGestionarRoles: normalizedRole === 'administrador',
+    canGestionarParametros: normalizedRole === 'administrador',
+    canExportarExcel: normalizedRole === 'administrador' || normalizedRole === 'jefe inmediato' || normalizedRole === 'jefe de talento humano',
     canCrearSolicitudes: true,
-    
+
     // Rol actual
     role,
-    isAdmin: role === 'Administrador',
-    isJefe: role === 'Jefe Inmediato' || role === 'Jefe de Talento Humano',
+    isAdmin: normalizedRole === 'administrador',
+    isJefe: normalizedRole === 'jefe inmediato' || normalizedRole === 'jefe de talento humano',
   };
 
   return permissions;

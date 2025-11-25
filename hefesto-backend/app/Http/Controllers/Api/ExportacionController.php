@@ -9,9 +9,21 @@ use Illuminate\Http\Request;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Writer\Html;
+use App\Services\OpenSpoutExportService;
+use App\Services\CsvExportService;
 
 class ExportacionController extends Controller
 {
+    protected $openSpoutService;
+    protected $csvService;
+    
+    public function __construct(
+        OpenSpoutExportService $openSpoutService,
+        CsvExportService $csvService
+    ) {
+        $this->openSpoutService = $openSpoutService;
+        $this->csvService = $csvService;
+    }
     /**
      * Normalizar texto para comparación robusta
      * Elimina tildes, espacios, guiones y convierte a minúsculas
@@ -199,8 +211,8 @@ class ExportacionController extends Controller
             // Primero exportar el Excel normalmente
             $solicitud = SolicitudAdministrativa::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
             
-            // Usar el template MAPEADO para previsualización (con texto descriptivo)
-            $templatePath = storage_path('app/templates/formato_administrativo_MAPEADO.xlsx');
+            // Usar template para previsualización
+            $templatePath = public_path('Documentos/Mapeado/formato_administrativo_MAPEADO.xlsx');
             
             if (!file_exists($templatePath)) {
                 return response()->json(['error' => 'Template no encontrado: ' . $templatePath], 404);
@@ -363,10 +375,19 @@ class ExportacionController extends Controller
                                 $sheet->setCellValue($celda, $usuario . ' - ' . $fechaFormateada);
                             }
                         } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
-                            $textoFirma = str_replace('FIRMA_TEXTO:', '', $firmaData);
+                            // Parsear formato: FIRMA_TEXTO:nombre|FONT:id|SIZE:num|STYLE:style
+                            $parts = explode('|', $firmaData);
+                            $textoFirma = str_replace('FIRMA_TEXTO:', '', $parts[0]);
+                            $fontName = 'Brush Script MT';
+                            $fontSize = 16;
+                            foreach ($parts as $part) {
+                                if (strpos($part, 'SIZE:') === 0) {
+                                    $fontSize = (int)str_replace('SIZE:', '', $part);
+                                }
+                            }
                             $sheet->setCellValue($celda, $textoFirma . "\n" . $fechaFormateada);
                             $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
-                            $sheet->getStyle($celda)->getFont()->setName('Brush Script MT')->setSize(16);
+                            $sheet->getStyle($celda)->getFont()->setName($fontName)->setSize($fontSize);
                         } else {
                             $sheet->setCellValue($celda, $usuario . "\n" . $fechaFormateada);
                             $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
@@ -405,8 +426,8 @@ class ExportacionController extends Controller
         try {
             $solicitud = SolicitudHistoriaClinica::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
             
-            // Usar el template MAPEADO para previsualización (con texto descriptivo)
-            $templatePath = storage_path('app/templates/formatocreacionusuarioshistoriaclinicaelectronicavmapeado.xlsx');
+            // Usar template para previsualización
+            $templatePath = public_path('Documentos/Mapeado/formatocreacionusuarioshistoriaclinicaelectronicavmapeado.xlsx');
             
             if (!file_exists($templatePath)) {
                 return response()->json(['error' => 'Template no encontrado: ' . $templatePath], 404);
@@ -572,10 +593,19 @@ class ExportacionController extends Controller
                                     $sheet->setCellValue($celda, $usuario . ' - ' . $fechaFormateada);
                                 }
                             } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
-                                $textoFirma = str_replace('FIRMA_TEXTO:', '', $firmaData);
+                                // Parsear formato: FIRMA_TEXTO:nombre|FONT:id|SIZE:num|STYLE:style
+                                $parts = explode('|', $firmaData);
+                                $textoFirma = str_replace('FIRMA_TEXTO:', '', $parts[0]);
+                                $fontName = 'Brush Script MT';
+                                $fontSize = 14;
+                                foreach ($parts as $part) {
+                                    if (strpos($part, 'SIZE:') === 0) {
+                                        $fontSize = (int)str_replace('SIZE:', '', $part);
+                                    }
+                                }
                                 $sheet->setCellValue($celda, $textoFirma . "\n" . $fechaFormateada);
                                 $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
-                                $sheet->getStyle($celda)->getFont()->setName('Brush Script MT')->setSize(14);
+                                $sheet->getStyle($celda)->getFont()->setName($fontName)->setSize($fontSize);
                             } else {
                                 $sheet->setCellValue($celda, $usuario . "\n" . $fechaFormateada);
                                 $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
@@ -609,10 +639,11 @@ class ExportacionController extends Controller
      */
     public function exportarAdministrativa($id)
     {
+        \Illuminate\Support\Facades\Log::info("Iniciando exportación administrativa para ID: $id");
         $solicitud = SolicitudAdministrativa::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
         
         // Usar el template VACÍO para exportación (sin texto descriptivo)
-        $templatePath = storage_path('app/templates/formato_administrativo_MAPEADOVacio.xlsx');
+        $templatePath = public_path('Documentos/formato_administrativo_MAPEADOVacio.xlsx');
         
         if (!file_exists($templatePath)) {
             return response()->json([
@@ -667,78 +698,145 @@ class ExportacionController extends Controller
                 $sheet->setCellValue('T9', 'X');
             }
             
-            // ===== MÓDULOS ADMINISTRATIVOS (Columnas: A=Adicionar, C=Consultar, M=Modificar, B=Borrar) =====
+            // ===== MÓDULOS ADMINISTRATIVOS Y FINANCIEROS =====
             \Log::info('Módulos administrativos raw:', ['data' => $solicitud->modulos_administrativos]);
+            
+            // Mapeo de nombres de módulos a filas del Excel
+            $mapeoModulosAdmin = [
+                'facturacion' => 20, 'facturación' => 20,
+                'anticipos' => 21,
+                'farmacia' => 22,
+                'suministros' => 23,
+                'cartera' => 24,
+                'glosas' => 25,
+                'admisiones' => 26,
+                'ayudas diagnosticas' => 27, 'ayudas diagnósticas' => 27,
+                'citas medicas' => 28, 'citas médicas' => 28,
+                'cirugia' => 29, 'cirugía' => 29,
+                'rips' => 30,
+                'anexos' => 31
+            ];
+            
+            // Procesar módulos administrativos
             if ($solicitud->modulos_administrativos) {
                 $modulos = is_string($solicitud->modulos_administrativos) 
                     ? json_decode($solicitud->modulos_administrativos, true)
                     : $solicitud->modulos_administrativos;
                 
-                \Log::info('Módulos administrativos procesados:', ['modulos' => $modulos, 'es_array' => is_array($modulos)]);
+                \Log::info('Módulos administrativos procesados:', ['modulos' => $modulos]);
+                
                 if (is_array($modulos)) {
-                    // Filas 20-31: Facturación, Anticipos, Farmacia, Suministros, Cartera, Glosas, 
-                    // Admisiones, Ayudas Diagnósticas, Citas Médicas, Cirugía, RIPS, Anexos
-                    // Columnas según mapeo: D=A, F=C, H=M, J=B
-                    $filaInicio = 20;
-                    $modulosNombres = ['facturacion', 'anticipos', 'farmacia', 'suministros', 'cartera', 'glosas', 
-                                      'admisiones', 'ayudasDiagnosticas', 'citasMedicas', 'cirugia', 'rips', 'anexos'];
-                    
-                    foreach ($modulosNombres as $index => $modulo) {
-                        $fila = $filaInicio + $index;
-                        
-                        if (isset($modulos[$modulo])) {
-                            if (is_array($modulos[$modulo])) {
-                                // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
-                                $adicionar = $this->isTrue($modulos[$modulo]['A'] ?? $modulos[$modulo]['adicionar'] ?? false);
-                                $consultar = $this->isTrue($modulos[$modulo]['C'] ?? $modulos[$modulo]['consultar'] ?? false);
-                                $modificar = $this->isTrue($modulos[$modulo]['M'] ?? $modulos[$modulo]['modificar'] ?? false);
-                                $borrar = $this->isTrue($modulos[$modulo]['B'] ?? $modulos[$modulo]['borrar'] ?? false);
+                    // Verificar si tiene estructura modulo/opciones (formato nuevo)
+                    if (isset($modulos['opciones']) && is_array($modulos['opciones'])) {
+                        foreach ($modulos['opciones'] as $opcion) {
+                            if (isset($opcion['nombre']) && isset($opcion['seleccionado']) && $opcion['seleccionado']) {
+                                $nombreNormalizado = $this->normalizarTexto($opcion['nombre']);
                                 
-                                if ($adicionar) $sheet->setCellValue('D' . $fila, 'X');
-                                if ($consultar) $sheet->setCellValue('F' . $fila, 'X');
-                                if ($modificar) $sheet->setCellValue('H' . $fila, 'X');
-                                if ($borrar) $sheet->setCellValue('J' . $fila, 'X');
-                            } elseif ($modulos[$modulo]) {
-                                // Formato simple: marcar solo Consultar
-                                $sheet->setCellValue('F' . $fila, 'X');
+                                // Buscar en el mapeo
+                                foreach ($mapeoModulosAdmin as $clave => $fila) {
+                                    if (stripos($nombreNormalizado, $this->normalizarTexto($clave)) !== false) {
+                                        // Si tiene permisos específicos (A,C,M,B), usarlos
+                                        if (isset($opcion['permisos']) && is_array($opcion['permisos'])) {
+                                            if ($this->isTrue($opcion['permisos']['A'] ?? false)) $sheet->setCellValue('D' . $fila, 'X');
+                                            if ($this->isTrue($opcion['permisos']['C'] ?? false)) $sheet->setCellValue('F' . $fila, 'X');
+                                            if ($this->isTrue($opcion['permisos']['M'] ?? false)) $sheet->setCellValue('H' . $fila, 'X');
+                                            if ($this->isTrue($opcion['permisos']['B'] ?? false)) $sheet->setCellValue('J' . $fila, 'X');
+                                        } else {
+                                            // Si solo está seleccionado, marcar solo Consultar por defecto
+                                            $sheet->setCellValue('F' . $fila, 'X');
+                                        }
+                                        \Log::info("Módulo marcado: {$opcion['nombre']} en fila {$fila}");
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Formato antiguo con claves directas (facturacion, anticipos, etc.)
+                    else {
+                        foreach ($mapeoModulosAdmin as $clave => $fila) {
+                            if (isset($modulos[$clave])) {
+                                if (is_array($modulos[$clave])) {
+                                    $adicionar = $this->isTrue($modulos[$clave]['A'] ?? $modulos[$clave]['adicionar'] ?? false);
+                                    $consultar = $this->isTrue($modulos[$clave]['C'] ?? $modulos[$clave]['consultar'] ?? false);
+                                    $modificar = $this->isTrue($modulos[$clave]['M'] ?? $modulos[$clave]['modificar'] ?? false);
+                                    $borrar = $this->isTrue($modulos[$clave]['B'] ?? $modulos[$clave]['borrar'] ?? false);
+                                    
+                                    if ($adicionar) $sheet->setCellValue('D' . $fila, 'X');
+                                    if ($consultar) $sheet->setCellValue('F' . $fila, 'X');
+                                    if ($modificar) $sheet->setCellValue('H' . $fila, 'X');
+                                    if ($borrar) $sheet->setCellValue('J' . $fila, 'X');
+                                    \Log::info("Módulo marcado (formato antiguo): {$clave} en fila {$fila}");
+                                } elseif ($modulos[$clave]) {
+                                    $sheet->setCellValue('F' . $fila, 'X');
+                                }
                             }
                         }
                     }
                 }
             }
             
-            // ===== MÓDULOS FINANCIEROS (Columnas: A=Adicionar, C=Consultar, M=Modificar, B=Borrar) =====
+            // ===== MÓDULOS FINANCIEROS =====
+            $mapeoModulosFinan = [
+                'presupuesto' => 20,
+                'activos fijos' => 21,
+                'contabilidad' => 22,
+                'cuentas por pagar' => 23,
+                'caja y bancos' => 24,
+                'costos' => 25,
+                'administracion documentos' => 26, 'administración documentos' => 26, 'adm. de documentos' => 26
+            ];
+            
             if ($solicitud->modulos_financieros) {
                 $modulos = is_string($solicitud->modulos_financieros) 
                     ? json_decode($solicitud->modulos_financieros, true)
                     : $solicitud->modulos_financieros;
                 
                 if (is_array($modulos)) {
-                    // Filas 20-26: Presupuesto, Activos Fijos, Contabilidad, Cuentas por Pagar, 
-                    // Caja y Bancos, Costos, Adm. De Documentos
-                    // Columnas según mapeo: Q=A, R=C, S=M, U=B
-                    $filaInicio = 20;
-                    $modulosNombres = ['presupuesto', 'activosFijos', 'contabilidad', 'cuentasPorPagar', 
-                                      'cajaYBancos', 'costos', 'administracionDocumentos'];
-                    
-                    foreach ($modulosNombres as $index => $modulo) {
-                        $fila = $filaInicio + $index;
-                        
-                        if (isset($modulos[$modulo])) {
-                            if (is_array($modulos[$modulo])) {
-                                // Soportar formato nuevo (A,C,M,B) y formato viejo (adicionar, consultar, etc.)
-                                $adicionar = $this->isTrue($modulos[$modulo]['A'] ?? $modulos[$modulo]['adicionar'] ?? false);
-                                $consultar = $this->isTrue($modulos[$modulo]['C'] ?? $modulos[$modulo]['consultar'] ?? false);
-                                $modificar = $this->isTrue($modulos[$modulo]['M'] ?? $modulos[$modulo]['modificar'] ?? false);
-                                $borrar = $this->isTrue($modulos[$modulo]['B'] ?? $modulos[$modulo]['borrar'] ?? false);
+                    // Verificar si tiene estructura modulo/opciones (formato nuevo)
+                    if (isset($modulos['opciones']) && is_array($modulos['opciones'])) {
+                        foreach ($modulos['opciones'] as $opcion) {
+                            if (isset($opcion['nombre']) && isset($opcion['seleccionado']) && $opcion['seleccionado']) {
+                                $nombreNormalizado = $this->normalizarTexto($opcion['nombre']);
                                 
-                                if ($adicionar) $sheet->setCellValue('Q' . $fila, 'X');
-                                if ($consultar) $sheet->setCellValue('R' . $fila, 'X');
-                                if ($modificar) $sheet->setCellValue('S' . $fila, 'X');
-                                if ($borrar) $sheet->setCellValue('U' . $fila, 'X');
-                            } elseif ($modulos[$modulo]) {
-                                // Formato simple: marcar solo Consultar
-                                $sheet->setCellValue('R' . $fila, 'X');
+                                // Buscar en el mapeo
+                                foreach ($mapeoModulosFinan as $clave => $fila) {
+                                    if (stripos($nombreNormalizado, $this->normalizarTexto($clave)) !== false) {
+                                        // Si tiene permisos específicos (A,C,M,B), usarlos
+                                        if (isset($opcion['permisos']) && is_array($opcion['permisos'])) {
+                                            if ($this->isTrue($opcion['permisos']['A'] ?? false)) $sheet->setCellValue('Q' . $fila, 'X');
+                                            if ($this->isTrue($opcion['permisos']['C'] ?? false)) $sheet->setCellValue('R' . $fila, 'X');
+                                            if ($this->isTrue($opcion['permisos']['M'] ?? false)) $sheet->setCellValue('S' . $fila, 'X');
+                                            if ($this->isTrue($opcion['permisos']['B'] ?? false)) $sheet->setCellValue('U' . $fila, 'X');
+                                        } else {
+                                            // Si solo está seleccionado, marcar solo Consultar por defecto
+                                            $sheet->setCellValue('R' . $fila, 'X');
+                                        }
+                                        \Log::info("Módulo financiero marcado: {$opcion['nombre']} en fila {$fila}");
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Formato antiguo con claves directas
+                    else {
+                        foreach ($mapeoModulosFinan as $clave => $fila) {
+                            if (isset($modulos[$clave])) {
+                                if (is_array($modulos[$clave])) {
+                                    $adicionar = $this->isTrue($modulos[$clave]['A'] ?? $modulos[$clave]['adicionar'] ?? false);
+                                    $consultar = $this->isTrue($modulos[$clave]['C'] ?? $modulos[$clave]['consultar'] ?? false);
+                                    $modificar = $this->isTrue($modulos[$clave]['M'] ?? $modulos[$clave]['modificar'] ?? false);
+                                    $borrar = $this->isTrue($modulos[$clave]['B'] ?? $modulos[$clave]['borrar'] ?? false);
+                                    
+                                    if ($adicionar) $sheet->setCellValue('Q' . $fila, 'X');
+                                    if ($consultar) $sheet->setCellValue('R' . $fila, 'X');
+                                    if ($modificar) $sheet->setCellValue('S' . $fila, 'X');
+                                    if ($borrar) $sheet->setCellValue('U' . $fila, 'X');
+                                    \Log::info("Módulo financiero marcado (formato antiguo): {$clave} en fila {$fila}");
+                                } elseif ($modulos[$clave]) {
+                                    $sheet->setCellValue('R' . $fila, 'X');
+                                }
                             }
                         }
                     }
@@ -751,13 +849,43 @@ class ExportacionController extends Controller
                     ? json_decode($solicitud->tipo_permiso, true)
                     : $solicitud->tipo_permiso;
                 
-                if (is_array($permisos)) {
-                    foreach ($permisos as $permiso) {
-                        // Mapear según tipo de permiso - ajustar según Excel
-                        if (stripos($permiso, 'consulta') !== false) $sheet->setCellValue('A23', 'X');
-                        if (stripos($permiso, 'modificacion') !== false) $sheet->setCellValue('B23', 'X');
-                        if (stripos($permiso, 'anulacion') !== false) $sheet->setCellValue('C23', 'X');
-                        if (stripos($permiso, 'borrado') !== false) $sheet->setCellValue('D23', 'X');
+                // Normalizar a array si no lo es
+                if (!is_array($permisos)) {
+                    $permisos = [];
+                }
+
+                // Caso 1: Estructura compleja {"nivel_acceso": "...", "permisos_especiales": [...]}
+                if (isset($permisos['nivel_acceso']) || isset($permisos['permisos_especiales'])) {
+                    $nivelAcceso = $permisos['nivel_acceso'] ?? '';
+                    $permisosEspeciales = $permisos['permisos_especiales'] ?? [];
+                    
+                    // Manejar nivel de acceso (puede ser string o array)
+                    if (is_array($nivelAcceso)) {
+                        foreach ($nivelAcceso as $acc) {
+                            if (is_string($acc)) {
+                                if (stripos($acc, 'consulta') !== false) $sheet->setCellValue('A23', 'X');
+                                if (stripos($acc, 'modificacion') !== false || stripos($acc, 'modificación') !== false) $sheet->setCellValue('B23', 'X');
+                                if (stripos($acc, 'anulacion') !== false || stripos($acc, 'anulación') !== false) $sheet->setCellValue('C23', 'X');
+                                if (stripos($acc, 'borrado') !== false) $sheet->setCellValue('D23', 'X');
+                            }
+                        }
+                    } else if (is_string($nivelAcceso)) {
+                        if (stripos($nivelAcceso, 'consulta') !== false) $sheet->setCellValue('A23', 'X');
+                        if (stripos($nivelAcceso, 'modificacion') !== false || stripos($nivelAcceso, 'modificación') !== false) $sheet->setCellValue('B23', 'X');
+                        if (stripos($nivelAcceso, 'anulacion') !== false || stripos($nivelAcceso, 'anulación') !== false) $sheet->setCellValue('C23', 'X');
+                        if (stripos($nivelAcceso, 'borrado') !== false) $sheet->setCellValue('D23', 'X');
+                    }
+                    
+                    // Manejar permisos especiales
+                    if (is_array($permisosEspeciales)) {
+                        foreach ($permisosEspeciales as $permisoEsp) {
+                            if (is_string($permisoEsp)) {
+                                if (stripos($permisoEsp, 'consulta') !== false) $sheet->setCellValue('A23', 'X');
+                                if (stripos($permisoEsp, 'modificacion') !== false || stripos($permisoEsp, 'modificación') !== false) $sheet->setCellValue('B23', 'X');
+                                if (stripos($permisoEsp, 'anulacion') !== false || stripos($permisoEsp, 'anulación') !== false) $sheet->setCellValue('C23', 'X');
+                                if (stripos($permisoEsp, 'borrado') !== false) $sheet->setCellValue('D23', 'X');
+                            }
+                        }
                     }
                 }
             }
@@ -792,9 +920,10 @@ class ExportacionController extends Controller
                 
                 if (is_array($firmas)) {
                     \Log::info('Procesando firmas:', ['firmas' => $firmas]);
-                    foreach ($firmas as $cargo => $firma) {
-                        $cargoLower = strtolower($cargo);
-                        $usuario = $firma['usuario'] ?? '';
+                    foreach ($firmas as $index => $firma) {
+                        // Obtener cargo del objeto firma, no del índice
+                        $cargo = $firma['cargo'] ?? $firma['tipo'] ?? '';
+                        $usuario = $firma['nombre'] ?? $firma['usuario'] ?? '';
                         $fecha = $firma['fecha'] ?? date('Y-m-d H:i:s');
                         $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
                         $firmaData = $firma['firma'] ?? '';
@@ -812,11 +941,14 @@ class ExportacionController extends Controller
                             $celda = 'F40';
                         } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo', 'avalado', 'avalado por', 'vo bo jefe inmediato'])) {
                             $celda = 'A44';
-                        } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento', 'vo bo talento humano'])) {
+                        } elseif ($this->cargoCoincide($cargo, ['jefe de area', 'jefe area', 'jefe del area', 'coordinador area', 'vo bo jefe area'])) {
+                            $celda = 'D44'; // Celda para Jefe de Área
+                        } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento', 'vo bo talento humano', 'gestion humana'])) {
                             $celda = 'G44';
-                        } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI', 'vo bo gestion'])) {
+                        } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI', 'vo bo gestion', 'coordinador tic'])) {
                             $celda = 'O44';
                         }
+                        
                         
                         \Log::info("Celda asignada para {$cargo}: " . ($celda ?? 'NINGUNA'));
                         
@@ -860,11 +992,48 @@ class ExportacionController extends Controller
                                     $sheet->setCellValue($celda, $usuario . ' - ' . $fechaFormateada);
                                 }
                             } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
-                                // Firma de texto
-                                $textoFirma = str_replace('FIRMA_TEXTO:', '', $firmaData);
+                                // Firma de texto con formato: FIRMA_TEXTO:nombre|FONT:id|SIZE:num|STYLE:style
+                                $parts = explode('|', $firmaData);
+                                $textoFirma = str_replace('FIRMA_TEXTO:', '', $parts[0]);
+                                
+                                // Valores por defecto
+                                $fontName = 'Brush Script MT';
+                                $fontSize = 16;
+                                
+                                // Parsear parámetros
+                                foreach ($parts as $part) {
+                                    if (strpos($part, 'FONT:') === 0) {
+                                        $fontId = str_replace('FONT:', '', $part);
+                                        // Mapear IDs de fuentes a nombres de fuentes de Excel
+                                        $fontMap = [
+                                            'great-vibes' => 'Brush Script MT',
+                                            'dancing-script' => 'Brush Script MT',
+                                            'sacramento' => 'Brush Script MT',
+                                            'allura' => 'Brush Script MT',
+                                            'pacifico' => 'Comic Sans MS',
+                                            'brush-script' => 'Brush Script MT',
+                                            'lucida-handwriting' => 'Lucida Handwriting',
+                                            'edwardian' => 'Edwardian Script ITC',
+                                            'freestyle' => 'Freestyle Script',
+                                            'french-script' => 'French Script MT',
+                                            'vivaldi' => 'Vivaldi',
+                                            'kunstler' => 'Kunstler Script',
+                                            'mistral' => 'Mistral',
+                                            'times' => 'Times New Roman',
+                                            'georgia' => 'Georgia',
+                                            'arial' => 'Arial',
+                                            'helvetica' => 'Helvetica',
+                                            'courier' => 'Courier New',
+                                        ];
+                                        $fontName = $fontMap[$fontId] ?? 'Brush Script MT';
+                                    } elseif (strpos($part, 'SIZE:') === 0) {
+                                        $fontSize = (int)str_replace('SIZE:', '', $part);
+                                    }
+                                }
+                                
                                 $sheet->setCellValue($celda, $textoFirma . "\n" . $fechaFormateada);
                                 $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
-                                $sheet->getStyle($celda)->getFont()->setName('Brush Script MT')->setSize(16);
+                                $sheet->getStyle($celda)->getFont()->setName($fontName)->setSize($fontSize);
                             } else {
                                 // Solo texto del usuario
                                 $sheet->setCellValue($celda, $usuario . "\n" . $fechaFormateada);
@@ -954,7 +1123,7 @@ class ExportacionController extends Controller
         $solicitud = SolicitudHistoriaClinica::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
         
         // Usar el template VACÍO para exportación (sin texto descriptivo)
-        $templatePath = storage_path('app/templates/formatocreacionusuarioshistoriaclinicaelectronicavacia.xlsx');
+        $templatePath = public_path('Documentos/formatocreacionusuarioshistoriaclinicaelectronicavacia.xlsx');
         
         if (!file_exists($templatePath)) {
             return response()->json([
@@ -1080,14 +1249,21 @@ class ExportacionController extends Controller
                         // Mapear celda usando función normalizada (soporta tildes, espacios, mayúsculas)
                         $celda = null;
                         if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
-                            $celda = 'A29';
+                            $celda = 'B30'; // FIRMA DEL USUARIO según template
+                        } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo', 'avalado', 'avalado por', 'vo bo jefe inmediato'])) {
+                            $celda = 'B33'; // Vo. Bo. Jefe Inmediato (área de firmas autorizadas)
+                        } elseif ($this->cargoCoincide($cargo, ['coordinador tic', 'coordinador', 'sistemas', 'TI', 'gestion informacion', 'gestión información', 'jefe gestion'])) {
+                            $celda = 'N33'; // Vo. Bo. Jefe de Gestión de la Información
+                        } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento'])) {
+                            $celda = 'G33'; // Vo. Bo. Jefe de Talento Humano
                         } elseif ($this->cargoCoincide($cargo, ['capacitador historia', 'capacitador HC', 'capacitador clínica', 'capacitador clinica'])) {
-                            $celda = 'J22';
+                            $celda = 'D22'; // Nombre del capacitador HC
                         } elseif ($this->cargoCoincide($cargo, ['capacitador epidemiología', 'capacitador epidemiologia', 'capacitador epi'])) {
-                            $celda = 'J26';
+                            $celda = 'D26'; // Nombre del capacitador Epidemiología
                         } elseif ($this->cargoCoincide($cargo, ['aval', 'aval institucional', 'avalado'])) {
-                            $celda = 'M17';
+                            $celda = 'B17'; // Aval institucional
                         }
+                        
                         
                         if ($celda) {
                             if (!empty($firmaData) && strpos($firmaData, 'data:image') === 0) {
@@ -1125,10 +1301,19 @@ class ExportacionController extends Controller
                                     $sheet->setCellValue($celda, $usuario . ' - ' . $fechaFormateada);
                                 }
                             } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
-                                $textoFirma = str_replace('FIRMA_TEXTO:', '', $firmaData);
+                                // Parsear formato: FIRMA_TEXTO:nombre|FONT:id|SIZE:num|STYLE:style
+                                $parts = explode('|', $firmaData);
+                                $textoFirma = str_replace('FIRMA_TEXTO:', '', $parts[0]);
+                                $fontName = 'Brush Script MT';
+                                $fontSize = 14;
+                                foreach ($parts as $part) {
+                                    if (strpos($part, 'SIZE:') === 0) {
+                                        $fontSize = (int)str_replace('SIZE:', '', $part);
+                                    }
+                                }
                                 $sheet->setCellValue($celda, $textoFirma . "\n" . $fechaFormateada);
                                 $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
-                                $sheet->getStyle($celda)->getFont()->setName('Brush Script MT')->setSize(14);
+                                $sheet->getStyle($celda)->getFont()->setName($fontName)->setSize($fontSize);
                             } else {
                                 $sheet->setCellValue($celda, $usuario . "\n" . $fechaFormateada);
                                 $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
@@ -1261,6 +1446,144 @@ class ExportacionController extends Controller
                     ];
                 })
             ]);
+        }
+    }
+    
+    /**
+     * NUEVO: Exportar administrativa con sistema de respaldo automático
+     * Nivel 1: OpenSpout (ultra-rápido, memoria mínima)
+     * Nivel 2: CSV Nativo (fallback garantizado)
+     */
+    public function exportarAdministrativaConRespaldo($id)
+    {
+        \Log::info("🚀 Exportación con respaldo - Administrativa ID: {$id}");
+        
+        try {
+            // NIVEL 1: OpenSpout (Principal - Ultra rápido)
+            \Log::info("📊 Intentando exportación con OpenSpout");
+            
+            $filePath = $this->openSpoutService->exportarSolicitudAdministrativa($id);
+            
+            return response()->download($filePath, basename($filePath), [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ])->deleteFileAfterSend(true);
+            
+        } catch (\Exception $e) {
+            \Log::warning("⚠️ OpenSpout falló: " . $e->getMessage());
+            
+            try {
+                // NIVEL 2: CSV Nativo (Fallback - Garantizado)
+                \Log::info("📄 Intentando exportación con CSV nativo");
+                
+                $filePath = $this->csvService->exportarSolicitudAdministrativa($id);
+                
+                return response()->download($filePath, basename($filePath), [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                ])->deleteFileAfterSend(true);
+                
+            } catch (\Exception $e2) {
+                \Log::error("❌ Todos los métodos de exportación fallaron");
+                \Log::error("OpenSpout: " . $e->getMessage());
+                \Log::error("CSV: " . $e2->getMessage());
+                
+                return response()->json([
+                    'error' => 'No se pudo exportar la solicitud',
+                    'message' => 'Todos los métodos de exportación fallaron',
+                    'details' => [
+                        'openspout' => $e->getMessage(),
+                        'csv' => $e2->getMessage(),
+                    ]
+                ], 500);
+            }
+        }
+    }
+    
+    /**
+     * NUEVO: Exportar historia clínica con sistema de respaldo automático
+     */
+    public function exportarHistoriaClinicaConRespaldo($id)
+    {
+        \Log::info("🚀 Exportación con respaldo - Historia Clínica ID: {$id}");
+        
+        try {
+            // NIVEL 1: OpenSpout
+            \Log::info("📊 Intentando exportación con OpenSpout");
+            
+            $filePath = $this->openSpoutService->exportarSolicitudHistoriaClinica($id);
+            
+            return response()->download($filePath, basename($filePath), [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ])->deleteFileAfterSend(true);
+            
+        } catch (\Exception $e) {
+            \Log::warning("⚠️ OpenSpout falló: " . $e->getMessage());
+            
+            try {
+                // NIVEL 2: CSV Nativo
+                \Log::info("📄 Intentando exportación con CSV nativo");
+                
+                $filePath = $this->csvService->exportarSolicitudHistoriaClinica($id);
+                
+                return response()->download($filePath, basename($filePath), [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                ])->deleteFileAfterSend(true);
+                
+            } catch (\Exception $e2) {
+                \Log::error("❌ Todos los métodos de exportación fallaron");
+                
+                return response()->json([
+                    'error' => 'No se pudo exportar la solicitud',
+                    'message' => 'Todos los métodos de exportación fallaron',
+                    'details' => [
+                        'openspout' => $e->getMessage(),
+                        'csv' => $e2->getMessage(),
+                    ]
+                ], 500);
+            }
+        }
+    }
+    
+    /**
+     * Exportar administrativa como CSV directamente
+     */
+    public function exportarAdministrativaCSV($id)
+    {
+        try {
+            $filePath = $this->csvService->exportarSolicitudAdministrativa($id);
+            
+            return response()->download($filePath, basename($filePath), [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+            ])->deleteFileAfterSend(true);
+            
+        } catch (\Exception $e) {
+            \Log::error("CSV export failed: " . $e->getMessage());
+            
+            return response()->json([
+                'error' => 'No se pudo exportar como CSV',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Exportar historia clínica como CSV directamente
+     */
+    public function exportarHistoriaClinicaCSV($id)
+    {
+        try {
+            $filePath = $this->csvService->exportarSolicitudHistoriaClinica($id);
+            
+            return response()->download($filePath, basename($filePath), [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+            ])->deleteFileAfterSend(true);
+            
+        } catch (\Exception $e) {
+            \Log::error("CSV export failed: " . $e->getMessage());
+            
+            return response()->json([
+                'error' => 'No se pudo exportar como CSV',
+                'message' => $e->getMessage()
+            ], 500);
         }
     }
 }

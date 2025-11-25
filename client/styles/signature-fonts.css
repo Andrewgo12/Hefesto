@@ -1,0 +1,75 @@
+/* ========================================
+   FUENTES PARA FIRMAS DIGITALES
+   40+ estilos de fuente para personalización
+   ======================================== */
+
+/* Fuentes Serif Clásicas */
+.signature-font-times { font-family: 'Times New Roman', Times, serif; }
+.signature-font-georgia { font-family: Georgia, serif; }
+.signature-font-garamond { font-family: Garamond, 'EB Garamond', serif; }
+.signature-font-palatino { font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, serif; }
+.signature-font-bookman { font-family: 'Bookman Old Style', serif; }
+.signature-font-baskerville { font-family: Baskerville, 'Baskerville Old Face', serif; }
+.signature-font-bodoni { font-family: 'Bodoni MT', Didot, 'Didot LT STD', serif; }
+.signature-font-cambria { font-family: Cambria, serif; }
+
+/* Fuentes Sans-Serif Modernas */
+.signature-font-arial { font-family: Arial, Helvetica, sans-serif; }
+.signature-font-helvetica { font-family: Helvetica, Arial, sans-serif; }
+.signature-font-verdana { font-family: Verdana, Geneva, sans-serif; }
+.signature-font-tahoma { font-family: Tahoma, Geneva, sans-serif; }
+.signature-font-trebuchet { font-family: 'Trebuchet MS', Helvetica, sans-serif; }
+.signature-font-calibri { font-family: Calibri, Candara, Segoe, sans-serif; }
+.signature-font-franklin { font-family: 'Franklin Gothic Medium', Arial, sans-serif; }
+.signature-font-century { font-family: 'Century Gothic', CenturyGothic, sans-serif; }
+
+/* Fuentes Monospace */
+.signature-font-courier { font-family: 'Courier New', Courier, monospace; }
+.signature-font-consolas { font-family: Consolas, monaco, monospace; }
+.signature-font-monaco { font-family: Monaco, Consolas, monospace; }
+.signature-font-lucida-console { font-family: 'Lucida Console', Monaco, monospace; }
+
+/* Fuentes Cursivas/Script */
+.signature-font-brush-script { font-family: 'Brush Script MT', cursive; }
+.signature-font-lucida-handwriting { font-family: 'Lucida Handwriting', 'Apple Chancery', cursive; }
+.signature-font-edwardian { font-family: 'Edwardian Script ITC', cursive; }
+.signature-font-freestyle { font-family: 'Freestyle Script', cursive; }
+.signature-font-french-script { font-family: 'French Script MT', cursive; }
+.signature-font-vivaldi { font-family: Vivaldi, cursive; }
+.signature-font-kunstler { font-family: 'Kunstler Script', cursive; }
+.signature-font-mistral { font-family: Mistral, cursive; }
+
+/* Fuentes Decorativas */
+.signature-font-impact { font-family: Impact, Charcoal, sans-serif; }
+.signature-font-comic-sans { font-family: 'Comic Sans MS', cursive, sans-serif; }
+.signature-font-papyrus { font-family: Papyrus, fantasy; }
+.signature-font-copperplate { font-family: Copperplate, 'Copperplate Gothic Light', fantasy; }
+.signature-font-stencil { font-family: Stencil, fantasy; }
+.signature-font-chiller { font-family: Chiller, fantasy; }
+
+/* Fuentes Web (Google Fonts) */
+.signature-font-roboto { font-family: 'Roboto', sans-serif; }
+.signature-font-open-sans { font-family: 'Open Sans', sans-serif; }
+.signature-font-lato { font-family: 'Lato', sans-serif; }
+.signature-font-montserrat { font-family: 'Montserrat', sans-serif; }
+.signature-font-raleway { font-family: 'Raleway', sans-serif; }
+.signature-font-poppins { font-family: 'Poppins', sans-serif; }
+.signature-font-playfair { font-family: 'Playfair Display', serif; }
+.signature-font-merriweather { font-family: 'Merriweather', serif; }
+.signature-font-dancing-script { font-family: 'Dancing Script', cursive; }
+.signature-font-pacifico { font-family: 'Pacifico', cursive; }
+.signature-font-great-vibes { font-family: 'Great Vibes', cursive; }
+.signature-font-sacramento { font-family: 'Sacramento', cursive; }
+.signature-font-allura { font-family: 'Allura', cursive; }
+.signature-font-tangerine { font-family: 'Tangerine', cursive; }
+
+/* Estilos adicionales para firmas */
+.signature-bold { font-weight: 700; }
+.signature-italic { font-style: italic; }
+.signature-underline { text-decoration: underline; }
+
+/* Tamaños de firma */
+.signature-size-sm { font-size: 18px; }
+.signature-size-md { font-size: 24px; }
+.signature-size-lg { font-size: 32px; }
+.signature-size-xl { font-size: 40px; }

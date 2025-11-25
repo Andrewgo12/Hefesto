@@ -7,6 +7,7 @@ import { auth } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import ModalRegistroUsuario from '@/components/ModalRegistroUsuario';
 import { UserPlus } from 'lucide-react';
+import PageTransition from '@/components/PageTransition';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -30,10 +31,18 @@ export default function Login() {
       if (response.data.token) {
         // Guardar token y datos del usuario
         localStorage.setItem('auth_token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+
+        // Combinar datos del usuario con roles y permisos para el frontend
+        const userData = {
+          ...response.data.user,
+          roles: response.data.roles,
+          es_administrador: response.data.es_administrador
+        };
+
+        localStorage.setItem('user', JSON.stringify(userData));
         localStorage.setItem('user_name', response.data.user.name);
         localStorage.setItem('user_email', response.data.user.email);
-        
+
         toast.success('Bienvenido', `Sesión iniciada como ${response.data.user.name}`);
         navigate('/');
       }
@@ -48,7 +57,7 @@ export default function Login() {
 
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 overflow-hidden">
+    <PageTransition className="min-h-screen grid lg:grid-cols-2 overflow-hidden">
       {/* Panel izquierdo con animación de fondo - Solo desktop */}
       <motion.div
         className="relative hidden lg:flex flex-col items-center justify-center p-8 bg-blue-700 overflow-hidden"
@@ -198,13 +207,13 @@ export default function Login() {
       </div>
 
       {/* Modal de Registro */}
-      <ModalRegistroUsuario 
+      <ModalRegistroUsuario
         open={showRegistroModal}
         onClose={() => setShowRegistroModal(false)}
         onSuccess={() => {
           toast.success('Usuario registrado', 'Ahora puedes iniciar sesión con tus credenciales');
         }}
       />
-    </div>
+    </PageTransition>
   );
 }
