@@ -15,17 +15,51 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'email' => 'required|string',
             'password' => 'required',
+            'remember' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        // Verificar si la cuenta está bloqueada
+        $blockStatus = \App\Models\LoginAttempt::isBlocked($request->email);
+        if ($blockStatus['blocked']) {
+            return response()->json([
+                'message' => 'Cuenta temporalmente bloqueada por seguridad',
+                'blocked_until' => $blockStatus['until'],
+                'minutes_remaining' => $blockStatus['minutes_remaining'],
+            ], 429); // 429 Too Many Requests
+        }
+
+        // Verificar intentos fallidos recientes
+        $failedAttempts = \App\Models\LoginAttempt::getRecentFailedAttempts($request->email);
+        $remainingAttempts = 5 - $failedAttempts;
+
         $user = User::where('email', $request->email)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
+            // Registrar intento fallido
+            \App\Models\LoginAttempt::recordAttempt(
+                $request->email,
+                $request->ip(),
+                false,
+                $request->userAgent()
+            );
+
+            // Si alcanzó el límite, bloquear cuenta
+            if ($failedAttempts >= 4) { // 5 intentos = 4 previos + este
+                \App\Models\LoginAttempt::blockAccount($request->email, 15);
+                
+                return response()->json([
+                    'message' => 'Demasiados intentos fallidos. Cuenta bloqueada por 15 minutos',
+                    'blocked_until' => now()->addMinutes(15),
+                ], 429);
+            }
+
             return response()->json([
-                'message' => 'Credenciales incorrectas'
+                'message' => 'Credenciales incorrectas',
+                'attempts_remaining' => max(0, $remainingAttempts - 1),
             ], 401);
         }
 
@@ -36,7 +70,21 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        // Login exitoso - crear token con expiración variable
+        $rememberMe = $request->boolean('remember', false);
+        $tokenName = $rememberMe ? 'auth-token-remember' : 'auth-token';
+        $token = $user->createToken($tokenName)->plainTextToken;
+
+        // Registrar intento exitoso
+        \App\Models\LoginAttempt::recordAttempt(
+            $request->email,
+            $request->ip(),
+            true,
+            $request->userAgent()
+        );
+
+        // Limpiar intentos fallidos anteriores
+        \App\Models\LoginAttempt::clearFailedAttempts($request->email);
 
         // Obtener roles y permisos del usuario
         $roles = $user->roles()->get();
@@ -48,7 +96,7 @@ class AuthController extends Controller
             'usuario_email' => $user->email,
             'modulo' => 'autenticacion',
             'accion' => 'login_exitoso',
-            'descripcion' => 'Usuario inició sesión',
+            'descripcion' => $rememberMe ? 'Usuario inició sesión (recordarme activado)' : 'Usuario inició sesión',
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'created_at' => now(),
@@ -68,6 +116,7 @@ class AuthController extends Controller
             'permisos' => $permisos,
             'token' => $token,
             'es_administrador' => $user->esAdministrador(),
+            'remember' => $rememberMe,
         ]);
     }
 

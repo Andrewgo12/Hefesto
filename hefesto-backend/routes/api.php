@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\NotificacionController;
 use App\Http\Controllers\Api\ExportacionController;
 use App\Http\Controllers\Api\RolController;
 use App\Http\Controllers\Api\ParametroController;
+use App\Http\Controllers\Api\SeguridadController;
+use App\Http\Controllers\Api\TokenController;
 use App\Http\Controllers\Api\UsuarioController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\ReporteController;
@@ -25,6 +27,8 @@ Route::get('/ping', function () {
 // Rutas de autenticación (públicas)
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
+Route::post('/forgot-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'forgotPassword']);
+Route::post('/reset-password', [\App\Http\Controllers\Api\PasswordResetController::class, 'resetPassword']);
 Route::post('/verificar-credencial-firma', [AuthController::class, 'verificarCredencialFirma']);
 
 // Rutas protegidas con autenticación (opcional por ahora)
@@ -161,6 +165,36 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::delete('/{id}', [CredencialFirmaController::class, 'destroy']);
         Route::post('/{id}/toggle-activo', [CredencialFirmaController::class, 'toggleActivo']);
         Route::post('/reordenar', [CredencialFirmaController::class, 'reordenar']);
+        Route::get('/cargo/{cargo}', [CredencialFirmaController::class, 'porCargo']);
+    });
+
+    // Rutas de gestión de roles
+    Route::prefix('roles-gestion')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\RoleController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\RoleController::class, 'store']);
+        Route::get('/{id}', [\App\Http\Controllers\Api\RoleController::class, 'show']);
+        Route::put('/{id}', [\App\Http\Controllers\Api\RoleController::class, 'update']);
+        Route::delete('/{id}', [\App\Http\Controllers\Api\RoleController::class, 'destroy']);
+    });
+
+    // Rutas de configuración del sistema
+    Route::prefix('configuracion')->group(function () {
+        Route::get('/sistema', [ConfiguracionSistemaController::class, 'show']);
+        Route::put('/sistema', [ConfiguracionSistemaController::class, 'update']);
+    });
+
+    // Rutas    // Seguridad
+    Route::prefix('seguridad')->group(function () {
+        Route::get('/politicas', [SeguridadController::class, 'getPoliticas']);
+        Route::put('/politicas', [SeguridadController::class, 'updatePoliticas']);
+        Route::post('/cerrar-sesiones', [SeguridadController::class, 'cerrarSesiones']);
+    });
+
+    // Gestión de Tokens (API Keys)
+    Route::prefix('tokens')->group(function () {
+        Route::get('/', [TokenController::class, 'index']);
+        Route::post('/', [TokenController::class, 'store']);
+        Route::delete('/{id}', [TokenController::class, 'destroy']);
     });
 });
 

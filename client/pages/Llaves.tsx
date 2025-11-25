@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { Key, Shield, UserCheck, PenTool, Lock } from "lucide-react";
+import { Key, Shield, UserCheck, PenTool, Lock, Terminal } from "lucide-react";
 import { useRoles } from '@/hooks/useRoles';
 import { Navigate } from 'react-router-dom';
 import { motion } from "framer-motion";
@@ -9,6 +9,7 @@ import PermisosTab from "@/components/tabs/PermisosTab";
 import CredencialesTab from "@/components/tabs/CredencialesTab";
 import ActivacionTab from "@/components/tabs/ActivacionTab";
 import ConfiguracionFirmasTab from "@/components/tabs/ConfiguracionFirmasTab";
+import ApiKeysTab from "@/components/tabs/ApiKeysTab";
 
 export default function Llaves() {
     const { isAdmin } = useRoles();
@@ -24,6 +25,7 @@ export default function Llaves() {
         { id: "permisos", label: "Permisos y Roles", icon: Shield, desc: "Control de acceso por módulos" },
         { id: "credenciales", label: "Credenciales", icon: Key, desc: "Gestión de claves de firma" },
         { id: "activacion", label: "Activación", icon: UserCheck, desc: "Estado de usuarios" },
+        { id: "tokens", label: "Tokens API", icon: Terminal, desc: "Llaves de acceso para integraciones" },
     ];
 
     return (
@@ -74,8 +76,8 @@ export default function Llaves() {
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id)}
                                             className={`w-full text-left p-3 rounded-lg transition-all duration-200 flex items-start gap-3 group ${isActive
-                                                    ? "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200"
-                                                    : "hover:bg-slate-50 text-slate-600 hover:text-slate-900"
+                                                ? "bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200"
+                                                : "hover:bg-slate-50 text-slate-600 hover:text-slate-900"
                                                 }`}
                                         >
                                             <Icon className={`w-5 h-5 mt-0.5 ${isActive ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"}`} />
@@ -120,6 +122,7 @@ export default function Llaves() {
                                     {activeTab === "permisos" && <PermisosTab />}
                                     {activeTab === "credenciales" && <CredencialesTab />}
                                     {activeTab === "activacion" && <ActivacionTab />}
+                                    {activeTab === "tokens" && <ApiKeysTab />}
                                 </div>
                             </Card>
                         </motion.div>

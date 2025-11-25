@@ -1,4 +1,5 @@
 import axios from 'axios';
+// Last updated: 2025-11-25
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -71,7 +72,7 @@ export const solicitudesHistoriaClinica = {
 // ============================================
 
 export const auth = {
-    login: (credentials: { email: string; password: string }) =>
+    login: (credentials: { email: string; password: string; remember?: boolean }) =>
         api.post('/login', credentials),
     register: (data: any) => api.post('/register', data),
     logout: () => api.post('/logout'),
@@ -81,6 +82,9 @@ export const auth = {
         api.post('/perfil/cambiar-password', data),
     verificarCredencialFirma: (data: { cargo: string; credencial: string }) =>
         api.post('/verificar-credencial-firma', data),
+    forgotPassword: (email: string) => api.post('/forgot-password', { email }),
+    resetPassword: (data: { token: string; email: string; password: string; password_confirmation: string }) =>
+        api.post('/reset-password', data),
 };
 
 // ============================================
@@ -278,6 +282,47 @@ export const credencialesFirma = {
     toggleActivo: (id: number) => api.post(`/credenciales-firmas/${id}/toggle-activo`),
     reordenar: (credenciales: Array<{ id: number; orden: number }>) =>
         api.post('/credenciales-firmas/reordenar', { credenciales }),
+};
+
+// ============================================
+// GESTIÓN DE ROLES
+// ============================================
+
+export const rolesGestion = {
+    listar: () => api.get('/roles-gestion'),
+    crear: (data: any) => api.post('/roles-gestion', data),
+    obtener: (id: string) => api.get(`/roles-gestion/${id}`),
+    actualizar: (id: string, data: any) => api.put(`/roles-gestion/${id}`, data),
+    eliminar: (id: string) => api.delete(`/roles-gestion/${id}`),
+};
+
+// ============================================
+// CONFIGURACIÓN DEL SISTEMA
+// ============================================
+
+export const configuracion = {
+    obtener: () => api.get('/configuracion/sistema'),
+    actualizar: (data: any) => api.put('/configuracion/sistema', data),
+};
+
+// ============================================
+// SEGURIDAD
+// ============================================
+
+export const seguridad = {
+    obtenerPoliticas: () => api.get('/seguridad/politicas'),
+    actualizarPoliticas: (data: any) => api.put('/seguridad/politicas', data),
+    cerrarSesiones: () => api.post('/seguridad/cerrar-sesiones'),
+};
+
+// ============================================
+// GESTIÓN DE TOKENS (API KEYS)
+// ============================================
+
+export const tokens = {
+    listar: () => api.get('/tokens'),
+    crear: (data: { name: string; abilities: string[] }) => api.post('/tokens', data),
+    revocar: (id: number) => api.delete(`/tokens/${id}`),
 };
 
 export default api;

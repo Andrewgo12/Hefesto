@@ -12,27 +12,45 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('credenciales_firmas', function (Blueprint $table) {
-            // Agregar user_id como foreign key
-            $table->foreignId('user_id')->nullable()->after('id')->constrained('users')->onDelete('cascade');
+            // Agregar user_id como foreign key solo si no existe
+            if (!Schema::hasColumn('credenciales_firmas', 'user_id')) {
+                $table->foreignId('user_id')->nullable()->after('id')->constrained('users')->onDelete('cascade');
+            }
             
-            // Agregar campos de firma digital
-            $table->text('firma_digital')->nullable()->after('descripcion');
-            $table->string('firma_tipo')->nullable()->after('firma_digital');
-            $table->timestamp('firma_actualizada_en')->nullable()->after('firma_tipo');
+            // Agregar campos de firma digital solo si no existen
+            if (!Schema::hasColumn('credenciales_firmas', 'firma_digital')) {
+                $table->text('firma_digital')->nullable()->after('descripcion');
+            }
+            if (!Schema::hasColumn('credenciales_firmas', 'firma_tipo')) {
+                $table->string('firma_tipo')->nullable()->after('firma_digital');
+            }
+            if (!Schema::hasColumn('credenciales_firmas', 'firma_actualizada_en')) {
+                $table->timestamp('firma_actualizada_en')->nullable()->after('firma_tipo');
+            }
             
             // Hacer campos opcionales para compatibilidad con seeders existentes
             $table->string('nombre_completo')->nullable()->change();
             $table->string('email')->nullable()->change();
             $table->string('tipo_formulario')->nullable()->change();
-            
-            // Eliminar unique constraint de email temporalmente para permitir nulls
-            $table->dropUnique(['email']);
         });
         
+        // Eliminar y recrear unique constraint
+        try {
+            Schema::table('credenciales_firmas', function (Blueprint $table) {
+                $table->dropUnique(['email']);
+            });
+        } catch (\Exception $e) {
+            // Ya fue eliminado
+        }
+        
         // Recrear unique constraint solo para valores no nulos
-        Schema::table('credenciales_firmas', function (Blueprint $table) {
-            $table->unique('email', 'credenciales_firmas_email_unique_not_null');
-        });
+        try {
+            Schema::table('credenciales_firmas', function (Blueprint $table) {
+                $table->unique('email', 'credenciales_firmas_email_unique_not_null');
+            });
+        } catch (\Exception $e) {
+            // Ya existe
+        }
     }
 
     /**

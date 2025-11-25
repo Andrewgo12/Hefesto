@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 import { auth } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import ModalRegistroUsuario from '@/components/ModalRegistroUsuario';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Eye, EyeOff } from 'lucide-react';
 import PageTransition from '@/components/PageTransition';
 
 export default function Login() {
@@ -15,17 +15,50 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showRegistroModal, setShowRegistroModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
+
+  // Validar email en tiempo real
+  const validateEmail = (email: string): boolean => {
+    if (!email) {
+      setEmailError('');
+      return true;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setEmailError('Formato de email inválido');
+      return false;
+    }
+    setEmailError('');
+    return true;
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData({ ...formData, email: value });
+    validateEmail(value);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setAttemptsRemaining(null);
     setLoading(true);
+
+    // Validar antes de enviar
+    if (!validateEmail(formData.email)) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // Login con API - Base de datos
       const response = await auth.login({
         email: formData.email,
-        password: formData.password
+        password: formData.password,
+        remember: rememberMe,
       });
 
       if (response.data.token) {
@@ -43,13 +76,45 @@ export default function Login() {
         localStorage.setItem('user_name', response.data.user.name);
         localStorage.setItem('user_email', response.data.user.email);
 
+        // Guardar preferencia de "recordarme"
+        if (rememberMe) {
+          localStorage.setItem('remember_me', 'true');
+        } else {
+          localStorage.removeItem('remember_me');
+        }
+
         toast.success('Bienvenido', `Sesión iniciada como ${response.data.user.name}`);
-        navigate('/');
+
+        // Add small delay to ensure localStorage writes complete
+        setTimeout(() => {
+          navigate('/');
+        }, 100);
       }
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || err.message || 'Error al iniciar sesión';
-      setError(errorMsg);
-      toast.error('Error', errorMsg);
+      const errorData = err.response?.data;
+      const errorMsg = errorData?.message || err.message || 'Error al iniciar sesión';
+
+      // Manejar diferentes tipos de error
+      if (err.response?.status === 429) {
+        // Cuenta bloqueada
+        const minutesRemaining = errorData?.minutes_remaining || 15;
+        setError(`${errorMsg}. Tiempo restante: ${minutesRemaining} minutos`);
+        toast.error('Cuenta Bloqueada', errorMsg);
+      } else if (err.response?.status === 401) {
+        // Credenciales incorrectas
+        const remaining = errorData?.attempts_remaining;
+        if (remaining !== undefined) {
+          setAttemptsRemaining(remaining);
+          setError(`${errorMsg}. Intentos restantes: ${remaining}`);
+          toast.error('Error', errorMsg);
+        } else {
+          setError(errorMsg);
+          toast.error('Error', errorMsg);
+        }
+      } else {
+        setError(errorMsg);
+        toast.error('Error', errorMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -128,27 +193,58 @@ export default function Login() {
                 id="email"
                 type="text"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={handleEmailChange}
                 placeholder="Ingresa tu usuario"
                 required
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-all"
+                className={`w-full p-3 border rounded-lg focus:ring-2 transition-all ${emailError
+                  ? 'border-red-500 focus:ring-red-500'
+                  : formData.email && !emailError
+                    ? 'border-green-500 focus:ring-green-500'
+                    : 'focus:ring-blue-500'
+                  }`}
               />
+              {emailError && (
+                <p className="text-sm text-red-600">{emailError}</p>
+              )}
             </div>
 
             <div className="space-y-2">
               <label className="text-sm text-gray-500" htmlFor="password">
                 Contraseña
               </label>
-              <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="••••••••"
-                required
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-all"
-              />
-              <div className="text-right">
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="••••••••"
+                  required
+                  className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-all pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-600">Recordarme</span>
+                </label>
+
                 <Link
                   to="#"
                   className="text-sm text-gray-500 hover:text-blue-600 transition-colors"
@@ -166,6 +262,11 @@ export default function Login() {
                 className="bg-red-50 border border-red-200 rounded-lg p-3"
               >
                 <p className="text-sm text-red-600">{error}</p>
+                {attemptsRemaining !== null && attemptsRemaining > 0 && (
+                  <p className="text-xs text-red-500 mt-1">
+                    ⚠️ {attemptsRemaining} intento{attemptsRemaining !== 1 ? 's' : ''} restante{attemptsRemaining !== 1 ? 's' : ''} antes del bloqueo
+                  </p>
+                )}
               </motion.div>
             )}
 

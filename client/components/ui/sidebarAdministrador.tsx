@@ -31,7 +31,7 @@ const sidebarItems: SidebarItem[] = [
     subItems: [
       { label: 'Seguimiento por Fases', path: '/control/aprobacion', icon: HiClipboardList },
       { label: 'Gestión de Usuarios', path: '/control/usuarios', icon: HiUserAdd },
-      { label: 'Llaves', path: '/configuracion/llaves', icon: HiKey },
+      { label: 'Llaves', path: '/control/llaves', icon: HiKey },
       { label: 'Gestión de Roles', path: '/control/permisos', icon: HiShieldCheck },
       { label: 'Indicaciones del Sistema', path: '/control/parametros', icon: HiAdjustments },
       { label: 'Seguridad', path: '/control/seguridad', icon: HiLockClosed },

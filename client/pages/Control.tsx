@@ -18,6 +18,7 @@ import IndicacionesView from "@/components/control/IndicacionesView";
 import SeguridadView from "@/components/control/SeguridadView";
 import UsuariosView from "@/components/control/UsuariosView";
 import RolesView from "@/components/control/RolesView";
+import LlavesView from "@/components/control/LlavesView";
 
 interface PendingRequest {
   id: number;
@@ -426,6 +427,9 @@ export default function Control() {
 
       {/* Users View */}
       {view === "usuarios" && <UsuariosView />}
+
+      {/* Llaves View */}
+      {view === "llaves" && <LlavesView />}
 
       {/* Permissions View - Now RolesView */}
       {view === "permisos" && <RolesView />}

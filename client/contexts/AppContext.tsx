@@ -143,8 +143,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       cargarSolicitudes();
       cargarUsuarios();
     } else {
-      logger.warn('No hay token de autenticación');
-      logger.warn('Esperando inicio de sesión en /login');
+      logger.debug('No hay token de autenticación', {});
+      logger.debug('Esperando inicio de sesión en /login', {});
       // NO cargar datos - el usuario debe iniciar sesión primero
       setCargandoSolicitudes(false);
       setCargandoUsuarios(false);
