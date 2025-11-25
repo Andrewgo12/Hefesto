@@ -12,111 +12,52 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
+        // 1. Validación básica
         $validator = Validator::make($request->all(), [
             'email' => 'required|string',
             'password' => 'required',
-            'remember' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Verificar si la cuenta está bloqueada
-        $blockStatus = \App\Models\LoginAttempt::isBlocked($request->email);
-        if ($blockStatus['blocked']) {
-            return response()->json([
-                'message' => 'Cuenta temporalmente bloqueada por seguridad',
-                'blocked_until' => $blockStatus['until'],
-                'minutes_remaining' => $blockStatus['minutes_remaining'],
-            ], 429); // 429 Too Many Requests
-        }
+        // 2. Buscar usuario (Email O Username) - DIRECTO Y SIMPLE
+        $user = User::where('email', $request->email)
+            ->orWhere('username', $request->email)
+            ->first();
 
-        // Verificar intentos fallidos recientes
-        $failedAttempts = \App\Models\LoginAttempt::getRecentFailedAttempts($request->email);
-        $remainingAttempts = 5 - $failedAttempts;
-
-        $user = User::where('email', $request->email)->first();
-
+        // 3. Verificar contraseña
         if (!$user || !Hash::check($request->password, $user->password)) {
-            // Registrar intento fallido
-            \App\Models\LoginAttempt::recordAttempt(
-                $request->email,
-                $request->ip(),
-                false,
-                $request->userAgent()
-            );
-
-            // Si alcanzó el límite, bloquear cuenta
-            if ($failedAttempts >= 4) { // 5 intentos = 4 previos + este
-                \App\Models\LoginAttempt::blockAccount($request->email, 15);
-                
-                return response()->json([
-                    'message' => 'Demasiados intentos fallidos. Cuenta bloqueada por 15 minutos',
-                    'blocked_until' => now()->addMinutes(15),
-                ], 429);
-            }
-
             return response()->json([
-                'message' => 'Credenciales incorrectas',
-                'attempts_remaining' => max(0, $remainingAttempts - 1),
+                'message' => 'Credenciales incorrectas'
             ], 401);
         }
 
-        // Verificar si el usuario está activo (case-insensitive)
+        // 4. Verificar estado (opcional, pero recomendado para seguridad básica)
         if (isset($user->estado) && strtolower($user->estado) !== 'activo') {
             return response()->json([
-                'message' => 'Usuario inactivo. Contacte al administrador.'
+                'message' => 'Usuario inactivo'
             ], 403);
         }
 
-        // Login exitoso - crear token con expiración variable
-        $rememberMe = $request->boolean('remember', false);
-        $tokenName = $rememberMe ? 'auth-token-remember' : 'auth-token';
-        $token = $user->createToken($tokenName)->plainTextToken;
+        // 5. Generar Token
+        $token = $user->createToken('auth-token')->plainTextToken;
 
-        // Registrar intento exitoso
-        \App\Models\LoginAttempt::recordAttempt(
-            $request->email,
-            $request->ip(),
-            true,
-            $request->userAgent()
-        );
-
-        // Limpiar intentos fallidos anteriores
-        \App\Models\LoginAttempt::clearFailedAttempts($request->email);
-
-        // Obtener roles y permisos del usuario
-        $roles = $user->roles()->get();
-        $permisos = $user->permisos();
-
-        // Registrar actividad de login
-        \DB::table('actividades')->insert([
-            'user_id' => $user->id,
-            'usuario_email' => $user->email,
-            'modulo' => 'autenticacion',
-            'accion' => 'login_exitoso',
-            'descripcion' => $rememberMe ? 'Usuario inició sesión (recordarme activado)' : 'Usuario inició sesión',
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
+        // 6. Respuesta Exitosa
         return response()->json([
             'success' => true,
+            'message' => 'Login exitoso',
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'rol' => $user->rol,
-                'estado' => $user->estado,
             ],
-            'roles' => $roles,
-            'permisos' => $permisos,
             'token' => $token,
             'es_administrador' => $user->esAdministrador(),
-            'remember' => $rememberMe,
+            'roles' => $user->roles()->get(),
+            'permisos' => $user->permisos(),
         ]);
     }
 

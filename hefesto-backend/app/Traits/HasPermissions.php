@@ -35,6 +35,14 @@ trait HasPermissions
     }
 
     /**
+     * Obtener permisos (alias para compatibilidad)
+     */
+    public function obtenerPermisos()
+    {
+        return $this->permisos();
+    }
+
+    /**
      * Verifica si el usuario tiene un permiso específico
      * 
      * @param string $permiso Nombre del permiso (ej: 'solicitudes_administrativas.crear')

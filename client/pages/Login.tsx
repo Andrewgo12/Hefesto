@@ -17,41 +17,13 @@ export default function Login() {
   const [showRegistroModal, setShowRegistroModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [emailError, setEmailError] = useState('');
   const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
-
-  // Validar email en tiempo real
-  const validateEmail = (email: string): boolean => {
-    if (!email) {
-      setEmailError('');
-      return true;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setEmailError('Formato de email inválido');
-      return false;
-    }
-    setEmailError('');
-    return true;
-  };
-
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFormData({ ...formData, email: value });
-    validateEmail(value);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setAttemptsRemaining(null);
     setLoading(true);
-
-    // Validar antes de enviar
-    if (!validateEmail(formData.email)) {
-      setLoading(false);
-      return;
-    }
 
     try {
       // Login con API - Base de datos
@@ -62,6 +34,8 @@ export default function Login() {
       });
 
       if (response.data.token) {
+        console.log('✓ Login exitoso, guardando datos...', response.data);
+
         // Guardar token y datos del usuario
         localStorage.setItem('auth_token', response.data.token);
 
@@ -83,12 +57,25 @@ export default function Login() {
           localStorage.removeItem('remember_me');
         }
 
+        console.log('✓ LocalStorage guardado, mostrando toast...');
         toast.success('Bienvenido', `Sesión iniciada como ${response.data.user.name}`);
 
-        // Add small delay to ensure localStorage writes complete
+        console.log('✓ Navegando a dashboard en 500ms...');
+        // Aumentar delay para asegurar que todo se guarde
         setTimeout(() => {
-          navigate('/');
-        }, 100);
+          // Condicional para redirección según rol
+          // Administradores: Navegación SPA (más rápida y fluida)
+          // Usuarios: Recarga completa (para asegurar limpieza de estado y permisos)
+          if (response.data.es_administrador || response.data.user.rol === 'Administrador') {
+            console.log('✓ Usuario Administrador: Ejecutando navigate(/)...');
+            navigate('/');
+          } else {
+            console.log('✓ Usuario Normal: Ejecutando window.location.href = "/"...');
+            window.location.href = '/';
+          }
+        }, 500);
+      } else {
+        console.error('✗ No se recibió token en la respuesta');
       }
     } catch (err: any) {
       const errorData = err.response?.data;
@@ -193,19 +180,11 @@ export default function Login() {
                 id="email"
                 type="text"
                 value={formData.email}
-                onChange={handleEmailChange}
-                placeholder="Ingresa tu usuario"
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Ingresa tu usuario o correo"
                 required
-                className={`w-full p-3 border rounded-lg focus:ring-2 transition-all ${emailError
-                  ? 'border-red-500 focus:ring-red-500'
-                  : formData.email && !emailError
-                    ? 'border-green-500 focus:ring-green-500'
-                    : 'focus:ring-blue-500'
-                  }`}
+                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-all"
               />
-              {emailError && (
-                <p className="text-sm text-red-600">{emailError}</p>
-              )}
             </div>
 
             <div className="space-y-2">
