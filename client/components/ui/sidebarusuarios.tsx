@@ -21,7 +21,7 @@ const sidebarItems: SidebarItem[] = [
     label: 'Registro', icon: HiInbox,
     subItems: [
       { label: 'Usuario Administrativo', path: '/registro/administrativo', icon: HiUser },
-      { label: 'Usuario Médico', path: '/registro/historia-clinica', icon: HiUserAdd },
+      { label: 'Usuario Asistencial', path: '/registro/historia-clinica', icon: HiUserAdd },
     ]
   },
   {

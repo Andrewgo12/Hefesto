@@ -86,6 +86,11 @@ class SolicitudAdministrativa extends Model
         return $this->morphMany(HistorialEstado::class, 'solicitable')->orderBy('created_at', 'desc');
     }
 
+    public function firmasSolicitud()
+    {
+        return $this->morphMany(FirmaSolicitud::class, 'solicitud');
+    }
+
     // Scopes
     public function scopePendientes($query)
     {

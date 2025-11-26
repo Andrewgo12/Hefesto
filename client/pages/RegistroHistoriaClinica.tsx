@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { AnimatedSection } from "@/components/AnimatedSection";
 import { fadeInUp, staggerContainer, staggerItem, scaleIn, fadeInLeft, fadeInRight } from "@/lib/animations";
 import type { FormularioHistoriaClinica } from "@shared/types/formularios";
+import { parseSignature } from "@/lib/signatureFonts";
  
 
 const STORAGE_KEY = 'hefesto_registro_historia_clinica';

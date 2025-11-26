@@ -166,14 +166,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         cargarSolicitudes();
         cargarUsuarios();
       } else {
-        logger.debug('Pestaña inactiva, pausando actualización');
+        logger.debug('Pestaña inactiva, pausando actualización', {});
       }
     }, 10000); // 10 segundos
 
     // Actualizar cuando la pestaña vuelve a estar activa
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        logger.debug('Pestaña activa, actualizando datos');
+        logger.debug('Pestaña activa, actualizando datos', {});
         cargarSolicitudes();
         cargarUsuarios();
       }

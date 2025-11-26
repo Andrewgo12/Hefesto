@@ -20,62 +20,63 @@ export interface Credencial {
 /**
  * CREDENCIALES ACTIVAS
  * Actualizar cuando haya cambio de jefe o responsable
+ * FORMATO: 4 dígitos numéricos
  */
 export const CREDENCIALES: Record<string, Credencial> = {
   'Jefe inmediato': {
     cargo: 'Jefe inmediato',
-    clave: 'JEFE2024',
+    clave: '2203',
     descripcion: 'Jefe directo del área solicitante',
     responsable: 'Variable según área',
-    ultimoCambio: '2024-01-01'
+    ultimoCambio: '2024-11-26'
   },
   
   'Jefe de Talento Humano': {
     cargo: 'Jefe de Talento Humano',
-    clave: 'TALENTO2024',
+    clave: '1230',
     descripcion: 'Jefe del departamento de Recursos Humanos',
     responsable: 'Jefe de Talento Humano',
-    ultimoCambio: '2024-01-01'
+    ultimoCambio: '2024-11-26'
   },
   
   'Jefe de Gestión de la Información': {
     cargo: 'Jefe de Gestión de la Información',
-    clave: 'GESTION2024',
+    clave: '4567',
     descripcion: 'Jefe del departamento de TI/Sistemas',
     responsable: 'Jefe de Gestión de la Información',
-    ultimoCambio: '2024-01-01'
+    ultimoCambio: '2024-11-26'
   },
   
   'Coordinador de Facturación o Subgerente Financiero': {
     cargo: 'Coordinador de Facturación o Subgerente Financiero',
-    clave: 'FINANZAS2024',
+    clave: '8901',
     descripcion: 'Responsable del área financiera',
     responsable: 'Coordinador de Facturación',
-    ultimoCambio: '2024-01-01'
+    ultimoCambio: '2024-11-26'
   },
   
   'Capacitador de historia clínica': {
     cargo: 'Capacitador de historia clínica',
-    clave: 'CAPACITAHC2024',
+    clave: '3456',
     descripcion: 'Responsable de capacitación en Historia Clínica Electrónica',
     responsable: 'Capacitador HC',
-    ultimoCambio: '2024-01-01'
+    ultimoCambio: '2024-11-26'
   },
   
   'Capacitador de epidemiología': {
     cargo: 'Capacitador de epidemiología',
-    clave: 'CAPACITAEPI2024',
+    clave: '7890',
     descripcion: 'Responsable de capacitación en Epidemiología',
     responsable: 'Capacitador Epidemiología',
-    ultimoCambio: '2024-01-01'
+    ultimoCambio: '2024-11-26'
   },
   
   'Aval institucional': {
     cargo: 'Aval institucional',
-    clave: 'AVAL2024',
+    clave: '5678',
     descripcion: 'Aval de la Subgerencia o Coordinación',
     responsable: 'Subgerente/Coordinador',
-    ultimoCambio: '2024-01-01'
+    ultimoCambio: '2024-11-26'
   }
 };
 

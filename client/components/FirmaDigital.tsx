@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from 'react';
-import SignatureCanvas from 'react-signature-canvas';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -19,12 +18,10 @@ interface FirmaDigitalProps {
 }
 
 export default function FirmaDigital({ cargo, credencialRequerida, onFirmaCompleta, firmaActual, trigger }: FirmaDigitalProps) {
-  const sigCanvas = useRef<SignatureCanvas>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [usuario, setUsuario] = useState('');
   const [credencial, setCredencial] = useState('');
   const [error, setError] = useState('');
-  const [modoFirma, setModoFirma] = useState<'canvas' | 'texto'>('canvas');
   const [selectedFontId, setSelectedFontId] = useState('brush-script');
   const [fontSize, setFontSize] = useState(24);
 
@@ -39,15 +36,8 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
   const handleGuardarFirma = async () => {
     // Validar credencial si es requerida
     if (credencialRequerida) {
-      try {
-        // Usar la API para validar la credencial dinámicamente
-        const { auth } = await import('@/lib/api');
-        await auth.verificarCredencialFirma({
-          cargo: credencialRequerida,
-          credencial
-        });
-      } catch (error) {
-        console.error('Error validando credencial:', error);
+      // Usar validación local en lugar de API para evitar problemas de sesión
+      if (!validarCredencial(credencialRequerida, credencial)) {
         setError('Credencial incorrecta');
         return;
       }
@@ -58,38 +48,20 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
       return;
     }
 
-    let firmaData = '';
-    if (modoFirma === 'canvas') {
-      if (sigCanvas.current?.isEmpty()) {
-        setError('Debe firmar en el recuadro');
-        return;
-      }
-      firmaData = sigCanvas.current?.toDataURL() || '';
-    } else {
-      if (!usuario.trim()) {
-        setError('Debe ingresar su nombre para firma de texto');
-        return;
-      }
-      // Crear firma de texto con estilo
-      firmaData = createSignature(usuario, selectedFontId, fontSize);
-      // Guardar preferencia de fuente
-      localStorage.setItem('hefesto_signature_font', selectedFontId);
-    }
+    // Crear firma de texto con estilo
+    const firmaData = createSignature(usuario, selectedFontId, fontSize);
+    // Guardar preferencia de fuente
+    localStorage.setItem('hefesto_signature_font', selectedFontId);
 
     onFirmaCompleta(firmaData, usuario);
     setIsOpen(false);
     limpiarFormulario();
   };
 
-  const limpiarFirma = () => {
-    sigCanvas.current?.clear();
-  };
-
   const limpiarFormulario = () => {
     setUsuario('');
     setCredencial('');
     setError('');
-    limpiarFirma();
   };
 
   // Renderizar firma actual con estilo
@@ -165,102 +137,40 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Modo de firma */}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={modoFirma === 'canvas' ? 'default' : 'outline'}
-                onClick={() => setModoFirma('canvas')}
-                className="flex-1"
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Dibujar Firma
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={modoFirma === 'texto' ? 'default' : 'outline'}
-                onClick={() => setModoFirma('texto')}
-                className="flex-1"
-              >
-                <Type className="w-4 h-4 mr-2" />
-                Firma de Texto
-              </Button>
+            {/* Selector de fuente */}
+            <div>
+              <Label htmlFor="font-select">Estilo de Firma</Label>
+              <Select value={selectedFontId} onValueChange={setSelectedFontId}>
+                <SelectTrigger id="font-select" className="mt-1">
+                  <SelectValue placeholder="Seleccione un estilo" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {SIGNATURE_FONTS.map((font) => (
+                    <SelectItem key={font.id} value={font.id}>
+                      <span style={{ fontFamily: font.family }}>
+                        {font.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Canvas de firma o texto */}
-            {modoFirma === 'canvas' ? (
-              <div className="border border-slate-300 rounded bg-white">
-                <SignatureCanvas
-                  ref={sigCanvas}
-                  canvasProps={{
-                    className: 'w-full h-40',
-                  }}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={limpiarFirma}
-                  className="w-full"
-                >
-                  <Trash2 className="w-3 h-3 mr-1" />
-                  Limpiar
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Selector de fuente */}
-                <div>
-                  <Label htmlFor="font-select">Estilo de Firma</Label>
-                  <Select value={selectedFontId} onValueChange={setSelectedFontId}>
-                    <SelectTrigger id="font-select" className="mt-1">
-                      <SelectValue placeholder="Seleccione un estilo" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {SIGNATURE_FONTS.map((font) => (
-                        <SelectItem key={font.id} value={font.id}>
-                          <span style={{ fontFamily: font.family }}>
-                            {font.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Tamaño de fuente */}
-                <div>
-                  <Label htmlFor="font-size">Tamaño</Label>
-                  <Select value={fontSize.toString()} onValueChange={(v) => setFontSize(parseInt(v))}>
-                    <SelectTrigger id="font-size" className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="18">Pequeño (18px)</SelectItem>
-                      <SelectItem value="24">Mediano (24px)</SelectItem>
-                      <SelectItem value="32">Grande (32px)</SelectItem>
-                      <SelectItem value="40">Extra Grande (40px)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Vista previa */}
-                <div className="text-center p-6 border-2 border-blue-200 rounded-lg bg-gradient-to-br from-blue-50 to-slate-50">
-                  <p className="text-xs text-slate-500 mb-3">Vista previa de su firma:</p>
-                  <div
-                    className="text-blue-900"
-                    style={{
-                      fontFamily: selectedFont?.family || 'Arial',
-                      fontSize: `${fontSize}px`,
-                    }}
-                  >
-                    {usuario || 'Su nombre aparecerá aquí'}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Tamaño de fuente */}
+            <div>
+              <Label htmlFor="font-size">Tamaño</Label>
+              <Select value={fontSize.toString()} onValueChange={(v) => setFontSize(parseInt(v))}>
+                <SelectTrigger id="font-size" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="18">Pequeño (18px)</SelectItem>
+                  <SelectItem value="24">Mediano (24px)</SelectItem>
+                  <SelectItem value="32">Grande (32px)</SelectItem>
+                  <SelectItem value="40">Extra Grande (40px)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Usuario */}
             <div>
@@ -272,6 +182,20 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
                 placeholder="Ingrese su nombre completo"
                 className="mt-1"
               />
+            </div>
+
+            {/* Vista previa */}
+            <div className="text-center p-6 border-2 border-blue-200 rounded-lg bg-gradient-to-br from-blue-50 to-slate-50">
+              <p className="text-xs text-slate-500 mb-3">Vista previa de su firma:</p>
+              <div
+                className="text-blue-900"
+                style={{
+                  fontFamily: selectedFont?.family || 'Arial',
+                  fontSize: `${fontSize}px`,
+                }}
+              >
+                {usuario || 'Su nombre aparecerá aquí'}
+              </div>
             </div>
 
             {/* Credencial si es requerida */}

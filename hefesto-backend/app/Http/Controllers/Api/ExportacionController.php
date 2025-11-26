@@ -203,6 +203,83 @@ class ExportacionController extends Controller
     }
     
     /**
+     * Obtener firmas para exportación desde la base de datos
+     * Prioriza firmas_solicitud si tiene firma_guardado/firma_base64, sino usa columna JSON
+     */
+    private function obtenerFirmasParaExportacion($solicitud)
+    {
+        $firmasExportacion = [];
+        
+        \Log::info('=== OBTENIENDO FIRMAS PARA EXPORTACIÓN ===');
+        \Log::info('Solicitud ID: ' . $solicitud->id);
+        \Log::info('Tipo: ' . get_class($solicitud));
+        
+        // Opción 1: Firmas desde relación firmasSolicitud (si tiene firma_guardado o firma_base64)
+        if ($solicitud->relationLoaded('firmasSolicitud') && $solicitud->firmasSolicitud->count() > 0) {
+            \Log::info('Revisando firmas en tabla firmas_solicitud: ' . $solicitud->firmasSolicitud->count() . ' registros');
+            
+            foreach ($solicitud->firmasSolicitud as $firmaSol) {
+                $firmaData = $firmaSol->firma_guardado ?? $firmaSol->firma_base64 ?? $firmaSol->firma ?? null;
+                
+                if ($firmaData) {
+                    $firmasExportacion[] = [
+                        'cargo' => $firmaSol->cargo_firmante,
+                        'usuario' => $firmaSol->nombre_firmante,
+                        'fecha' => $firmaSol->fecha_firma ? $firmaSol->fecha_firma->format('Y-m-d H:i:s') : date('Y-m-d H:i:s'),
+                        'firma' => $firmaData
+                    ];
+                    \Log::info("Firma cargada desde firmas_solicitud para {$firmaSol->cargo_firmante}");
+                }
+            }
+            
+            if (!empty($firmasExportacion)) {
+                \Log::info('Total firmas cargadas desde tabla firmas_solicitud: ' . count($firmasExportacion));
+                return $firmasExportacion;
+            }
+        }
+        
+        // Opción 2: Fallback a columna JSON firmas
+        if ($solicitud->firmas) {
+            \Log::info('Usando fallback: cargando firmas desde columna JSON');
+            
+            $firmas = is_string($solicitud->firmas) 
+                ? json_decode($solicitud->firmas, true)
+                : $solicitud->firmas;
+            
+            if (is_array($firmas)) {
+                foreach ($firmas as $cargo => $firma) {
+                    // Soportar ambos formatos: indexed array y associative array
+                    if (is_numeric($cargo) && isset($firma['cargo'])) {
+                        // Formato: [0 => ['cargo' => ..., 'usuario' => ..., 'firma' => ...]]
+                        $firmasExportacion[] = [
+                            'cargo' => $firma['cargo'] ?? $firma['tipo'] ?? '',
+                            'usuario' => $firma['usuario'] ?? $firma['nombre'] ?? '',
+                            'fecha' => $firma['fecha'] ?? date('Y-m-d H:i:s'),
+                            'firma' => $firma['firma'] ?? ''
+                        ];
+                    } else {
+                        // Formato: ['Jefe Inmediato' => ['usuario' => ..., 'firma' => ...]]
+                        $firmasExportacion[] = [
+                            'cargo' => $cargo,
+                            'usuario' => $firma['usuario'] ?? $firma['nombre'] ?? '',
+                            'fecha' => $firma['fecha'] ?? date('Y-m-d H:i:s'),
+                            'firma' => $firma['firma'] ?? ''
+                        ];
+                    }
+                }
+                
+                \Log::info('Total firmas cargadas desde JSON: ' . count($firmasExportacion));
+            }
+        }
+        
+        if (empty($firmasExportacion)) {
+            \Log::warning('No se encontraron firmas para esta solicitud');
+        }
+        
+        return $firmasExportacion;
+    }
+    
+    /**
      * Previsualizar solicitud administrativa como HTML
      */
     public function previsualizarAdministrativa($id)
@@ -640,7 +717,7 @@ class ExportacionController extends Controller
     public function exportarAdministrativa($id)
     {
         \Illuminate\Support\Facades\Log::info("Iniciando exportación administrativa para ID: $id");
-        $solicitud = SolicitudAdministrativa::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
+        $solicitud = SolicitudAdministrativa::with(['usuarioCreador', 'historialEstados', 'firmasSolicitud.paso'])->findOrFail($id);
         
         // Usar el template VACÍO para exportación (sin texto descriptivo)
         $templatePath = public_path('Documentos/formato_administrativo_MAPEADOVacio.xlsx');
@@ -913,135 +990,111 @@ class ExportacionController extends Controller
             $sheet->setCellValue('P39', $solicitud->clave_temporal ?? '');
             
             // ===== FIRMAS DIGITALES (insertar imágenes y texto) =====
-            if ($solicitud->firmas) {
-                $firmas = is_string($solicitud->firmas) 
-                    ? json_decode($solicitud->firmas, true)
-                    : $solicitud->firmas;
+            // Usar el nuevo método unificado para obtener firmas
+            $firmasParaExportar = $this->obtenerFirmasParaExportacion($solicitud);
+            
+            if (!empty($firmasParaExportar)) {
+                \Log::info('Procesando ' . count($firmasParaExportar) . ' firmas para exportación');
                 
-                if (is_array($firmas)) {
-                    \Log::info('Procesando firmas:', ['firmas' => $firmas]);
-                    foreach ($firmas as $index => $firma) {
-                        // Obtener cargo del objeto firma, no del índice
-                        $cargo = $firma['cargo'] ?? $firma['tipo'] ?? '';
-                        $usuario = $firma['nombre'] ?? $firma['usuario'] ?? '';
-                        $fecha = $firma['fecha'] ?? date('Y-m-d H:i:s');
-                        $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
-                        $firmaData = $firma['firma'] ?? '';
-                        
-                        \Log::info("Procesando firma de: {$cargo}", [
-                            'usuario' => $usuario,
-                            'firma_data' => substr($firmaData, 0, 100),
-                            'tipo' => strpos($firmaData, 'data:image') === 0 ? 'imagen' : (strpos($firmaData, 'FIRMA_TEXTO:') === 0 ? 'texto_firma' : 'texto_simple')
-                        ]);
-                        
-                        // Determinar celda según cargo
-                        // Mapear celda usando función normalizada (soporta tildes, espacios, mayúsculas)
-                        $celda = null;
-                        if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
-                            $celda = 'F40';
-                        } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo', 'avalado', 'avalado por', 'vo bo jefe inmediato'])) {
-                            $celda = 'A44';
-                        } elseif ($this->cargoCoincide($cargo, ['jefe de area', 'jefe area', 'jefe del area', 'coordinador area', 'vo bo jefe area'])) {
-                            $celda = 'D44'; // Celda para Jefe de Área
-                        } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento', 'vo bo talento humano', 'gestion humana'])) {
-                            $celda = 'G44';
-                        } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI', 'vo bo gestion', 'coordinador tic'])) {
-                            $celda = 'O44';
-                        }
-                        
-                        
-                        \Log::info("Celda asignada para {$cargo}: " . ($celda ?? 'NINGUNA'));
-                        
-                        if ($celda) {
-                            // Insertar imagen si es base64
-                            if (!empty($firmaData) && strpos($firmaData, 'data:image') === 0) {
-                                try {
-                                    // Extraer datos base64
-                                    $imageData = explode(',', $firmaData);
-                                    if (count($imageData) === 2) {
-                                        $imageBase64 = $imageData[1];
-                                        $imageContent = base64_decode($imageBase64);
-                                        
-                                        // Crear carpeta organizada para firmas: storage/app/firmas/administrativa/{id}/
-                                        $firmasDir = storage_path("app/firmas/administrativa/{$solicitud->id}");
-                                        if (!file_exists($firmasDir)) {
-                                            mkdir($firmasDir, 0755, true);
-                                        }
-                                        
-                                        // Nombre descriptivo: cargo_fecha.png
-                                        $cargoSlug = str_replace(' ', '_', strtolower($cargo));
-                                        $timestamp = date('YmdHis');
-                                        $tempImagePath = "{$firmasDir}/{$cargoSlug}_{$timestamp}.png";
-                                        file_put_contents($tempImagePath, $imageContent);
-                                        
-                                        // Insertar imagen en Excel
-                                        $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                                        $drawing->setName('Firma ' . $cargo);
-                                        $drawing->setDescription('Firma de ' . $usuario);
-                                        $drawing->setPath($tempImagePath);
-                                        $drawing->setCoordinates($celda);
-                                        $drawing->setHeight(60); // Altura en píxeles
-                                        // Centrar imagen en la celda
-                                        $drawing->setOffsetX(10);
-                                        $drawing->setOffsetY(5);
-                                        $drawing->setWorksheet($sheet);
+                foreach ($firmasParaExportar as $firma) {
+                    $cargo = $firma['cargo'] ?? '';
+                    $usuario = $firma['usuario'] ?? '';
+                    $fecha = $firma['fecha'] ?? date('Y-m-d H:i:s');
+                    $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
+                    $firmaData = $firma['firma'] ?? '';
+                    
+                    \Log::info("Procesando firma de: {$cargo}", [
+                        'usuario' => $usuario,
+                        'tiene_firma' => !empty($firmaData),
+                        'tipo' => strpos($firmaData, 'data:image') === 0 ? 'imagen' : (strpos($firmaData, 'FIRMA_TEXTO:') === 0 ? 'texto_firma' : 'texto_simple')
+                    ]);
+                    
+                    // Determinar celda según cargo
+                    $celda = null;
+                    if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
+                        $celda = 'F40';
+                    } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo', 'avalado', 'avalado por', 'vo bo jefe inmediato'])) {
+                        $celda = 'A44';
+                    } elseif ($this->cargoCoincide($cargo, ['jefe de area', 'jefe area', 'jefe del area', 'coordinador area', 'vo bo jefe area'])) {
+                        $celda = 'D44';
+                    } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento', 'vo bo talento humano', 'gestion humana'])) {
+                        $celda = 'G44';
+                    } elseif ($this->cargoCoincide($cargo, ['gestión', 'gestion', 'información', 'informacion', 'coordinador', 'sistemas', 'TI', 'vo bo gestion', 'coordinador tic'])) {
+                        $celda = 'O44';
+                    }
+                    
+                    \Log::info("Celda asignada para {$cargo}: " . ($celda ?? 'NINGUNA'));
+                    
+                    if ($celda) {
+                        // Insertar imagen si es base64
+                        if (!empty($firmaData) && strpos($firmaData, 'data:image') === 0) {
+                            try {
+                                // Extraer datos base64
+                                $imageData = explode(',', $firmaData);
+                                if (count($imageData) === 2) {
+                                    $imageBase64 = $imageData[1];
+                                    $imageContent = base64_decode($imageBase64);
+                                    
+                                    // Crear carpeta organizada para firmas
+                                    $firmasDir = storage_path("app/firmas/administrativa/{$solicitud->id}");
+                                    if (!file_exists($firmasDir)) {
+                                        mkdir($firmasDir, 0755, true);
                                     }
-                                } catch (\Exception $e) {
-                                    \Log::error('Error insertando imagen de firma: ' . $e->getMessage());
-                                    // Fallback a texto
-                                    $sheet->setCellValue($celda, $usuario . ' - ' . $fechaFormateada);
+                                    
+                                    // Nombre descriptivo
+                                    $cargoSlug = str_replace(' ', '_', strtolower($cargo));
+                                    $timestamp = date('YmdHis');
+                                    $tempImagePath = "{$firmasDir}/{$cargoSlug}_{$timestamp}.png";
+                                    file_put_contents($tempImagePath, $imageContent);
+                                    
+                                    // Insertar imagen en Excel
+                                    $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+                                    $drawing->setName('Firma ' . $cargo);
+                                    $drawing->setDescription('Firma de ' . $usuario);
+                                    $drawing->setPath($tempImagePath);
+                                    $drawing->setCoordinates($celda);
+                                    $drawing->setHeight(60);
+                                    $drawing->setOffsetX(10);
+                                    $drawing->setOffsetY(5);
+                                    $drawing->setWorksheet($sheet);
+                                    
+                                    \Log::info("Imagen de firma insertada exitosamente en celda {$celda}");
                                 }
-                            } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
-                                // Firma de texto con formato: FIRMA_TEXTO:nombre|FONT:id|SIZE:num|STYLE:style
-                                $parts = explode('|', $firmaData);
-                                $textoFirma = str_replace('FIRMA_TEXTO:', '', $parts[0]);
-                                
-                                // Valores por defecto
-                                $fontName = 'Brush Script MT';
-                                $fontSize = 16;
-                                
-                                // Parsear parámetros
-                                foreach ($parts as $part) {
-                                    if (strpos($part, 'FONT:') === 0) {
-                                        $fontId = str_replace('FONT:', '', $part);
-                                        // Mapear IDs de fuentes a nombres de fuentes de Excel
-                                        $fontMap = [
-                                            'great-vibes' => 'Brush Script MT',
-                                            'dancing-script' => 'Brush Script MT',
-                                            'sacramento' => 'Brush Script MT',
-                                            'allura' => 'Brush Script MT',
-                                            'pacifico' => 'Comic Sans MS',
-                                            'brush-script' => 'Brush Script MT',
-                                            'lucida-handwriting' => 'Lucida Handwriting',
-                                            'edwardian' => 'Edwardian Script ITC',
-                                            'freestyle' => 'Freestyle Script',
-                                            'french-script' => 'French Script MT',
-                                            'vivaldi' => 'Vivaldi',
-                                            'kunstler' => 'Kunstler Script',
-                                            'mistral' => 'Mistral',
-                                            'times' => 'Times New Roman',
-                                            'georgia' => 'Georgia',
-                                            'arial' => 'Arial',
-                                            'helvetica' => 'Helvetica',
-                                            'courier' => 'Courier New',
-                                        ];
-                                        $fontName = $fontMap[$fontId] ?? 'Brush Script MT';
-                                    } elseif (strpos($part, 'SIZE:') === 0) {
-                                        $fontSize = (int)str_replace('SIZE:', '', $part);
-                                    }
-                                }
-                                
-                                $sheet->setCellValue($celda, $textoFirma . "\n" . $fechaFormateada);
-                                $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
-                                $sheet->getStyle($celda)->getFont()->setName($fontName)->setSize($fontSize);
-                            } else {
-                                // Solo texto del usuario
-                                $sheet->setCellValue($celda, $usuario . "\n" . $fechaFormateada);
-                                $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
+                            } catch (\Exception $e) {
+                                \Log::error('Error insertando imagen de firma: ' . $e->getMessage());
+                                // Fallback a texto - solo nombre
+                                $sheet->setCellValue($celda, $usuario);
                             }
+                        } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
+                            // Firma de texto con formato - solo nombre
+                            $parts = explode('|', $firmaData);
+                            $textoFirma = trim(str_replace('FIRMA_TEXTO:', '', $parts[0]));
+                            $fontName = 'Brush Script MT';
+                            $fontSize = 16;
+                            
+                            foreach ($parts as $part) {
+                                if (strpos($part, 'SIZE:') === 0) {
+                                    $fontSize = (int)str_replace('SIZE:', '', $part);
+                                }
+                            }
+                            
+                            \Log::info("Insertando firma de texto en {$celda}: '{$textoFirma}'");
+                            
+                            // Solo el nombre, sin saltos de línea
+                            $sheet->setCellValue($celda, $textoFirma);
+                            $sheet->getStyle($celda)->getFont()->setName($fontName)->setSize($fontSize);
+                            $sheet->getStyle($celda)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                        } else {
+                            // Solo texto del usuario, sin fecha
+                            $usuarioLimpio = trim($usuario);
+                            \Log::info("Insertando nombre de usuario en {$celda}: '{$usuarioLimpio}'");
+                            $sheet->setCellValue($celda, $usuarioLimpio);
+                            $sheet->getStyle($celda)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                         }
                     }
                 }
+            } else {
+                \Log::warning('No se encontraron firmas para exportar en solicitud ' . $solicitud->id);
             }
             
             // ===== ACEPTA RESPONSABILIDAD (convertir a texto) =====
@@ -1120,7 +1173,7 @@ class ExportacionController extends Controller
      */
     public function exportarHistoriaClinica($id)
     {
-        $solicitud = SolicitudHistoriaClinica::with(['usuarioCreador', 'historialEstados'])->findOrFail($id);
+        $solicitud = SolicitudHistoriaClinica::with(['usuarioCreador', 'historialEstados', 'firmasSolicitud.paso'])->findOrFail($id);
         
         // Usar el template VACÍO para exportación (sin texto descriptivo)
         $templatePath = public_path('Documentos/formatocreacionusuarioshistoriaclinicaelectronicavacia.xlsx');
@@ -1232,95 +1285,102 @@ class ExportacionController extends Controller
                 }
             }
             
-            // Firmas (con imágenes)
-            if ($solicitud->firmas) {
-                $firmas = is_string($solicitud->firmas) 
-                    ? json_decode($solicitud->firmas, true)
-                    : $solicitud->firmas;
+            // Firmas (con imágenes) - Usar método unificado
+            $firmasParaExportar = $this->obtenerFirmasParaExportacion($solicitud);
+            
+            if (!empty($firmasParaExportar)) {
+                \Log::info('Procesando ' . count($firmasParaExportar) . ' firmas para exportación HC');
                 
-                if (is_array($firmas)) {
-                    foreach ($firmas as $cargo => $firma) {
-                        $cargoLower = strtolower($cargo);
-                        $usuario = $firma['usuario'] ?? '';
-                        $fecha = $firma['fecha'] ?? date('Y-m-d H:i:s');
-                        $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
-                        $firmaData = $firma['firma'] ?? '';
-                        
-                        // Mapear celda usando función normalizada (soporta tildes, espacios, mayúsculas)
-                        $celda = null;
-                        if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
-                            $celda = 'B30'; // FIRMA DEL USUARIO según template
-                        } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo', 'avalado', 'avalado por', 'vo bo jefe inmediato'])) {
-                            $celda = 'B33'; // Vo. Bo. Jefe Inmediato (área de firmas autorizadas)
-                        } elseif ($this->cargoCoincide($cargo, ['coordinador tic', 'coordinador', 'sistemas', 'TI', 'gestion informacion', 'gestión información', 'jefe gestion'])) {
-                            $celda = 'N33'; // Vo. Bo. Jefe de Gestión de la Información
-                        } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento'])) {
-                            $celda = 'G33'; // Vo. Bo. Jefe de Talento Humano
-                        } elseif ($this->cargoCoincide($cargo, ['capacitador historia', 'capacitador HC', 'capacitador clínica', 'capacitador clinica'])) {
-                            $celda = 'D22'; // Nombre del capacitador HC
-                        } elseif ($this->cargoCoincide($cargo, ['capacitador epidemiología', 'capacitador epidemiologia', 'capacitador epi'])) {
-                            $celda = 'D26'; // Nombre del capacitador Epidemiología
-                        } elseif ($this->cargoCoincide($cargo, ['aval', 'aval institucional', 'avalado'])) {
-                            $celda = 'B17'; // Aval institucional
-                        }
-                        
-                        
-                        if ($celda) {
-                            if (!empty($firmaData) && strpos($firmaData, 'data:image') === 0) {
-                                try {
-                                    $imageData = explode(',', $firmaData);
-                                    if (count($imageData) === 2) {
-                                        $imageBase64 = $imageData[1];
-                                        $imageContent = base64_decode($imageBase64);
-                                        
-                                        // Crear carpeta organizada para firmas: storage/app/firmas/historia_clinica/{id}/
-                                        $firmasDir = storage_path("app/firmas/historia_clinica/{$solicitud->id}");
-                                        if (!file_exists($firmasDir)) {
-                                            mkdir($firmasDir, 0755, true);
-                                        }
-                                        
-                                        // Nombre descriptivo: cargo_fecha.png
-                                        $cargoSlug = str_replace(' ', '_', strtolower($cargo));
-                                        $timestamp = date('YmdHis');
-                                        $tempImagePath = "{$firmasDir}/{$cargoSlug}_{$timestamp}.png";
-                                        file_put_contents($tempImagePath, $imageContent);
-                                        
-                                        $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
-                                        $drawing->setName('Firma ' . $cargo);
-                                        $drawing->setDescription('Firma de ' . $usuario);
-                                        $drawing->setPath($tempImagePath);
-                                        $drawing->setCoordinates($celda);
-                                        $drawing->setHeight(50);
-                                        // Centrar imagen en la celda
-                                        $drawing->setOffsetX(10);
-                                        $drawing->setOffsetY(5);
-                                        $drawing->setWorksheet($sheet);
+                foreach ($firmasParaExportar as $firma) {
+                    $cargo = $firma['cargo'] ?? '';
+                    $usuario = $firma['usuario'] ?? '';
+                    $fecha = $firma['fecha'] ?? date('Y-m-d H:i:s');
+                    $fechaFormateada = date('d/m/Y H:i', strtotime($fecha));
+                    $firmaData = $firma['firma'] ?? '';
+                    
+                    // Mapear celda según cargo
+                    $celda = null;
+                    if ($this->cargoCoincide($cargo, ['usuario', 'solicitante', 'firma usuario'])) {
+                        $celda = 'B30';
+                    } elseif ($this->cargoCoincide($cargo, ['jefe inmediato', 'inmediato', 'jefe directo', 'avalado', 'avalado por', 'vo bo jefe inmediato'])) {
+                        $celda = 'B33';
+                    } elseif ($this->cargoCoincide($cargo, ['coordinador tic', 'coordinador', 'sistemas', 'TI', 'gestion informacion', 'gestión información', 'jefe gestion'])) {
+                        $celda = 'N33';
+                    } elseif ($this->cargoCoincide($cargo, ['talento humano', 'recursos humanos', 'RRHH', 'jefe talento'])) {
+                        $celda = 'G33';
+                    } elseif ($this->cargoCoincide($cargo, ['capacitador historia', 'capacitador HC', 'capacitador clínica', 'capacitador clinica'])) {
+                        $celda = 'D22';
+                    } elseif ($this->cargoCoincide($cargo, ['capacitador epidemiología', 'capacitador epidemiologia', 'capacitador epi'])) {
+                        $celda = 'D26';
+                    } elseif ($this->cargoCoincide($cargo, ['aval', 'aval institucional', 'avalado'])) {
+                        $celda = 'B17';
+                    }
+                    
+                    if ($celda) {
+                        if (!empty($firmaData) && strpos($firmaData, 'data:image') === 0) {
+                            try {
+                                $imageData = explode(',', $firmaData);
+                                if (count($imageData) === 2) {
+                                    $imageBase64 = $imageData[1];
+                                    $imageContent = base64_decode($imageBase64);
+                                    
+                                    $firmasDir = storage_path("app/firmas/historia_clinica/{$solicitud->id}");
+                                    if (!file_exists($firmasDir)) {
+                                        mkdir($firmasDir, 0755, true);
                                     }
-                                } catch (\Exception $e) {
-                                    \Log::error('Error insertando imagen de firma HC: ' . $e->getMessage());
-                                    $sheet->setCellValue($celda, $usuario . ' - ' . $fechaFormateada);
+                                    
+                                    $cargoSlug = str_replace(' ', '_', strtolower($cargo));
+                                    $timestamp = date('YmdHis');
+                                    $tempImagePath = "{$firmasDir}/{$cargoSlug}_{$timestamp}.png";
+                                    file_put_contents($tempImagePath, $imageContent);
+                                    
+                                    $drawing = new \PhpOffice\PhpSpreadsheet\Worksheet\Drawing();
+                                    $drawing->setName('Firma ' . $cargo);
+                                    $drawing->setDescription('Firma de ' . $usuario);
+                                    $drawing->setPath($tempImagePath);
+                                    $drawing->setCoordinates($celda);
+                                    $drawing->setHeight(50);
+                                    $drawing->setOffsetX(10);
+                                    $drawing->setOffsetY(5);
+                                    $drawing->setWorksheet($sheet);
+                                    
+                                    \Log::info("Imagen de firma HC insertada exitosamente en celda {$celda}");
                                 }
-                            } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
-                                // Parsear formato: FIRMA_TEXTO:nombre|FONT:id|SIZE:num|STYLE:style
-                                $parts = explode('|', $firmaData);
-                                $textoFirma = str_replace('FIRMA_TEXTO:', '', $parts[0]);
-                                $fontName = 'Brush Script MT';
-                                $fontSize = 14;
-                                foreach ($parts as $part) {
-                                    if (strpos($part, 'SIZE:') === 0) {
-                                        $fontSize = (int)str_replace('SIZE:', '', $part);
-                                    }
-                                }
-                                $sheet->setCellValue($celda, $textoFirma . "\n" . $fechaFormateada);
-                                $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
-                                $sheet->getStyle($celda)->getFont()->setName($fontName)->setSize($fontSize);
-                            } else {
-                                $sheet->setCellValue($celda, $usuario . "\n" . $fechaFormateada);
-                                $sheet->getStyle($celda)->getAlignment()->setWrapText(true);
+                            } catch (\Exception $e) {
+                                \Log::error('Error insertando imagen de firma HC: ' . $e->getMessage());
+                                // Fallback a texto - solo nombre
+                                $sheet->setCellValue($celda, $usuario);
                             }
+                        } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
+                            // Firma de texto con formato - solo nombre
+                            $parts = explode('|', $firmaData);
+                            $textoFirma = trim(str_replace('FIRMA_TEXTO:', '', $parts[0]));
+                            $fontName = 'Brush Script MT';
+                            $fontSize = 14;
+                            
+                            foreach ($parts as $part) {
+                                if (strpos($part, 'SIZE:') === 0) {
+                                    $fontSize = (int)str_replace('SIZE:', '', $part);
+                                }
+                            }
+                            
+                            \Log::info("Insertando firma HC de texto en {$celda}: '{$textoFirma}'");
+                            
+                            // Solo el nombre, sin saltos de línea
+                            $sheet->setCellValue($celda, $textoFirma);
+                            $sheet->getStyle($celda)->getFont()->setName($fontName)->setSize($fontSize);
+                            $sheet->getStyle($celda)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+                        } else {
+                            // Solo texto del usuario, sin fecha
+                            $usuarioLimpio = trim($usuario);
+                            \Log::info("Insertando nombre HC en {$celda}: '{$usuarioLimpio}'");
+                            $sheet->setCellValue($celda, $usuarioLimpio);
+                            $sheet->getStyle($celda)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                         }
                     }
                 }
+            } else {
+                \Log::warning('No se encontraron firmas para exportar en solicitud HC ' . $solicitud->id);
             }
             
             // LOGIN y CREADO POR (en las celdas correspondientes del template)

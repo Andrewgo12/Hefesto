@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,21 @@ export default function ModalRegistroUsuario({ open, onClose, onSuccess }: Modal
     estado: 'activo'
   });
   const [errors, setErrors] = useState<any>({});
+
+  // Limpiar formulario cuando se abre el modal
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        name: '',
+        email: '',
+        password: '',
+        password_confirmation: '',
+        rol: 'Usuario',
+        estado: 'activo'
+      });
+      setErrors({});
+    }
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
