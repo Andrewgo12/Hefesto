@@ -553,11 +553,16 @@ export default function ControlAprobacion() {
                     return (
                       <motion.tr
                         key={`${sol.tipo}-${sol.id}`}
-                        className="border-b hover:bg-blue-50 transition-colors"
+                        className="border-b border-slate-100 transition-colors cursor-pointer"
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.05 }}
-                        whileHover={{ scale: 1.01, backgroundColor: "rgba(239, 246, 255, 0.8)" }}
+                        whileHover={{ 
+                          backgroundColor: 'rgba(239, 246, 255, 0.8)',
+                          scale: 1.005,
+                          x: 4,
+                          transition: { duration: 0.2 }
+                        }}
                       >
                         <td className="p-3 text-sm font-mono text-slate-600">#{sol.id}</td>
                         <td className="p-3">

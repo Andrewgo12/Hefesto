@@ -239,10 +239,16 @@ export default function Registro() {
                   filteredRequests.map((r, idx) => (
                     <motion.tr
                       key={r.id}
-                      className="border-b hover:bg-slate-50 transition-colors"
+                      className="border-b border-slate-100 transition-colors cursor-pointer"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.05 }}
+                      whileHover={{ 
+                        backgroundColor: 'rgba(241, 245, 249, 0.8)',
+                        scale: 1.005,
+                        x: 4,
+                        transition: { duration: 0.2 }
+                      }}
                     >
                       <td className="py-2 px-2 text-xs">{r.id}</td>
                       <td className="py-2 px-2 text-xs">{r.name}</td>
