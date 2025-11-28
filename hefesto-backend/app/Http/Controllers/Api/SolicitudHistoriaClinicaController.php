@@ -181,13 +181,26 @@ class SolicitudHistoriaClinicaController extends Controller
             'correo_electronico' => 'sometimes|required|email|max:255',
             'estado' => 'sometimes|required|in:Pendiente,En revisión,Aprobado,Rechazado',
             'firmas' => 'nullable|string', // Aceptar JSON de firmas
+            'login_asignado' => 'nullable|string|max:100',
+            'contrasena_asignada' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $data = $validator->validated();
+        // Obtener todos los datos de la petición que corresponden al modelo
+        $data = $request->only([
+            'nombre_completo', 'cedula', 'celular', 'correo_electronico',
+            'registro_codigo', 'area_servicio', 'especialidad', 'observaciones',
+            'perfil', 'perfil_otro', 'tipo_vinculacion', 'terminal_asignado', 'terminal_otro',
+            'capacitacion_historia_clinica', 'capacitacion_epidemiologia', 'aval_institucional',
+            'firmas', 'estado', 'fase_actual', 'observaciones_estado',
+            'login_asignado', 'contrasena_asignada', 'acepta_responsabilidad'
+        ]);
+        
+        // Filtrar nulls
+        $data = array_filter($data, fn($v) => $v !== null);
         
         // Procesar firmas si vienen en la petición
         if (isset($data['firmas'])) {

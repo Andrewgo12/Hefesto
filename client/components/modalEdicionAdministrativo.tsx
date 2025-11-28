@@ -508,8 +508,8 @@ export default function RegistroAdministrativo() {
       toast.error('Campo obligatorio', 'El campo "Cédula" es obligatorio');
       return;
     }
-    if (!/^\d{6,10}$/.test(formData.cedula.trim())) {
-      toast.error('Cédula inválida', 'La cédula debe tener entre 6 y 10 dígitos numéricos');
+    if (!/^\d{6,}$/.test(formData.cedula.trim())) {
+      toast.error('Cédula inválida', 'La cédula debe tener mínimo 6 dígitos numéricos');
       return;
     }
 

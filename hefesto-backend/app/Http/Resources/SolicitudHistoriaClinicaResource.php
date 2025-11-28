@@ -32,6 +32,8 @@ class SolicitudHistoriaClinicaResource extends JsonResource
             'aval_institucional' => $this->aval_institucional,
             'firmas' => $this->firmas,
             'login_creado_por' => $this->login_creado_por,
+            'login_asignado' => $this->login_asignado,
+            'contrasena_asignada' => $this->contrasena_asignada,
             'estado' => $this->estado,
             'acepta_responsabilidad' => (bool) $this->acepta_responsabilidad,
             'necesita_epidemiologia' => $this->necesita_epidemiologia,

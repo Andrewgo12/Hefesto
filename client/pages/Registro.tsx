@@ -7,7 +7,7 @@ import { useSolicitudes } from "@/hooks/useSolicitudes";
 import { motion } from "framer-motion";
 import { AnimatedSection } from "@/components/AnimatedSection";
 import { fadeInUp, staggerContainer, staggerItem } from "@/lib/animations";
-import { Eye, Download, Printer } from "lucide-react";
+import { Eye, Download, Printer, FileText, Clock, Plus, FilePlus2 } from "lucide-react";
 
 interface RegistrationRequest {
   id: number;
@@ -130,16 +130,18 @@ export default function Registro() {
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button
               onClick={() => navigate('/registro/administrativo')}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl transition-all"
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all rounded-2xl h-11"
             >
+              <FilePlus2 className="w-4 h-4 mr-2" />
               Nueva Solicitud Administrativa
             </Button>
           </motion.div>
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button
               onClick={() => navigate('/registro/historia-clinica')}
-              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-xl transition-all"
+              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-md hover:shadow-lg transition-all rounded-2xl h-11"
             >
+              <FilePlus2 className="w-4 h-4 mr-2" />
               Nueva Solicitud Historia Clínica
             </Button>
           </motion.div>
@@ -152,7 +154,7 @@ export default function Registro() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <Card className="p-3 sm:p-4 md:p-6 hover:shadow-xl transition-all duration-300">
+        <Card className="p-3 sm:p-4 md:p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
           <div className="mb-4">
             <p className="text-sm text-slate-600">Seguimiento por fases</p>
           </div>
@@ -164,19 +166,19 @@ export default function Registro() {
             animate="visible"
           >
             {[
-              { fase: 'Pendiente firma(s)', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-              { fase: 'En proceso', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-              { fase: 'En revisión', color: 'bg-purple-50 text-purple-700 border-purple-200' },
-              { fase: 'Aprobado', color: 'bg-green-50 text-green-700 border-green-200' },
+              { fase: 'Pendiente firma(s)', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: '⏳' },
+              { fase: 'En proceso', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: '⚙️' },
+              { fase: 'En revisión', color: 'bg-purple-50 text-purple-700 border-purple-200', icon: '🔍' },
+              { fase: 'Aprobado', color: 'bg-green-50 text-green-700 border-green-200', icon: '✅' },
             ].map((f, idx) => (
               <motion.div
                 key={idx}
-                className={`p-2 sm:p-3 rounded border ${f.color} text-[10px] sm:text-xs font-medium`}
+                className={`p-2 sm:p-3 rounded-xl border ${f.color} text-[10px] sm:text-xs font-medium flex items-center gap-2 cursor-pointer hover:scale-105 transition-transform`}
                 variants={staggerItem}
-                whileHover={{ scale: 1.05, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
-                transition={{ duration: 0.2 }}
+                onClick={() => setPhaseFilter(phaseFilter === f.fase ? '' : f.fase)}
               >
-                {f.fase}
+                <span>{f.icon}</span>
+                <span>{f.fase}</span>
               </motion.div>
             ))}
           </motion.div>
@@ -186,7 +188,7 @@ export default function Registro() {
             <div className="flex items-center gap-2">
               <label className="text-xs text-slate-600">Fase:</label>
               <select
-                className="h-8 text-sm border border-slate-300 rounded px-2"
+                className="h-9 text-sm border border-slate-200 rounded-xl px-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
                 value={phaseFilter}
                 onChange={(e) => setPhaseFilter(e.target.value)}
               >
@@ -200,8 +202,8 @@ export default function Registro() {
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder="Buscar por solicitante o ID"
-                className="h-8 text-sm border border-slate-300 rounded px-2 w-full md:w-64"
+                placeholder="🔍 Buscar por solicitante o ID"
+                className="h-9 text-sm border border-slate-200 rounded-xl px-3 w-full md:w-64 bg-white focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -210,14 +212,14 @@ export default function Registro() {
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-2 px-2 text-slate-700 text-xs">ID</th>
-                  <th className="text-left py-2 px-2 text-slate-700 text-xs">Solicitante</th>
-                  <th className="text-left py-2 px-2 text-slate-700 text-xs">Tipo</th>
-                  <th className="text-left py-2 px-2 text-slate-700 text-xs">Fase</th>
-                  <th className="text-left py-2 px-2 text-slate-700 text-xs">Fecha</th>
-                  <th className="text-left py-2 px-2 text-slate-700 text-xs">Acciones</th>
+              <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
+                <tr className="border-b border-slate-200">
+                  <th className="text-left py-3 px-2 text-slate-600 text-xs font-semibold uppercase tracking-wider">ID</th>
+                  <th className="text-left py-3 px-2 text-slate-600 text-xs font-semibold uppercase tracking-wider">Solicitante</th>
+                  <th className="text-left py-3 px-2 text-slate-600 text-xs font-semibold uppercase tracking-wider">Tipo</th>
+                  <th className="text-left py-3 px-2 text-slate-600 text-xs font-semibold uppercase tracking-wider">Estado</th>
+                  <th className="text-left py-3 px-2 text-slate-600 text-xs font-semibold uppercase tracking-wider">Fecha</th>
+                  <th className="text-center py-3 px-2 text-slate-600 text-xs font-semibold uppercase tracking-wider">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -246,38 +248,43 @@ export default function Registro() {
                       <td className="py-2 px-2 text-xs">{r.name}</td>
                       <td className="py-2 px-2 text-xs">{r.type}</td>
                       <td className="py-2 px-2 text-xs">
-                        <span className={`inline-block px-2 py-1 rounded border ${getFaseColor(r.fase)} text-[11px]`}>
+                        <span className={`inline-block px-2.5 py-1 rounded-lg border ${getFaseColor(r.fase)} text-[11px] font-medium`}>
                           {r.fase}
                         </span>
                       </td>
-                      <td className="py-2 px-2 text-xs">{r.date}</td>
                       <td className="py-2 px-2 text-xs">
-                        <div className="flex flex-wrap gap-1 sm:gap-2">
+                        <span className="flex items-center gap-1.5 text-slate-600">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          {r.date}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-xs">
+                        <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
                           <motion.button
-                            className="h-7 px-2 rounded border border-slate-300 text-[10px] sm:text-[11px] hover:bg-blue-50 hover:border-blue-400 transition-colors flex items-center gap-1"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            className="h-9 px-3.5 rounded-xl border-2 border-blue-200 bg-blue-50/50 text-xs font-semibold text-blue-700 hover:bg-blue-100 hover:border-blue-400 hover:shadow-md transition-all flex items-center gap-1.5"
+                            whileHover={{ scale: 1.08 }}
+                            whileTap={{ scale: 0.92 }}
                             onClick={() => handleVerSolicitud(r.id)}
                           >
-                            <Eye className="w-3 h-3" />
+                            <Eye className="w-4.5 h-4.5" strokeWidth={2.5} />
                             Ver
                           </motion.button>
                           <motion.button
-                            className="h-7 px-2 rounded border border-slate-300 text-[10px] sm:text-[11px] hover:bg-green-50 hover:border-green-400 transition-colors flex items-center gap-1"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            className="h-9 px-3.5 rounded-xl border-2 border-emerald-200 bg-emerald-50/50 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 hover:border-emerald-400 hover:shadow-md transition-all flex items-center gap-1.5"
+                            whileHover={{ scale: 1.08 }}
+                            whileTap={{ scale: 0.92 }}
                             onClick={() => handleDescargarSolicitud(r.id)}
                           >
-                            <Download className="w-3 h-3" />
+                            <Download className="w-4.5 h-4.5" strokeWidth={2.5} />
                             Descargar
                           </motion.button>
                           <motion.button
-                            className="h-7 px-2 rounded border border-slate-300 text-[10px] sm:text-[11px] hover:bg-purple-50 hover:border-purple-400 transition-colors flex items-center gap-1"
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                            className="h-9 px-3.5 rounded-xl border-2 border-purple-200 bg-purple-50/50 text-xs font-semibold text-purple-700 hover:bg-purple-100 hover:border-purple-400 hover:shadow-md transition-all flex items-center gap-1.5"
+                            whileHover={{ scale: 1.08 }}
+                            whileTap={{ scale: 0.92 }}
                             onClick={() => handleImprimirSolicitud(r.id)}
                           >
-                            <Printer className="w-3 h-3" />
+                            <Printer className="w-4.5 h-4.5" strokeWidth={2.5} />
                             Imprimir
                           </motion.button>
                         </div>

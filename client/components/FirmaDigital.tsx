@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pencil, Trash2, Check, Type } from 'lucide-react';
-import { validarCredencial } from '@/lib/credenciales';
+import { validarCredencial, CREDENCIALES } from '@/lib/credenciales';
 import { SIGNATURE_FONTS, parseSignature, createSignature, getFontById } from '@/lib/signatureFonts';
 import '@/styles/signature-fonts.css';
 
@@ -15,11 +15,12 @@ interface FirmaDigitalProps {
   onFirmaCompleta: (firma: string, usuario: string) => void;
   firmaActual?: string;
   trigger?: React.ReactNode;
+  nombrePorDefecto?: string;
 }
 
-export default function FirmaDigital({ cargo, credencialRequerida, onFirmaCompleta, firmaActual, trigger }: FirmaDigitalProps) {
+export default function FirmaDigital({ cargo, credencialRequerida, onFirmaCompleta, firmaActual, trigger, nombrePorDefecto }: FirmaDigitalProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [usuario, setUsuario] = useState('');
+  const [usuario, setUsuario] = useState(nombrePorDefecto || '');
   const [credencial, setCredencial] = useState('');
   const [error, setError] = useState('');
   const [selectedFontId, setSelectedFontId] = useState('brush-script');
@@ -33,12 +34,31 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
     }
   }, []);
 
+  // Actualizar nombre cuando cambie nombrePorDefecto o se abra el modal
+  useEffect(() => {
+    if (nombrePorDefecto) {
+      setUsuario(nombrePorDefecto);
+    }
+  }, [nombrePorDefecto]);
+
+  // Cuando se abre el modal, usar el nombre por defecto
+  useEffect(() => {
+    if (isOpen && nombrePorDefecto && !usuario) {
+      setUsuario(nombrePorDefecto);
+    }
+  }, [isOpen, nombrePorDefecto]);
+
   const handleGuardarFirma = async () => {
     // Validar credencial si es requerida
     if (credencialRequerida) {
+      console.log('🔐 Validando credencial:', {
+        cargo: credencialRequerida,
+        credencialIngresada: credencial,
+        credencialEsperada: CREDENCIALES[credencialRequerida]?.clave
+      });
       // Usar validación local en lugar de API para evitar problemas de sesión
       if (!validarCredencial(credencialRequerida, credencial)) {
-        setError('Credencial incorrecta');
+        setError(`Credencial incorrecta para: ${credencialRequerida}`);
         return;
       }
     }
@@ -59,28 +79,20 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
   };
 
   const limpiarFormulario = () => {
-    setUsuario('');
+    setUsuario(nombrePorDefecto || '');
     setCredencial('');
     setError('');
   };
 
-  // Renderizar firma actual con estilo
+  // Renderizar firma actual - SOLO NOMBRE
   const renderFirmaActual = () => {
     if (!firmaActual) return null;
 
     const parsedSignature = parseSignature(firmaActual);
 
     if (parsedSignature.type === 'text') {
-      const font = getFontById(parsedSignature.fontId || 'arial');
       return (
-        <div
-          className="text-center text-blue-800"
-          style={{
-            fontFamily: font?.family || 'Arial',
-            fontSize: `${parsedSignature.fontSize || 24}px`,
-            fontStyle: parsedSignature.fontStyle || 'normal'
-          }}
-        >
+        <div className="text-center text-blue-800 font-semibold">
           {parsedSignature.name}
         </div>
       );
@@ -137,41 +149,6 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Selector de fuente */}
-            <div>
-              <Label htmlFor="font-select">Estilo de Firma</Label>
-              <Select value={selectedFontId} onValueChange={setSelectedFontId}>
-                <SelectTrigger id="font-select" className="mt-1">
-                  <SelectValue placeholder="Seleccione un estilo" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {SIGNATURE_FONTS.map((font) => (
-                    <SelectItem key={font.id} value={font.id}>
-                      <span style={{ fontFamily: font.family }}>
-                        {font.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Tamaño de fuente */}
-            <div>
-              <Label htmlFor="font-size">Tamaño</Label>
-              <Select value={fontSize.toString()} onValueChange={(v) => setFontSize(parseInt(v))}>
-                <SelectTrigger id="font-size" className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="18">Pequeño (18px)</SelectItem>
-                  <SelectItem value="24">Mediano (24px)</SelectItem>
-                  <SelectItem value="32">Grande (32px)</SelectItem>
-                  <SelectItem value="40">Extra Grande (40px)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Usuario */}
             <div>
               <Label htmlFor="usuario">Nombre completo</Label>
@@ -182,20 +159,6 @@ export default function FirmaDigital({ cargo, credencialRequerida, onFirmaComple
                 placeholder="Ingrese su nombre completo"
                 className="mt-1"
               />
-            </div>
-
-            {/* Vista previa */}
-            <div className="text-center p-6 border-2 border-blue-200 rounded-lg bg-gradient-to-br from-blue-50 to-slate-50">
-              <p className="text-xs text-slate-500 mb-3">Vista previa de su firma:</p>
-              <div
-                className="text-blue-900"
-                style={{
-                  fontFamily: selectedFont?.family || 'Arial',
-                  fontSize: `${fontSize}px`,
-                }}
-              >
-                {usuario || 'Su nombre aparecerá aquí'}
-              </div>
             </div>
 
             {/* Credencial si es requerida */}

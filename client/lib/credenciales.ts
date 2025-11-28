@@ -47,6 +47,24 @@ export const CREDENCIALES: Record<string, Credencial> = {
     ultimoCambio: '2024-11-26'
   },
   
+  // Alias para compatibilidad
+  'Gestión de la Información': {
+    cargo: 'Gestión de la Información',
+    clave: '4567',
+    descripcion: 'Alias para Jefe de Gestión de la Información',
+    responsable: 'Jefe de Gestión de la Información',
+    ultimoCambio: '2024-11-26'
+  },
+  
+  // Alias Coordinador TIC
+  'Coordinador TIC': {
+    cargo: 'Coordinador TIC',
+    clave: '4567',
+    descripcion: 'Coordinador de Tecnologías de Información y Comunicaciones',
+    responsable: 'Jefe de Gestión de la Información',
+    ultimoCambio: '2024-11-28'
+  },
+  
   'Coordinador de Facturación o Subgerente Financiero': {
     cargo: 'Coordinador de Facturación o Subgerente Financiero',
     clave: '8901',
@@ -91,8 +109,28 @@ export const getCredencial = (cargo: string): string | undefined => {
  * Validar credencial
  */
 export const validarCredencial = (cargo: string, credencial: string): boolean => {
-  const credencialCorrecta = getCredencial(cargo);
-  return credencialCorrecta === credencial;
+  console.log('🔍 validarCredencial llamada:', { 
+    cargo, 
+    credencial,
+    cargoTrim: cargo?.trim(),
+    credencialTrim: credencial?.trim(),
+    existeEnCREDENCIALES: !!CREDENCIALES[cargo],
+    claveEsperada: CREDENCIALES[cargo]?.clave
+  });
+  
+  // Normalizar el cargo (trim y buscar)
+  const cargoNormalizado = cargo?.trim();
+  const credencialIngresada = credencial?.trim();
+  
+  const credencialCorrecta = getCredencial(cargoNormalizado);
+  
+  console.log('📋 Comparación:', {
+    credencialCorrecta,
+    credencialIngresada,
+    sonIguales: credencialCorrecta === credencialIngresada
+  });
+  
+  return credencialCorrecta === credencialIngresada;
 };
 
 /**

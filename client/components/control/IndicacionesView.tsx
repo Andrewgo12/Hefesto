@@ -91,7 +91,7 @@ export default function IndicacionesView() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 pb-6">
                 <div>
                     <h2 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-                        <div className="p-3 bg-emerald-100 rounded-xl">
+                        <div className="p-3 bg-emerald-100 rounded-2xl">
                             <HiAdjustments className="w-8 h-8 text-emerald-600" />
                         </div>
                         Configuración del Sistema
@@ -103,7 +103,7 @@ export default function IndicacionesView() {
                 <Button
                     onClick={handleSave}
                     disabled={saving}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200 px-6 py-6 text-lg h-auto transition-all hover:scale-105"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:shadow-lg px-6 py-6 text-lg h-auto transition-all rounded-2xl"
                 >
                     <HiSave className="w-6 h-6 mr-2" />
                     {saving ? "Guardando..." : "Guardar Cambios"}
@@ -122,7 +122,7 @@ export default function IndicacionesView() {
                             Configure la información básica de la institución que aparecerá en reportes y encabezados.
                         </p>
                     </div>
-                    <Card className="lg:col-span-8 p-6 border-l-4 border-l-emerald-500 shadow-md hover:shadow-lg transition-shadow duration-300">
+                    <Card className="lg:col-span-8 p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300 rounded-2xl bg-white">
                         <div className="space-y-6">
                             <div className="space-y-2">
                                 <Label htmlFor="institutionName" className="text-base">Nombre de la Institución</Label>
@@ -165,9 +165,9 @@ export default function IndicacionesView() {
                             Controle cómo y cuándo el sistema se comunica con los usuarios.
                         </p>
                     </div>
-                    <Card className="lg:col-span-8 p-6 border-l-4 border-l-emerald-500 shadow-md hover:shadow-lg transition-shadow duration-300">
+                    <Card className="lg:col-span-8 p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-300 rounded-2xl bg-white">
                         <div className="space-y-6">
-                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
+                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
                                 <div className="flex items-start gap-3">
                                     <div className="p-2 bg-white rounded-full shadow-sm text-emerald-600">
                                         <HiMail className="w-6 h-6" />
@@ -183,7 +183,7 @@ export default function IndicacionesView() {
                                     className="data-[state=checked]:bg-emerald-600"
                                 />
                             </div>
-                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
+                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
                                 <div className="flex items-start gap-3">
                                     <div className="p-2 bg-white rounded-full shadow-sm text-emerald-600">
                                         <HiBell className="w-6 h-6" />
@@ -216,7 +216,7 @@ export default function IndicacionesView() {
                             Gestione el acceso global al sistema en situaciones de mantenimiento o emergencia.
                         </p>
                     </div>
-                    <Card className={`lg:col-span-8 p-6 border-l-4 shadow-md hover:shadow-lg transition-all duration-300 ${config.maintenanceMode ? 'border-l-red-500 bg-red-50/30' : 'border-l-slate-300'}`}>
+                    <Card className={`lg:col-span-8 p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl ${config.maintenanceMode ? 'bg-red-50/50' : 'bg-white'}`}>
                         <div className="space-y-6">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-start gap-3">

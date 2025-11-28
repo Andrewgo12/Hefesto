@@ -160,6 +160,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const intervalo = setInterval(() => {
+      // Verificar que todavía hay token antes de actualizar
+      const currentToken = localStorage.getItem('auth_token');
+      if (!currentToken) {
+        logger.debug('Token eliminado, deteniendo polling', {});
+        return;
+      }
+
       // Solo actualizar si la pestaña está activa (optimización)
       if (!document.hidden) {
         logger.process('Actualizando datos automáticamente');

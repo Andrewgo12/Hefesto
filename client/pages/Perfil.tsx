@@ -230,7 +230,7 @@ export default function Perfil() {
             whileHover={{ scale: 1.02, y: -5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <Card className="p-4 md:p-6 border-2 border-transparent hover:border-blue-200 hover:shadow-xl transition-all duration-300 rounded-xl">
+            <Card className="p-4 md:p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
               <div className="flex flex-col items-center text-center">
                 <motion.div
                   className="w-16 h-16 bg-gradient-to-br from-slate-400 to-slate-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-4 shadow-lg"

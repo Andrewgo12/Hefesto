@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { ReactNode } from "react";
 
 interface PageTransitionProps {
@@ -6,17 +5,32 @@ interface PageTransitionProps {
     className?: string;
 }
 
+// CSS puro para transiciones optimizadas
+const transitionStyles = `
+  @keyframes pageEnter {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .page-transition {
+    animation: pageEnter 0.25s ease-out forwards;
+  }
+`;
+
 const PageTransition = ({ children, className = "" }: PageTransitionProps) => {
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-            className={className}
-        >
-            {children}
-        </motion.div>
+        <>
+            <style>{transitionStyles}</style>
+            <div className={`page-transition ${className}`}>
+                {children}
+            </div>
+        </>
     );
 };
 

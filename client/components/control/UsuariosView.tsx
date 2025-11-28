@@ -105,7 +105,7 @@ export default function UsuariosView() {
                 </div>
                 <Button
                     onClick={handleNewUser}
-                    className="bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/30 transition-all"
+                    className="bg-blue-600 hover:bg-blue-700 shadow-md hover:shadow-lg transition-all rounded-2xl"
                 >
                     <HiUserAdd className="w-5 h-5 mr-2" />
                     Nuevo Usuario
@@ -113,7 +113,7 @@ export default function UsuariosView() {
             </div>
 
             {/* Filters Bar */}
-            <Card className="p-4 border-slate-200 shadow-sm">
+            <Card className="p-4 border border-slate-200 shadow-sm rounded-2xl bg-white">
                 <div className="flex flex-col md:flex-row gap-4">
                     <div className="relative flex-1">
                         <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
@@ -129,7 +129,7 @@ export default function UsuariosView() {
                             <select
                                 value={roleFilter}
                                 onChange={(e) => setRoleFilter(e.target.value)}
-                                className="w-full pl-3 pr-10 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white text-sm"
+                                className="w-full pl-3 pr-10 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white text-sm"
                             >
                                 <option value="Todos">Todos los Roles</option>
                                 <option value="Administrador">Administrador</option>
@@ -142,7 +142,7 @@ export default function UsuariosView() {
                             <select
                                 value={statusFilter}
                                 onChange={(e) => setStatusFilter(e.target.value)}
-                                className="w-full pl-3 pr-10 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white text-sm"
+                                className="w-full pl-3 pr-10 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white text-sm"
                             >
                                 <option value="Todos">Todos los Estados</option>
                                 <option value="Activo">Activo</option>
@@ -155,7 +155,7 @@ export default function UsuariosView() {
             </Card>
 
             {/* Data Grid */}
-            <Card className="border-slate-200 shadow-md overflow-hidden">
+            <Card className="border border-slate-200 shadow-sm rounded-2xl overflow-hidden bg-white">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">

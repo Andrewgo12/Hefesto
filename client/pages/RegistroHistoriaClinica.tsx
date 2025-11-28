@@ -103,6 +103,22 @@ export default function RegistroHistoriaClinica() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
   }, [formData]);
 
+  // Cargar datos del usuario logueado al iniciar (solo si el formulario está vacío)
+  useEffect(() => {
+    const userDataStr = localStorage.getItem('user');
+    if (userDataStr) {
+      const userData = JSON.parse(userDataStr);
+      // Solo autocompletar si el nombre está vacío
+      if (!formData.nombreCompleto || formData.nombreCompleto === '') {
+        setFormData(prev => ({
+          ...prev,
+          nombreCompleto: userData.name || '',
+          correoElectronico: userData.email || prev.correoElectronico || '',
+        }));
+      }
+    }
+  }, []); // Solo al montar el componente
+
   // Limpiar localStorage al enviar exitosamente
   const limpiarFormularioGuardado = () => {
     localStorage.removeItem(STORAGE_KEY);
@@ -252,8 +268,8 @@ export default function RegistroHistoriaClinica() {
       toast.error('Campo obligatorio', 'El campo "Cédula" es obligatorio');
       return;
     }
-    if (!/^\d{6,10}$/.test(formData.cedula.trim())) {
-      toast.error('Cédula inválida', 'La cédula debe tener entre 6 y 10 dígitos numéricos');
+    if (!/^\d{6,}$/.test(formData.cedula.trim())) {
+      toast.error('Cédula inválida', 'La cédula debe tener mínimo 6 dígitos numéricos');
       return;
     }
 
@@ -506,6 +522,16 @@ export default function RegistroHistoriaClinica() {
 
     setLoading(true);
     try {
+      // Generar firma automática del usuario solicitante
+      const firmaUsuarioAutomatica = {
+        ...formData.firmas,
+        firmaUsuarioSolicitante: {
+          firma: `FIRMA_TEXTO:${formData.nombreCompleto}`,
+          usuario: formData.nombreCompleto,
+          fecha: new Date().toISOString()
+        }
+      };
+      
       // Mapear datos del formulario a formato de BD
       const payload = {
         // Encabezado del formato
@@ -543,8 +569,8 @@ export default function RegistroHistoriaClinica() {
         // Observaciones
         observaciones: formData.observaciones,
         
-        // Firmas (guardar como JSON completo)
-        firmas: JSON.stringify(formData.firmas || {}),
+        // Firmas (guardar con firma automática del usuario)
+        firmas: JSON.stringify(firmaUsuarioAutomatica),
         
         // Login creado por
         login_creado_por: loginUsuario,
@@ -554,8 +580,8 @@ export default function RegistroHistoriaClinica() {
         acepta_responsabilidad: formData.aceptaResponsabilidad ? 1 : 0,
         estado: 'Pendiente',
         fase_actual: 'Pendiente firma(s)',
-        firmas_pendientes: Object.keys(formData.firmas || {}).length,
-        firmas_completadas: 0,
+        firmas_pendientes: Object.keys(firmaUsuarioAutomatica).length,
+        firmas_completadas: 1, // La firma del usuario ya está
         
         // Usuario que registra
         registrado_por_nombre: nombreDiligencia || localStorage.getItem('user_name') || 'Usuario',
@@ -566,6 +592,7 @@ export default function RegistroHistoriaClinica() {
       };
 
       console.log('📤 Enviando payload a BD:', payload);
+      console.log('🔑 Token actual:', localStorage.getItem('auth_token') ? 'EXISTE' : 'NO EXISTE');
       
       // Enviar al backend
       const response = await solicitudesHistoriaClinica.create(payload);
@@ -790,7 +817,7 @@ export default function RegistroHistoriaClinica() {
                         <strong>Nota:</strong> Solo será autorizado el usuario que cuente con el aval de la Subgerencia o de la Coordinadora respectiva.
                       </div>
                       <div>
-                        <div className="font-semibold text-xs mb-2">Autor</div>
+                        <div className="font-semibold text-xs mb-2">Auditor</div>
                         <div className="flex flex-col gap-2">
                           {['Interno','Externo'].map((tipo) => (
                             <label key={tipo} className="flex items-center gap-2 cursor-pointer">
@@ -1272,14 +1299,14 @@ export default function RegistroHistoriaClinica() {
                         </div>
                       </motion.div>
 
-                      {/* COLUMNA 2: Firma del Usuario Solicitante */}
+                      {/* COLUMNA 2: Firma del Usuario Solicitante - AUTOMÁTICA */}
                       <motion.div 
-                        className="border-2 border-slate-300 rounded-lg p-3 bg-slate-50"
+                        className="border-2 border-green-300 rounded-lg p-3 bg-green-50/30"
                         variants={fadeInRight}
-                        whileHover={{ scale: 1.02, boxShadow: "0 10px 30px rgba(100, 116, 139, 0.2)" }}
+                        whileHover={{ scale: 1.02, boxShadow: "0 10px 30px rgba(34, 197, 94, 0.2)" }}
                         transition={{ duration: 0.3 }}
                       >
-                        <h3 className="font-bold text-xs mb-3 text-slate-700 text-center">FIRMA DEL USUARIO SOLICITANTE</h3>
+                        <h3 className="font-bold text-xs mb-3 text-green-700 text-center">✓ FIRMA DEL USUARIO SOLICITANTE</h3>
                         <div className="space-y-3">
                           <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3">
                             <label className="flex items-start gap-2 cursor-pointer">
@@ -1295,68 +1322,24 @@ export default function RegistroHistoriaClinica() {
                           </div>
                           <div>
                             <div className="flex items-center justify-between mb-2">
-                              <div className="font-semibold text-xs">Firma del solicitante:</div>
-                              {(formData.firmas as any)?.firmaUsuarioSolicitante ? (
-                                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-semibold border border-blue-300">✓ Firmado</span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold border border-amber-300">Pendiente</span>
-                              )}
+                              <div className="font-semibold text-xs text-green-700">Firma del solicitante:</div>
+                              <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-semibold border border-green-300">✓ Automática</span>
                             </div>
-                            {(formData.firmas as any)?.firmaUsuarioSolicitante ? (
-                              <div className="border-2 border-blue-200 rounded-lg p-3 bg-blue-50/30">
-                                <div className="w-full h-20 flex items-center justify-center bg-white rounded-lg border border-slate-200 mb-2 p-2">
-                                  {(formData.firmas as any).firmaUsuarioSolicitante.firma.startsWith('FIRMA_TEXTO:') ? (
-                                    <p className="font-signature text-xl text-slate-800">
-                                      {(formData.firmas as any).firmaUsuarioSolicitante.firma.replace('FIRMA_TEXTO:', '')}
-                                    </p>
-                                  ) : (
-                                    <img 
-                                      src={(formData.firmas as any).firmaUsuarioSolicitante.firma} 
-                                      alt="Firma usuario"
-                                      className="max-h-16 max-w-full object-contain"
-                                    />
-                                  )}
-                                </div>
-                                <div className="text-center space-y-1">
-                                  <p className="text-xs text-slate-700 font-semibold">
-                                    {(formData.firmas as any).firmaUsuarioSolicitante.usuario}
-                                  </p>
-                                  <p className="text-[10px] text-slate-500">
-                                    {new Date((formData.firmas as any).firmaUsuarioSolicitante.fecha).toLocaleString('es-CO', {
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })}
-                                  </p>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => eliminarFirma('firmaUsuarioSolicitante')}
-                                  className="mt-2 w-full text-xs border-red-300 text-red-600 hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-3 h-3 mr-1" />
-                                  Eliminar firma
-                                </Button>
+                            <div className="border-2 border-green-200 rounded-lg p-3 bg-white">
+                              <div className="w-full h-20 flex items-center justify-center bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200 mb-2 p-2">
+                                <p className="font-signature text-xl text-slate-800">
+                                  {formData.nombreCompleto || nombreDiligencia || 'Nombre del solicitante'}
+                                </p>
                               </div>
-                            ) : (
-                              <div className="border-2 border-dashed border-slate-300 rounded-lg p-3 bg-slate-50 min-h-[120px] flex flex-col items-center justify-center gap-2">
-                                <div className="text-center text-slate-400">
-                                  <svg className="w-10 h-10 mx-auto mb-1 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                  </svg>
-                                  <p className="text-xs">Sin firma</p>
-                                </div>
-                                <FirmaDigital
-                                  cargo="Usuario solicitante"
-                                  onFirmaCompleta={(f,u) => handleFirma('firmaUsuarioSolicitante', f, u)}
-                                  firmaActual={(formData.firmas as any)?.firmaUsuarioSolicitante?.firma}
-                                />
+                              <div className="text-center space-y-1">
+                                <p className="text-xs text-slate-700 font-semibold">
+                                  {formData.nombreCompleto || nombreDiligencia || 'Solicitante'}
+                                </p>
+                                <p className="text-[10px] text-green-600">
+                                  * La firma se genera automáticamente con el nombre del solicitante
+                                </p>
                               </div>
-                            )}
+                            </div>
                           </div>
                         </div>
                       </motion.div>

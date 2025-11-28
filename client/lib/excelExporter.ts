@@ -94,6 +94,9 @@ export async function exportarFormularioAdministrativo(
       'B22': (datos as any).aprobadoPor || '',
       'B23': (datos as any).fechaAprobacion || '',
       'B24': (datos as any).observaciones || '',
+      // Login y contraseña asignados
+      'B25': (datos as any).login_asignado || (datos as any).loginAsignado || '',
+      'B26': (datos as any).clave_temporal || (datos as any).claveTemporal || (datos as any).contrasena_asignada || '',
     } as Record<string, any>;
 
     // Aplicar datos por coordenada
@@ -107,6 +110,11 @@ export async function exportarFormularioAdministrativo(
       { label: 'Área o servicio:', offset: [1, 0], value: datos.areaOServicio || '' },
       { label: 'Teléfono / Extensión:', offset: [1, 0], value: datos.telefonoExtension || '' },
       { label: 'Fecha de solicitud:', offset: [1, 0], value: (datos as any).fechaSolicitud || '' },
+      { label: 'Login Asignado:', offset: [1, 0], value: (datos as any).login_asignado || (datos as any).loginAsignado || '' },
+      { label: 'LOGIN ASIGNADO:', offset: [1, 0], value: (datos as any).login_asignado || (datos as any).loginAsignado || '' },
+      { label: 'Usuario:', offset: [1, 0], value: (datos as any).login_asignado || (datos as any).loginAsignado || '' },
+      { label: 'Contraseña:', offset: [1, 0], value: (datos as any).clave_temporal || (datos as any).claveTemporal || '' },
+      { label: 'Clave Temporal:', offset: [1, 0], value: (datos as any).clave_temporal || (datos as any).claveTemporal || '' },
     ];
     for (const fb of fallbacks) {
       const base = findAddrByLabel(worksheet, fb.label);
@@ -189,6 +197,9 @@ export async function exportarFormularioHistoriaClinica(
       'B32': (datos as any).aprobadoSistemasInformacion || '',
       'B33': (datos as any).fechaAprobacion || '',
       'B34': datos.observaciones || '',
+      // Login y contraseña asignados
+      'B35': (datos as any).login_asignado || (datos as any).loginAsignado || '',
+      'B36': (datos as any).contrasena_asignada || (datos as any).contrasenaAsignada || (datos as any).clave_temporal || '',
     } as Record<string, any>;
 
     // Aplicar datos por coordenada
@@ -204,6 +215,11 @@ export async function exportarFormularioHistoriaClinica(
       { label: 'Celular:', offset: [1, 0], value: (datos as any).celular || '' },
       { label: 'Perfil (marcar X):', offset: [1, 0], value: (datos as any).perfil || '' },
       { label: 'Fecha de solicitud:', offset: [1, 0], value: datos.fechaSolicitud },
+      { label: 'Login Asignado:', offset: [1, 0], value: (datos as any).login_asignado || (datos as any).loginAsignado || '' },
+      { label: 'LOGIN ASIGNADO:', offset: [1, 0], value: (datos as any).login_asignado || (datos as any).loginAsignado || '' },
+      { label: 'Usuario:', offset: [1, 0], value: (datos as any).login_asignado || (datos as any).loginAsignado || '' },
+      { label: 'Contraseña:', offset: [1, 0], value: (datos as any).contrasena_asignada || (datos as any).contrasenaAsignada || '' },
+      { label: 'Contraseña Asignada:', offset: [1, 0], value: (datos as any).contrasena_asignada || (datos as any).contrasenaAsignada || '' },
     ];
     for (const fb of fallbacks) {
       const base = findAddrByLabel(worksheet, fb.label);

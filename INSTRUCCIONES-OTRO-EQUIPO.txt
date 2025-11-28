@@ -1,0 +1,60 @@
+# INSTRUCCIONES PARA ACCEDER DESDE OTRO EQUIPO
+
+## ESTADO ACTUAL DEL SERVIDOR (192.168.2.146)
+✅ Firewall: DESACTIVADO
+✅ Frontend (Puerto 8080): FUNCIONANDO
+✅ Backend (Puerto 8000): FUNCIONANDO
+✅ Conectividad local: OK
+
+## PARA ACCEDER DESDE OTRO EQUIPO
+
+### PASO 1: Verifica que estén en la misma red
+- Ambos equipos deben estar conectados a la misma red WiFi o router
+- Deben tener IPs en el mismo rango (ej: 192.168.2.x)
+
+### PASO 2: Desde el OTRO equipo, abre un navegador web
+- Chrome, Firefox, Edge, etc.
+- Escribe en la barra de direcciones:
+
+  http://192.168.2.146:8080
+
+- Presiona Enter
+
+### PASO 3: Si NO funciona, copia este script al otro equipo
+
+Copia el archivo "diagnostico-desde-otro-equipo.ps1" al otro equipo y ejecútalo.
+Te dirá exactamente cuál es el problema.
+
+## PROBLEMAS COMUNES
+
+### Problema 1: "No se puede acceder al sitio"
+CAUSA: Los equipos no están en la misma red
+SOLUCIÓN: Conecta ambos equipos a la misma red WiFi/router
+
+### Problema 2: "La conexión ha caducado"
+CAUSA: El firewall del servidor sigue bloqueando
+SOLUCIÓN: Reinicia el servidor después de desactivar el firewall
+
+### Problema 3: "ERR_CONNECTION_REFUSED"
+CAUSA: El servidor frontend no está corriendo
+SOLUCIÓN: En el servidor, ejecuta: npm run dev
+
+### Problema 4: Puedo acceder pero no puedo hacer login
+CAUSA: CORS o configuración del backend
+SOLUCIÓN: Ya está configurado, pero verifica que el backend esté corriendo
+
+## VERIFICACIÓN RÁPIDA DESDE EL OTRO EQUIPO
+
+Abre PowerShell en el otro equipo y ejecuta:
+
+  Test-NetConnection -ComputerName 192.168.2.146 -Port 8080
+
+Si dice "TcpTestSucceeded : True" = OK
+Si dice "TcpTestSucceeded : False" = HAY PROBLEMA
+
+## CONTACTO
+Si nada funciona, verifica:
+1. Que el servidor (192.168.2.146) esté encendido
+2. Que ambos equipos estén en la misma red
+3. Que el firewall del servidor esté desactivado
+4. Que los servidores estén corriendo (npm run dev y php artisan serve)

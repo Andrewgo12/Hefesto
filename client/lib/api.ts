@@ -20,13 +20,14 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
-// Interceptor para manejar errores
+// Interceptor para manejar errores - SIMPLIFICADO
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('auth_token');
-            window.location.href = '/login';
+        // Solo redirigir a login si falla el login mismo
+        if (error.response?.status === 401 && error.config?.url?.includes('/login')) {
+            // Error en login - no limpiar nada, solo mostrar error
+            console.error('Login falló');
         }
         return Promise.reject(error);
     }

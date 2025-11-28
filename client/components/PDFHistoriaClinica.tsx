@@ -72,6 +72,10 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
   const tipoVinculacion = datos.tipo_vinculacion || datos.tipoVinculacion || 'Interno';
   const terminalAsignado = datos.terminal_asignado || datos.terminalAsignado || 'Tablet';
   const terminalOtro = datos.terminal_otro || datos.terminalOtro || '';
+  const loginAsignado = solicitud.login_asignado || datos.login_asignado || solicitud.loginAsignado || datos.loginAsignado || '';
+  const contrasenaAsignada = solicitud.contrasena_asignada || datos.contrasena_asignada || solicitud.clave_temporal || datos.clave_temporal || '';
+
+  console.log('🔑 Credenciales PDF HC:', { loginAsignado, contrasenaAsignada, solicitud_login: solicitud.login_asignado, datos_login: datos.login_asignado });
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -105,7 +109,7 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
             <div className="grid grid-cols-4 border-t-2 border-black text-xs">
               <div className="border-r border-black p-2">
                 <p className="font-bold">CÓDIGO:</p>
-                <p>{datos.codigo_formato || datos.codigoFormato || 'FOR-GDI-SIS-003'}</p>
+                <p>FOR-GDI-SIS-003</p>
               </div>
               <div className="border-r border-black p-2">
                 <p className="font-bold">VERSIÓN:</p>
@@ -232,11 +236,36 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
             </div>
           </div>
 
-          {/* 5. CAPACITACIÓN HISTORIA CLÍNICA */}
+          {/* 5. CREDENCIALES DE ACCESO */}
+          {(loginAsignado || contrasenaAsignada) && (
+            <div className="border-2 border-black mb-3">
+              <div className="bg-slate-200 p-2 border-b-2 border-black">
+                <h2 className="font-bold text-sm uppercase">5. CREDENCIALES DE ACCESO</h2>
+              </div>
+              <div className="p-3">
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  {loginAsignado && (
+                    <div>
+                      <p className="font-bold">LOGIN/USUARIO:</p>
+                      <p className="border-b border-slate-400 pb-1">{loginAsignado}</p>
+                    </div>
+                  )}
+                  {contrasenaAsignada && (
+                    <div>
+                      <p className="font-bold">CONTRASEÑA:</p>
+                      <p className="border-b border-slate-400 pb-1">{contrasenaAsignada}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 6. CAPACITACIÓN */}
           {Object.keys(capacitacionHC).length > 0 && (
             <div className="border-2 border-black mb-3">
               <div className="bg-slate-200 p-2 border-b-2 border-black">
-                <h2 className="font-bold text-sm uppercase">5. CAPACITACIÓN EN HISTORIA CLÍNICA ELECTRÓNICA</h2>
+                <h2 className="font-bold text-sm uppercase">6. CAPACITACIÓN EN HISTORIA CLÍNICA ELECTRÓNICA</h2>
               </div>
               <div className="p-3">
                 <table className="w-full text-xs border-collapse">
@@ -274,7 +303,7 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
           {Object.keys(capacitacionEpi).length > 0 && (
             <div className="border-2 border-black mb-3">
               <div className="bg-slate-200 p-2 border-b-2 border-black">
-                <h2 className="font-bold text-sm uppercase">6. CAPACITACIÓN EN EPIDEMIOLOGÍA (Solo médicos)</h2>
+                <h2 className="font-bold text-sm uppercase">7. CAPACITACIÓN EN EPIDEMIOLOGÍA (Solo médicos)</h2>
               </div>
               <div className="p-3">
                 <table className="w-full text-xs border-collapse">
@@ -312,7 +341,7 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
           {Object.keys(avalInst).length > 0 && (
             <div className="border-2 border-black mb-3">
               <div className="bg-slate-200 p-2 border-b-2 border-black">
-                <h2 className="font-bold text-sm uppercase">7. AVAL INSTITUCIONAL</h2>
+                <h2 className="font-bold text-sm uppercase">8. AVAL INSTITUCIONAL</h2>
               </div>
               <div className="p-3">
                 <table className="w-full text-xs border-collapse">
@@ -339,7 +368,7 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
           {observaciones && (
             <div className="border-2 border-black mb-3">
               <div className="bg-slate-200 p-2 border-b-2 border-black">
-                <h2 className="font-bold text-sm uppercase">8. OBSERVACIONES</h2>
+                <h2 className="font-bold text-sm uppercase">9. OBSERVACIONES</h2>
               </div>
               <div className="p-3">
                 <p className="text-xs whitespace-pre-wrap">{observaciones}</p>
@@ -351,7 +380,7 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
           {Object.keys(firmas).length > 0 && (
             <div className="border-2 border-black mb-3">
               <div className="bg-slate-200 p-2 border-b-2 border-black">
-                <h2 className="font-bold text-sm uppercase">9. FIRMAS Y AUTORIZACIONES</h2>
+                <h2 className="font-bold text-sm uppercase">10. FIRMAS Y AUTORIZACIONES</h2>
               </div>
               <div className="p-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -399,14 +428,16 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
           {/* 10. LOGIN CREADO POR */}
           <div className="border-2 border-black mb-3">
             <div className="bg-slate-200 p-2 border-b-2 border-black">
-              <h2 className="font-bold text-sm uppercase">10. LOGIN CREADO POR (Gestión de la Información)</h2>
+              <h2 className="font-bold text-sm uppercase">11. LOGIN CREADO POR (Gestión de la Información)</h2>
             </div>
             <div className="p-3">
               <table className="w-full text-xs border-collapse">
                 <tbody>
                   <tr>
                     <td className="border border-slate-400 p-2 font-bold bg-slate-100 w-1/4">LOGIN ASIGNADO:</td>
-                    <td className="border border-slate-400 p-2">{datos.login_creado_por || datos.loginCreadoPor || datos.login_asignado || '_________________'}</td>
+                    <td className="border border-slate-400 p-2">{loginAsignado || '_________________'}</td>
+                    <td className="border border-slate-400 p-2 font-bold bg-slate-100 w-1/4">CLAVE TEMPORAL:</td>
+                    <td className="border border-slate-400 p-2">{contrasenaAsignada || '_________________'}</td>
                   </tr>
                 </tbody>
               </table>
@@ -416,7 +447,7 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
           {/* 11. ESTADO */}
           <div className="border-2 border-black mb-3">
             <div className="bg-slate-200 p-2 border-b-2 border-black">
-              <h2 className="font-bold text-sm uppercase">11. ESTADO DE LA SOLICITUD</h2>
+              <h2 className="font-bold text-sm uppercase">12. ESTADO DE LA SOLICITUD</h2>
             </div>
             <div className="p-3">
               <table className="w-full text-xs border-collapse">
@@ -445,7 +476,7 @@ export default function PDFHistoriaClinica({ solicitud, onClose }: PDFHistoriaCl
           {/* Pie de página */}
           <div className="border-t-2 border-black pt-2 mt-4">
             <div className="text-[10px] text-center text-slate-600">
-              <p className="font-bold">SISTEMA HEFESTO - GESTIÓN DE USUARIOS</p>
+              <p className="font-bold">SISTEMA KAIZEN - GESTIÓN DE USUARIOS</p>
               <p className="mt-1">Documento generado el {new Date().toLocaleString('es-CO')}</p>
               <p className="mt-1">ID Solicitud: SOL-{solicitud.id.toString().padStart(6, '0')}</p>
             </div>

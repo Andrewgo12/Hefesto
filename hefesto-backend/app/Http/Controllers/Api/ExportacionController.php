@@ -1354,7 +1354,7 @@ class ExportacionController extends Controller
                         } elseif (!empty($firmaData) && strpos($firmaData, 'FIRMA_TEXTO:') === 0) {
                             // Firma de texto con formato - solo nombre
                             $parts = explode('|', $firmaData);
-                            $textoFirma = trim(str_replace('FIRMA_TEXTO:', '', $parts[0]));
+                            $textoFirma = str_replace('FIRMA_TEXTO:', '', $parts[0]);
                             $fontName = 'Brush Script MT';
                             $fontSize = 14;
                             
@@ -1364,17 +1364,13 @@ class ExportacionController extends Controller
                                 }
                             }
                             
-                            \Log::info("Insertando firma HC de texto en {$celda}: '{$textoFirma}'");
-                            
                             // Solo el nombre, sin saltos de línea
                             $sheet->setCellValue($celda, $textoFirma);
                             $sheet->getStyle($celda)->getFont()->setName($fontName)->setSize($fontSize);
                             $sheet->getStyle($celda)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                         } else {
                             // Solo texto del usuario, sin fecha
-                            $usuarioLimpio = trim($usuario);
-                            \Log::info("Insertando nombre HC en {$celda}: '{$usuarioLimpio}'");
-                            $sheet->setCellValue($celda, $usuarioLimpio);
+                            $sheet->setCellValue($celda, $usuario);
                             $sheet->getStyle($celda)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
                         }
                     }
@@ -1410,6 +1406,21 @@ class ExportacionController extends Controller
             $sheet->setCellValue('A' . $lastRow, 'Email registrador:');
             $sheet->setCellValue('B' . $lastRow, $solicitud->registrado_por_email ?? 'N/A');
             $lastRow++;
+            
+            // CREDENCIALES DE ACCESO ASIGNADAS
+            if ($solicitud->login_asignado || $solicitud->contrasena_asignada) {
+                $sheet->setCellValue('A' . $lastRow, '=== CREDENCIALES DE ACCESO ===');
+                $sheet->getStyle('A' . $lastRow)->getFont()->setBold(true);
+                $lastRow++;
+                
+                $sheet->setCellValue('A' . $lastRow, 'Login/Usuario:');
+                $sheet->setCellValue('B' . $lastRow, $solicitud->login_asignado ?? 'N/A');
+                $lastRow++;
+                
+                $sheet->setCellValue('A' . $lastRow, 'Contraseña:');
+                $sheet->setCellValue('B' . $lastRow, $solicitud->contrasena_asignada ?? 'N/A');
+                $lastRow++;
+            }
             
             $sheet->setCellValue('A' . $lastRow, 'Fecha de registro:');
             $sheet->setCellValue('B' . $lastRow, $solicitud->created_at->format('d/m/Y H:i:s'));

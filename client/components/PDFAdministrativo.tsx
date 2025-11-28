@@ -67,6 +67,12 @@ export default function PDFAdministrativo({ solicitud, onClose }: PDFAdministrat
   const telefonoExtension = datos.telefono_extension || datos.telefonoExtension || '';
   const tipoVinculacion = datos.tipo_vinculacion || datos.tipoVinculacion || 'Planta';
   const perfilDe = datos.perfil_de || datos.perfilDe || '';
+  
+  // Login y clave asignados
+  const loginAsignado = solicitud.login_asignado || datos.login_asignado || solicitud.loginAsignado || datos.loginAsignado || '';
+  const claveTemporal = solicitud.clave_temporal || datos.clave_temporal || solicitud.claveTemporal || datos.claveTemporal || '';
+
+  console.log('🔑 Credenciales PDF Admin:', { loginAsignado, claveTemporal, solicitud_login: solicitud.login_asignado, datos_login: datos.login_asignado });
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -100,7 +106,7 @@ export default function PDFAdministrativo({ solicitud, onClose }: PDFAdministrat
             <div className="grid grid-cols-4 border-t-2 border-black text-xs">
               <div className="border-r border-black p-2">
                 <p className="font-bold">CÓDIGO:</p>
-                <p>{datos.codigo_formato || datos.codigoFormato || 'FOR-GDI-SIS-004'}</p>
+                <p>FOR-GDI-SIS-004</p>
               </div>
               <div className="border-r border-black p-2">
                 <p className="font-bold">VERSIÓN:</p>
@@ -395,9 +401,9 @@ export default function PDFAdministrativo({ solicitud, onClose }: PDFAdministrat
                 <tbody>
                   <tr>
                     <td className="border border-slate-400 p-2 font-bold bg-slate-100 w-1/4">LOGIN ASIGNADO:</td>
-                    <td className="border border-slate-400 p-2">{datos.login_asignado || datos.loginAsignado || '_________________'}</td>
+                    <td className="border border-slate-400 p-2">{loginAsignado || '_________________'}</td>
                     <td className="border border-slate-400 p-2 font-bold bg-slate-100 w-1/4">CLAVE TEMPORAL:</td>
-                    <td className="border border-slate-400 p-2">{datos.clave_temporal || datos.claveTemporal || '_________________'}</td>
+                    <td className="border border-slate-400 p-2">{claveTemporal || '_________________'}</td>
                   </tr>
                 </tbody>
               </table>
@@ -436,7 +442,7 @@ export default function PDFAdministrativo({ solicitud, onClose }: PDFAdministrat
           {/* Pie de página */}
           <div className="border-t-2 border-black pt-2 mt-4">
             <div className="text-[10px] text-center text-slate-600">
-              <p className="font-bold">SISTEMA HEFESTO - GESTIÓN DE USUARIOS</p>
+              <p className="font-bold">SISTEMA KAIZEN - GESTIÓN DE USUARIOS</p>
               <p className="mt-1">Documento generado el {new Date().toLocaleString('es-CO')}</p>
               <p className="mt-1">ID Solicitud: SOL-{solicitud.id.toString().padStart(6, '0')}</p>
             </div>

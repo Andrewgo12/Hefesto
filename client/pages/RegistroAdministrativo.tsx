@@ -235,6 +235,21 @@ export default function RegistroAdministrativo() {
     }
   }, [formData, idEditar]);
 
+  // Cargar datos del usuario logueado al iniciar (solo si el formulario está vacío)
+  useEffect(() => {
+    const userDataStr = localStorage.getItem('user');
+    if (userDataStr && !idEditar) {
+      const userData = JSON.parse(userDataStr);
+      // Solo autocompletar si el nombre está vacío
+      if (!formData.nombreCompleto || formData.nombreCompleto === '') {
+        setFormData(prev => ({
+          ...prev,
+          nombreCompleto: userData.name || '',
+        }));
+      }
+    }
+  }, []); // Solo al montar el componente
+
   // Inicializar permisos cuando se carga formData (para edición)
   useEffect(() => {
     if (formData.modulosAdministrativos && Object.keys(formData.modulosAdministrativos).length > 0) {
@@ -508,8 +523,8 @@ export default function RegistroAdministrativo() {
       toast.error('Campo obligatorio', 'El campo "Cédula" es obligatorio');
       return;
     }
-    if (!/^\d{6,10}$/.test(formData.cedula.trim())) {
-      toast.error('Cédula inválida', 'La cédula debe tener entre 6 y 10 dígitos numéricos');
+    if (!/^\d{6,}$/.test(formData.cedula.trim())) {
+      toast.error('Cédula inválida', 'La cédula debe tener mínimo 6 dígitos numéricos');
       return;
     }
 
@@ -760,6 +775,16 @@ export default function RegistroAdministrativo() {
 
     setLoading(true);
     try {
+      // Generar firma automática del usuario solicitante
+      const firmaUsuarioAutomatica = {
+        ...formData.firmas,
+        firmaUsuarioSolicitante: {
+          firma: `FIRMA_TEXTO:${formData.nombreCompleto}`,
+          usuario: formData.nombreCompleto,
+          fecha: new Date().toISOString()
+        }
+      };
+      
       // Mapear datos del formulario a formato de BD
       const payload = {
         // Encabezado del formato
@@ -793,8 +818,8 @@ export default function RegistroAdministrativo() {
         // Opciones Web (guardar como JSON completo)
         opciones_web: JSON.stringify(formData.opcionesWeb || {}),
         
-        // Firmas (guardar como JSON completo)
-        firmas: JSON.stringify(formData.firmas || {}),
+        // Firmas (guardar con firma automática del usuario)
+        firmas: JSON.stringify(firmaUsuarioAutomatica),
         
         // Login y clave (si existen)
         login_asignado: formData.loginAsignado || null,
@@ -805,8 +830,8 @@ export default function RegistroAdministrativo() {
         acepta_responsabilidad: formData.aceptaResponsabilidad ? 1 : 0,
         estado: 'Pendiente',
         fase_actual: 'Pendiente firma(s)',
-        firmas_pendientes: Object.keys(formData.firmas || {}).length,
-        firmas_completadas: 0,
+        firmas_pendientes: Object.keys(firmaUsuarioAutomatica).length,
+        firmas_completadas: 1, // La firma del usuario ya está
         
         // Usuario que registra
         registrado_por_nombre: localStorage.getItem('user_name') || 'Usuario',
@@ -1341,70 +1366,26 @@ export default function RegistroAdministrativo() {
                         />
                       </div>
                     </div>
-                    <div className="mt-4 border-2 border-blue-200 rounded-lg p-3 bg-white">
+                    <div className="mt-4 border-2 border-green-200 rounded-lg p-3 bg-green-50/30">
                       <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-sm text-slate-700">Firma del usuario solicitante</h4>
-                        {(formData.firmas as any)?.firmaUsuarioSolicitante ? (
-                          <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-semibold border border-green-300">✓ Firmado</span>
-                        ) : (
-                          <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold border border-amber-300">Pendiente</span>
-                        )}
+                        <h4 className="font-semibold text-sm text-slate-700">✓ Firma del usuario solicitante</h4>
+                        <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-semibold border border-green-300">✓ Automática</span>
                       </div>
-                      {(formData.firmas as any)?.firmaUsuarioSolicitante ? (
-                        <div className="border-2 border-blue-200 rounded-lg p-3 bg-blue-50/30">
-                          <div className="w-full h-24 flex items-center justify-center bg-white rounded-lg border border-slate-200 mb-2 p-2">
-                            {(formData.firmas as any).firmaUsuarioSolicitante.firma.startsWith('FIRMA_TEXTO:') ? (
-                              <p className="font-signature text-2xl text-slate-800">
-                                {(formData.firmas as any).firmaUsuarioSolicitante.firma.replace('FIRMA_TEXTO:', '')}
-                              </p>
-                            ) : (
-                              <img 
-                                src={(formData.firmas as any).firmaUsuarioSolicitante.firma} 
-                                alt="Firma usuario"
-                                className="max-h-20 max-w-full object-contain"
-                              />
-                            )}
-                          </div>
-                          <div className="text-center space-y-1">
-                            <p className="text-xs text-slate-700 font-semibold">
-                              {(formData.firmas as any).firmaUsuarioSolicitante.usuario}
-                            </p>
-                            <p className="text-[10px] text-slate-500">
-                              {new Date((formData.firmas as any).firmaUsuarioSolicitante.fecha).toLocaleString('es-CO', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => eliminarFirma('firmaUsuarioSolicitante')}
-                            className="mt-2 w-full text-xs border-red-300 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Eliminar firma
-                          </Button>
+                      <div className="border-2 border-green-200 rounded-lg p-3 bg-white">
+                        <div className="w-full h-20 flex items-center justify-center bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200 mb-2 p-2">
+                          <p className="font-signature text-2xl text-slate-800">
+                            {formData.nombreCompleto || 'Nombre del solicitante'}
+                          </p>
                         </div>
-                      ) : (
-                        <div className="border-2 border-dashed border-slate-300 rounded-lg p-3 bg-slate-50 min-h-[140px] flex flex-col items-center justify-center gap-3">
-                          <div className="text-center text-slate-400">
-                            <svg className="w-12 h-12 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                            <p className="text-xs">Sin firma</p>
-                          </div>
-                          <FirmaDigital
-                            cargo="Usuario solicitante"
-                            onFirmaCompleta={(f,u) => handleFirma('firmaUsuarioSolicitante', f, u)}
-                            firmaActual={(formData.firmas as any)?.firmaUsuarioSolicitante?.firma}
-                          />
+                        <div className="text-center space-y-1">
+                          <p className="text-xs text-slate-700 font-semibold">
+                            {formData.nombreCompleto || 'Solicitante'}
+                          </p>
+                          <p className="text-[10px] text-green-600">
+                            * La firma se genera automáticamente con el nombre del solicitante
+                          </p>
                         </div>
-                      )}
+                      </div>
                     </div>
                   </td>
                 </tr>

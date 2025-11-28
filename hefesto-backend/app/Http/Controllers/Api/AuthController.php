@@ -12,39 +12,26 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
-        // 1. Validación básica
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|string',
-            'password' => 'required',
-        ]);
+        // Convertir email/username a minúsculas para búsqueda case-insensitive
+        $loginField = strtolower(trim($request->email));
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        // 2. Buscar usuario (Email O Username) - DIRECTO Y SIMPLE
-        $user = User::where('email', $request->email)
-            ->orWhere('username', $request->email)
+        // BUSCAR USUARIO (case-insensitive)
+        $user = User::whereRaw('LOWER(email) = ?', [$loginField])
+            ->orWhereRaw('LOWER(username) = ?', [$loginField])
             ->first();
 
-        // 3. Verificar contraseña
+        // SI NO EXISTE O PASSWORD INCORRECTO
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'message' => 'Credenciales incorrectas'
-            ], 401);
+            return response()->json(['message' => 'Credenciales incorrectas'], 401);
         }
 
-        // 4. Verificar estado (opcional, pero recomendado para seguridad básica)
-        if (isset($user->estado) && strtolower($user->estado) !== 'activo') {
-            return response()->json([
-                'message' => 'Usuario inactivo'
-            ], 403);
-        }
-
-        // 5. Generar Token
+        // BORRAR TOKENS ANTERIORES y crear uno nuevo (token estático nunca expira)
+        $user->tokens()->delete();
+        
+        // Crear nuevo token que nunca expira (gracias a sanctum.php expiration = null)
         $token = $user->createToken('auth-token')->plainTextToken;
 
-        // 6. Respuesta Exitosa
+        // RESPUESTA
         return response()->json([
             'success' => true,
             'message' => 'Login exitoso',
@@ -52,12 +39,12 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'rol' => $user->rol,
+                'rol' => $user->rol ?? 'Usuario',
             ],
             'token' => $token,
-            'es_administrador' => $user->esAdministrador(),
-            'roles' => $user->roles()->get(),
-            'permisos' => $user->permisos(),
+            'es_administrador' => $user->rol === 'Administrador',
+            'roles' => [],
+            'permisos' => [],
         ]);
     }
 

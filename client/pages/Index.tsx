@@ -156,7 +156,7 @@ export default function Index() {
             whileHover={{ scale: 1.05, y: -5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <Card className="p-4 border-2 border-transparent hover:border-blue-400 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 rounded-xl bg-gradient-to-br from-white to-blue-50/30 hover:from-blue-50/50 hover:to-blue-100/50 group">
+            <Card className="p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white group">
               <div className="flex items-center gap-3">
                 <motion.div
                   className="p-2 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg shadow-sm group-hover:shadow-md"
@@ -178,7 +178,7 @@ export default function Index() {
             whileHover={{ scale: 1.05, y: -5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <Card className="p-4 border-2 border-transparent hover:border-amber-400 hover:shadow-2xl hover:shadow-amber-200/50 transition-all duration-300 rounded-xl bg-gradient-to-br from-white to-amber-50/30 hover:from-amber-50/50 hover:to-amber-100/50 group">
+            <Card className="p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white group">
               <div className="flex items-center gap-3">
                 <motion.div
                   className="p-2 bg-gradient-to-br from-amber-100 to-amber-200 rounded-lg shadow-sm group-hover:shadow-md"
@@ -200,7 +200,7 @@ export default function Index() {
             whileHover={{ scale: 1.05, y: -5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <Card className="p-4 border-2 border-transparent hover:border-green-400 hover:shadow-2xl hover:shadow-green-200/50 transition-all duration-300 rounded-xl bg-gradient-to-br from-white to-green-50/30 hover:from-green-50/50 hover:to-green-100/50 group">
+            <Card className="p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white group">
               <div className="flex items-center gap-3">
                 <motion.div
                   className="p-2 bg-gradient-to-br from-green-100 to-green-200 rounded-lg shadow-sm group-hover:shadow-md"
@@ -222,7 +222,7 @@ export default function Index() {
             whileHover={{ scale: 1.05, y: -5 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <Card className="p-4 border-2 border-transparent hover:border-red-400 hover:shadow-2xl hover:shadow-red-200/50 transition-all duration-300 rounded-xl bg-gradient-to-br from-white to-red-50/30 hover:from-red-50/50 hover:to-red-100/50 group">
+            <Card className="p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white group">
               <div className="flex items-center gap-3">
                 <motion.div
                   className="p-2 bg-gradient-to-br from-red-100 to-red-200 rounded-lg shadow-sm group-hover:shadow-md"
@@ -250,7 +250,7 @@ export default function Index() {
               whileTap={{ scale: 0.95 }}
               transition={{ type: "spring", stiffness: 400 }}
             >
-              <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 border-2 border-blue-700 hover:border-blue-500 rounded-lg group">
+              <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl group">
                 <span className="group-hover:translate-x-1 transition-transform duration-300">Nueva Solicitud Administrativa</span>
               </Button>
             </motion.div>
@@ -261,7 +261,7 @@ export default function Index() {
               whileTap={{ scale: 0.95 }}
               transition={{ type: "spring", stiffness: 400 }}
             >
-              <Button className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-lg hover:shadow-2xl hover:shadow-green-500/50 transition-all duration-300 border-2 border-green-700 hover:border-green-500 rounded-lg group">
+              <Button className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white shadow-md hover:shadow-lg transition-all duration-300 rounded-2xl group">
                 <span className="group-hover:translate-x-1 transition-transform duration-300">Nueva Solicitud Historia Clínica</span>
               </Button>
             </motion.div>
@@ -272,7 +272,7 @@ export default function Index() {
               whileTap={{ scale: 0.95 }}
               transition={{ type: "spring", stiffness: 400 }}
             >
-              <Button variant="outline" className="shadow hover:shadow-xl hover:shadow-slate-300/50 transition-all duration-300 border-2 hover:border-slate-400 rounded-lg hover:bg-gradient-to-r hover:from-slate-50 hover:to-slate-100 group">
+              <Button variant="outline" className="shadow-sm hover:shadow-md transition-all duration-300 border border-slate-200 hover:border-slate-300 rounded-2xl hover:bg-slate-50 group">
                 <span className="group-hover:translate-x-1 transition-transform duration-300">Ver todas las solicitudes</span>
               </Button>
             </motion.div>
@@ -282,7 +282,7 @@ export default function Index() {
 
       {/* Pending Requests Table */}
       <AnimatedSection variants={fadeInUp}>
-        <Card className="p-4 md:p-6 border-2 border-slate-200 hover:border-slate-300 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 rounded-xl">
+        <Card className="p-4 md:p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
           <div className="flex items-center justify-between mb-4">
             <motion.h2
               className="text-lg font-semibold text-slate-900"
@@ -364,7 +364,7 @@ export default function Index() {
                       <td className="py-3 px-3">
                         <Link to="/control/aprobacion">
                           <motion.div whileHover={{ scale: 1.2 }} whileTap={{ scale: 0.9 }}>
-                            <Button variant="ghost" size="sm" className="text-xs hover:bg-blue-50 hover:border-2 hover:border-blue-300 transition-all duration-200 rounded-lg">
+                            <Button variant="ghost" size="sm" className="text-xs hover:bg-blue-50 transition-all duration-200 rounded-xl">
                               <Eye className="w-4 h-4" />
                             </Button>
                           </motion.div>

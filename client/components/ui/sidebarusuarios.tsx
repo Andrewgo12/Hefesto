@@ -4,8 +4,27 @@ import {
   HiHome, HiInbox, HiViewBoards, HiUser,
   HiUserAdd, HiClipboardList, HiLockClosed
 } from 'react-icons/hi';
-import { Menu, X, ChevronRight, LogOut } from "lucide-react";
+import { Menu, X, ChevronRight, LogOut, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// Estilos CSS para animaciones optimizadas
+const sidebarStyles = `
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pulse-subtle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .sidebar-item-enter { animation: slideIn 0.2s ease-out forwards; }
+  .sidebar-fade { animation: fadeIn 0.3s ease-out forwards; }
+  .active-indicator { animation: pulse-subtle 2s ease-in-out infinite; }
+`;
 
 interface SidebarItem {
   label: string;
@@ -79,36 +98,44 @@ export default function SidebarUsuarios() {
   };
 
   return (
-    <aside
-      className={cn(
-        "bg-slate-900 text-white transition-all duration-300 flex flex-col border-r border-slate-800 flex-shrink-0 h-screen sticky top-0",
-        sidebarOpen ? "w-64" : "w-20"
-      )}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-800 h-16">
+    <>
+      <style>{sidebarStyles}</style>
+      <aside
+        className={cn(
+          "bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white flex flex-col border-r border-slate-800/50 flex-shrink-0 h-screen sticky top-0 shadow-2xl",
+          "transition-all duration-300 ease-out",
+          sidebarOpen ? "w-64" : "w-20"
+        )}
+      >
+      {/* Header con gradiente sutil */}
+      <div className="flex items-center justify-between p-4 border-b border-slate-800/50 h-16 bg-gradient-to-r from-slate-900 to-slate-800/30">
         {sidebarOpen && (
-          <div className="flex items-center gap-2 animate-in fade-in duration-300">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-sm shadow-lg shadow-blue-900/20">
-              H
+          <div className="flex items-center gap-3 sidebar-fade">
+            <div className="w-9 h-9 bg-gradient-to-br from-white to-slate-100 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 overflow-hidden ring-2 ring-white/10">
+              <img src="/image.png" alt="HUV Logo" className="w-7 h-7 object-contain" />
             </div>
-            <span className="font-bold text-lg tracking-tight">HEFESTO</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">KAIZEN</span>
+              <span className="text-[10px] text-slate-500 -mt-1">HUV Sistema</span>
+            </div>
           </div>
         )}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className={cn(
-            "p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-400 hover:text-white",
+            "p-2.5 hover:bg-slate-800/80 rounded-xl transition-all duration-200 text-slate-400 hover:text-white hover:scale-105 active:scale-95",
             !sidebarOpen && "mx-auto"
           )}
           title={sidebarOpen ? "Contraer" : "Expandir"}
         >
-          {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          <div className={cn("transition-transform duration-300", !sidebarOpen && "rotate-180")}>
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </div>
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+      {/* Navigation con scroll suave */}
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 custom-scrollbar scroll-smooth">
         {sidebarItems.map((item) => {
           const Icon = item.icon;
           const isActive = item.path ? location.pathname === item.path || location.pathname.startsWith(item.path + '/') : false;
@@ -125,18 +152,22 @@ export default function SidebarUsuarios() {
                   if (item.path) navigate(item.path);
                 }}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200 group relative",
                   isActive
-                    ? "bg-blue-600 text-white shadow-md shadow-blue-900/20 font-medium"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                    ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 font-medium"
+                    : "text-slate-400 hover:bg-slate-800/70 hover:text-slate-100 hover:translate-x-1"
                 )}
                 title={!sidebarOpen ? item.label : undefined}
               >
-                <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-slate-200")} />
-                {sidebarOpen && <span className="truncate text-sm">{item.label}</span>}
+                {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full active-indicator" />}
+                <Icon className={cn(
+                  "w-5 h-5 flex-shrink-0 transition-transform duration-200",
+                  isActive ? "text-white" : "text-slate-400 group-hover:text-slate-200 group-hover:scale-110"
+                )} />
+                {sidebarOpen && <span className="truncate text-sm sidebar-item-enter">{item.label}</span>}
 
                 {!sidebarOpen && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none border border-slate-700 shadow-xl">
+                  <div className="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap z-50 pointer-events-none border border-slate-700/50 shadow-xl backdrop-blur-sm">
                     {item.label}
                   </div>
                 )}
@@ -156,21 +187,24 @@ export default function SidebarUsuarios() {
                   }
                 }}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-all duration-200 group relative",
                   isSubmenuActive
-                    ? "bg-slate-800/50 text-blue-400 font-medium"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                    ? "bg-slate-800/60 text-blue-400 font-medium shadow-inner"
+                    : "text-slate-400 hover:bg-slate-800/70 hover:text-slate-100"
                 )}
                 title={!sidebarOpen ? item.label : undefined}
               >
-                <Icon className={cn("w-5 h-5 flex-shrink-0", isSubmenuActive ? "text-blue-400" : "text-slate-400 group-hover:text-slate-200")} />
+                <Icon className={cn(
+                  "w-5 h-5 flex-shrink-0 transition-transform duration-200",
+                  isSubmenuActive ? "text-blue-400" : "text-slate-400 group-hover:text-slate-200 group-hover:scale-110"
+                )} />
                 {sidebarOpen && (
                   <>
                     <span className="flex-1 truncate text-left text-sm">{item.label}</span>
                     <ChevronRight
                       size={16}
                       className={cn(
-                        "flex-shrink-0 transition-transform duration-200",
+                        "flex-shrink-0 transition-transform duration-300 ease-out",
                         isExpanded && "rotate-90"
                       )}
                     />
@@ -179,8 +213,8 @@ export default function SidebarUsuarios() {
               </button>
 
               {sidebarOpen && isExpanded && hasSubmenu && (
-                <div className="mt-1 ml-4 pl-4 border-l border-slate-700 space-y-1 animate-in slide-in-from-top-2 duration-200">
-                  {item.subItems!.map((sub) => {
+                <div className="mt-1.5 ml-4 pl-4 border-l-2 border-slate-700/50 space-y-1 sidebar-fade">
+                  {item.subItems!.map((sub, index) => {
                     const isSubActive = sub.path ? location.pathname === sub.path : false;
                     const SubIcon = sub.icon;
                     return (
@@ -188,14 +222,19 @@ export default function SidebarUsuarios() {
                         key={sub.path}
                         to={sub.path!}
                         className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm",
+                          "flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 text-sm group/sub",
                           isSubActive
-                            ? "bg-blue-600/10 text-blue-400 font-medium"
-                            : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                            ? "bg-blue-500/15 text-blue-400 font-medium border-l-2 border-blue-400 -ml-[2px] pl-[14px]"
+                            : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 hover:translate-x-1"
                         )}
+                        style={{ animationDelay: `${index * 50}ms` }}
                       >
-                        {SubIcon && <SubIcon className="w-4 h-4 flex-shrink-0" />}
+                        {SubIcon && <SubIcon className={cn(
+                          "w-4 h-4 flex-shrink-0 transition-transform duration-200",
+                          "group-hover/sub:scale-110"
+                        )} />}
                         <span className="truncate">{sub.label}</span>
+                        {isSubActive && <Sparkles className="w-3 h-3 text-blue-400 ml-auto" />}
                       </Link>
                     );
                   })}
@@ -206,22 +245,25 @@ export default function SidebarUsuarios() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-slate-800 p-4 space-y-2 bg-slate-900/50">
+      {/* Footer con glassmorphism */}
+      <div className="border-t border-slate-800/50 p-4 space-y-2 bg-gradient-to-t from-slate-950 to-transparent">
         <button
           onClick={() => navigate('/perfil/personal')}
           className={cn(
-            "w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors group",
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-slate-800/70 transition-all duration-200 group",
             !sidebarOpen && "justify-center"
           )}
           title="Ver mi perfil"
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold shadow-lg ring-2 ring-slate-800 group-hover:ring-slate-700 transition-all">
-            {user?.name?.charAt(0).toUpperCase() || 'U'}
+          <div className="relative">
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex-shrink-0 flex items-center justify-center text-sm font-bold shadow-lg ring-2 ring-blue-400/20 group-hover:ring-blue-400/40 transition-all group-hover:scale-105">
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-900" />
           </div>
           {sidebarOpen && (
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-sm font-medium truncate text-white group-hover:text-blue-400 transition-colors">{user?.name || 'Usuario'}</p>
+            <div className="flex-1 min-w-0 text-left sidebar-fade">
+              <p className="text-sm font-semibold truncate text-white group-hover:text-blue-400 transition-colors">{user?.name || 'Usuario'}</p>
               <p className="text-xs text-slate-500 truncate">{user?.email || 'No autenticado'}</p>
             </div>
           )}
@@ -229,15 +271,16 @@ export default function SidebarUsuarios() {
         <button
           onClick={handleLogout}
           className={cn(
-            "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:bg-red-900/20 hover:text-red-400 transition-all duration-200 group",
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 group border border-transparent hover:border-red-500/20",
             !sidebarOpen && "justify-center"
           )}
           title="Cerrar Sesión"
         >
-          <LogOut size={18} className="flex-shrink-0 group-hover:scale-110 transition-transform" />
+          <LogOut size={18} className="flex-shrink-0 group-hover:scale-110 group-hover:-translate-x-0.5 transition-transform duration-200" />
           {sidebarOpen && <span className="text-sm font-medium">Cerrar Sesión</span>}
         </button>
       </div>
     </aside>
+    </>
   );
 }

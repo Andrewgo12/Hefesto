@@ -110,7 +110,7 @@ export default function SeguridadView() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <div className="p-2 bg-red-100 rounded-lg">
+                        <div className="p-2 bg-red-100 rounded-2xl">
                             <HiLockClosed className="w-6 h-6 text-red-600" />
                         </div>
                         Centro de Seguridad
@@ -123,7 +123,7 @@ export default function SeguridadView() {
                     <Button
                         variant="destructive"
                         onClick={handleKillSessions}
-                        className="shadow-lg shadow-red-200 hover:shadow-red-300 transition-all"
+                        className="shadow-md hover:shadow-lg transition-all rounded-2xl"
                     >
                         <HiBan className="w-5 h-5 mr-2" />
                         Cerrar Todas las Sesiones
@@ -133,7 +133,7 @@ export default function SeguridadView() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Security Policies Panel */}
-                <Card className="border-t-4 border-t-red-600 shadow-md lg:col-span-1 h-fit bg-white">
+                <Card className="border border-slate-200 shadow-sm lg:col-span-1 h-fit bg-white rounded-2xl">
                     <div className="p-6 border-b border-slate-100">
                         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                             <HiShieldCheck className="w-5 h-5 text-red-600" />
@@ -205,7 +205,7 @@ export default function SeguridadView() {
                 </Card>
 
                 {/* Audit Log Timeline */}
-                <Card className="border-t-4 border-t-orange-500 shadow-md lg:col-span-2 flex flex-col h-[600px] bg-white">
+                <Card className="border border-slate-200 shadow-sm lg:col-span-2 flex flex-col h-[600px] bg-white rounded-2xl">
                     <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">

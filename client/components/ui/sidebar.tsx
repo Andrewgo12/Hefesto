@@ -170,8 +170,10 @@ export default function AdvancedSidebar() {
       >
         {/* Logo */}
         <div className="p-4 border-b border-slate-700/50 flex items-center gap-3 bg-gradient-to-r from-slate-900/50 to-transparent">
-          <div className="w-12 h-12 bg-gradient-to-br from-[#006837] via-[#007d42] to-[#004d28] rounded-xl flex items-center justify-center font-bold text-xl shadow-lg hover:scale-110 transition-transform duration-300 cursor-pointer animate-pulse">H</div>
-          <span className="font-bold text-xl text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">HEFESTO</span>
+          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300 cursor-pointer overflow-hidden">
+            <img src="/image.png" alt="HUV Logo" className="w-10 h-10 object-contain" />
+          </div>
+          <span className="font-bold text-xl text-white bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-300">KAIZEN</span>
         </div>
 
         {/* Navigation */}

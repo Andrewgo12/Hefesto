@@ -101,9 +101,10 @@ export function parseSignature(firmaData: string): {
     return { type: 'canvas', name: '' };
 }
 
-// Función para crear firma con estilo
+// Función para crear firma - SOLO NOMBRE
 export function createSignature(name: string, fontId: string, fontSize: number = 24, fontStyle: string = 'normal'): string {
-    return `FIRMA_TEXTO:${name}|FONT:${fontId}|SIZE:${fontSize}|STYLE:${fontStyle}`;
+    // Solo guardamos el nombre, sin font ni tamaño
+    return `FIRMA_TEXTO:${name}`;
 }
 
 // Obtener fuente por ID

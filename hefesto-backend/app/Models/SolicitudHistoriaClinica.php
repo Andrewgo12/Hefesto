@@ -34,6 +34,8 @@ class SolicitudHistoriaClinica extends Model
         'aval_institucional',
         'firmas',
         'login_creado_por',
+        'login_asignado',
+        'contrasena_asignada',
         'estado',
         'fase_actual',
         'firmas_pendientes',

@@ -2,7 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, Search, Filter, Download, Printer, FileText, Edit } from "lucide-react";
+import { CheckCircle2, XCircle, Search, Filter, Download, Printer, FileText, Edit, Eye, Pencil, Trash2, MoreHorizontal, Clock, ArrowRight, Sparkles, FileSpreadsheet, FilePlus2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "@/lib/toast";
 import { useApp } from "@/contexts/AppContext";
@@ -11,7 +11,7 @@ import ModalEditarSolicitud from "@/components/ModalEditarSolicitud";
 import ModalEditarHistoriaClinica from "@/components/ModalEditarHistoriaClinica";
 import PDFAdministrativo from "@/components/PDFAdministrativo";
 import PDFHistoriaClinica from "@/components/PDFHistoriaClinica";
-import { exportacion } from "@/lib/api";
+import { exportacion, solicitudesAdministrativas, solicitudesHistoriaClinica } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
@@ -55,13 +55,77 @@ export default function ControlAprobacion() {
   const [showDetalles, setShowDetalles] = useState(false);
   const [showPDF, setShowPDF] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canAprobar, setCanAprobar] = useState(false);
   const [modalEditarOpen, setModalEditarOpen] = useState(false);
   const [solicitudEditando, setSolicitudEditando] = useState<number | null>(null);
   const [tipoSolicitudEditando, setTipoSolicitudEditando] = useState<'Administrativo' | 'Historia Clínica' | null>(null);
 
+  // Verificar permisos del usuario al cargar
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        const rol = (user.rol || '').toLowerCase();
+        // Administrador tiene todos los permisos
+        const esAdmin = rol === 'administrador' || user.es_administrador === true;
+        // Roles que pueden aprobar/rechazar
+        const puedeAprobar = esAdmin || 
+          rol === 'jefe inmediato' || 
+          rol === 'jefe de talento humano' || 
+          rol === 'coordinador tic' ||
+          rol === 'coordinador' ||
+          rol === 'supervisor';
+        
+        setIsAdmin(esAdmin);
+        setCanAprobar(puedeAprobar);
+        console.log('Usuario:', user.name, 'Rol:', rol, 'Puede aprobar:', puedeAprobar);
+      } catch (e) {
+        console.error('Error parsing user:', e);
+      }
+    }
+  }, []);
+
   // Estados para paginación
   const [paginaActual, setPaginaActual] = useState(1);
   const itemsPorPagina = 15;
+
+  // Función para cargar datos frescos de una solicitud antes de mostrar PDF
+  const handleVerFormato = async (solicitud: any) => {
+    try {
+      const idReal = solicitud.id_original || solicitud.datos?.id || solicitud.id;
+      const tipo = solicitud.tipo;
+      
+      console.log('📄 Cargando datos frescos para PDF:', tipo, idReal);
+      
+      // Cargar datos frescos del backend
+      let response;
+      if (tipo === 'Administrativo') {
+        response = await solicitudesAdministrativas.getById(idReal);
+      } else {
+        response = await solicitudesHistoriaClinica.getById(idReal);
+      }
+      
+      // Combinar datos frescos con la estructura original
+      const datosFrescos = response.data;
+      const solicitudActualizada = {
+        ...solicitud,
+        ...datosFrescos,
+        datos: datosFrescos,
+        login_asignado: datosFrescos.login_asignado,
+        contrasena_asignada: datosFrescos.contrasena_asignada,
+      };
+      
+      console.log('✅ Datos frescos cargados:', solicitudActualizada);
+      setSelectedSolicitud(solicitudActualizada);
+      setShowPDF(true);
+    } catch (error) {
+      console.error('Error cargando datos:', error);
+      // Si falla, usar datos existentes
+      setSelectedSolicitud(solicitud);
+      setShowPDF(true);
+    }
+  };
 
   // Función para editar solicitud
   const handleEditar = (solicitud: any) => {
@@ -75,6 +139,52 @@ export default function ControlAprobacion() {
   const handleEditarSuccess = () => {
     // Recargar solicitudes después de editar
     window.location.reload();
+  };
+
+  // Función para abrir modal de aprobar/rechazar con validación de credenciales
+  const handleAbrirModalAccion = async (solicitud: any, tipoAccion: 'aprobar' | 'rechazar') => {
+    try {
+      const idReal = solicitud.id_original || solicitud.datos?.id || solicitud.id;
+      const tipo = solicitud.tipo;
+      
+      // Cargar datos frescos del backend
+      let response;
+      if (tipo === 'Administrativo') {
+        response = await solicitudesAdministrativas.getById(idReal);
+      } else {
+        response = await solicitudesHistoriaClinica.getById(idReal);
+      }
+      
+      const datosFrescos = response.data;
+      
+      // Si es aprobar, validar que tenga login y clave asignados
+      if (tipoAccion === 'aprobar') {
+        const loginAsignado = datosFrescos.login_asignado || '';
+        const claveAsignada = datosFrescos.contrasena_asignada || datosFrescos.clave_temporal || '';
+        
+        if (!loginAsignado.trim() || !claveAsignada.trim()) {
+          toast.error(
+            'Credenciales requeridas',
+            'No se puede aprobar la solicitud sin asignar LOGIN y CLAVE TEMPORAL. Por favor, edite la solicitud primero.'
+          );
+          return;
+        }
+      }
+      
+      // Combinar datos frescos con la estructura original
+      const solicitudActualizada = {
+        ...solicitud,
+        ...datosFrescos,
+        datos: datosFrescos,
+      };
+      
+      setSelectedSolicitud(solicitudActualizada);
+      setAccion(tipoAccion);
+      setShowModal(true);
+    } catch (error) {
+      console.error('Error cargando datos:', error);
+      toast.error('Error', 'No se pudieron cargar los datos de la solicitud');
+    }
   };
 
   const handleAccion = async () => {
@@ -336,7 +446,7 @@ export default function ControlAprobacion() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <Card className="p-3 sm:p-4 border-2 border-transparent hover:border-blue-300 hover:shadow-2xl hover:shadow-blue-200/50 transition-all duration-300 rounded-xl">
+        <Card className="p-3 sm:p-4 border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
@@ -385,9 +495,9 @@ export default function ControlAprobacion() {
                   size="sm"
                   variant="outline"
                   onClick={handleExportarExcel}
-                  className="text-xs sm:text-sm bg-green-50 text-green-700 border-green-200 hover:bg-green-100 hover:border-green-300 hover:shadow-md transition-all duration-300"
+                  className="text-xs sm:text-sm bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 rounded-xl transition-all duration-300"
                 >
-                  <FileText className="w-4 h-4 mr-2" />
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
                   Exportar Excel
                 </Button>
               </motion.div>
@@ -402,17 +512,17 @@ export default function ControlAprobacion() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <Card className="border-2 border-transparent hover:border-slate-300 hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 rounded-xl">
+        <Card className="border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 border-b">
+              <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
                 <tr>
-                  <th className="text-left p-3 text-xs font-semibold text-slate-700">ID</th>
-                  <th className="text-left p-3 text-xs font-semibold text-slate-700">Solicitante</th>
-                  <th className="text-left p-3 text-xs font-semibold text-slate-700">Tipo</th>
-                  <th className="text-left p-3 text-xs font-semibold text-slate-700">Fase</th>
-                  <th className="text-left p-3 text-xs font-semibold text-slate-700">Fecha</th>
-                  <th className="text-left p-3 text-xs font-semibold text-slate-700">Acciones</th>
+                  <th className="text-left p-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">ID</th>
+                  <th className="text-left p-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Solicitante</th>
+                  <th className="text-left p-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Tipo</th>
+                  <th className="text-left p-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Estado</th>
+                  <th className="text-left p-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Fecha</th>
+                  <th className="text-center p-3 text-xs font-semibold text-slate-600 uppercase tracking-wider">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -457,8 +567,8 @@ export default function ControlAprobacion() {
                           </div>
                         </td>
                         <td className="p-3">
-                          <Badge variant="outline" className="text-xs">
-                            {sol.tipo === 'Historia Clínica' ? 'Médico' : sol.tipo}
+                          <Badge variant="outline" className="text-xs rounded-lg px-2 py-1 bg-slate-50 border-slate-200">
+                            {sol.tipo === 'Historia Clínica' ? '🏥 Médico' : '📋 Admin'}
                           </Badge>
                         </td>
                         <td className="p-3">
@@ -467,105 +577,101 @@ export default function ControlAprobacion() {
                             animate={{ scale: 1 }}
                             transition={{ type: "spring", stiffness: 300, delay: idx * 0.05 + 0.2 }}
                           >
-                            <Badge className={`text-xs rounded-full ${getStatusBadge(sol.estado)}`}>
+                            <Badge className={`text-xs rounded-lg px-2.5 py-1 font-medium ${getStatusBadge(sol.estado)}`}>
                               {sol.estado}
                             </Badge>
                           </motion.div>
                         </td>
-                        <td className="p-3 text-xs text-slate-600">{formatearFecha(sol.fechaSolicitud)}</td>
                         <td className="p-3">
-                          <div className="flex gap-1">
+                          <span className="text-xs text-slate-600 flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            {formatearFecha(sol.fechaSolicitud)}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-1 justify-center">
 
                             <motion.div
-                              whileHover={{ scale: 1.2 }}
+                              whileHover={{ scale: 1.15 }}
                               whileTap={{ scale: 0.9 }}
                             >
                               <Button
                                 size="sm"
-                                variant="ghost"
-                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 transition-all duration-300"
-                                onClick={() => {
-                                  setSelectedSolicitud(sol);
-                                  setShowPDF(true);
-                                }}
+                                variant="outline"
+                                className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 border-2 border-purple-200 hover:border-purple-400 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                                onClick={() => handleVerFormato(sol)}
                                 title="Ver formato PDF"
                               >
-                                <FileText className="w-4 h-4" />
+                                <Eye className="w-5 h-5" strokeWidth={2.5} />
                               </Button>
                             </motion.div>
 
                             {/* Botón Descargar Excel */}
                             <motion.div
-                              whileHover={{ scale: 1.2 }}
+                              whileHover={{ scale: 1.15 }}
                               whileTap={{ scale: 0.9 }}
                             >
                               <Button
                                 size="sm"
-                                variant="ghost"
-                                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 transition-all duration-300"
+                                variant="outline"
+                                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100 border-2 border-emerald-200 hover:border-emerald-400 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
                                 onClick={() => handleDescargar(sol)}
                                 title="Descargar Excel"
                               >
-                                <Download className="w-4 h-4" />
+                                <Download className="w-5 h-5" strokeWidth={2.5} />
                               </Button>
                             </motion.div>
 
-                            {/* Botón EDITAR - Disponible para TODOS */}
-                            <motion.div
-                              whileHover={{ scale: 1.2 }}
-                              whileTap={{ scale: 0.9 }}
-                            >
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-all duration-300"
-                                onClick={() => {
-                                  console.log('✏️ Click en editar:', sol);
-                                  handleEditar(sol);
-                                }}
-                                title="Editar solicitud"
+                            {/* Botón EDITAR - Solo si NO está Aprobado ni Rechazado */}
+                            {sol.estado !== 'Aprobado' && sol.estado !== 'Rechazado' && (
+                              <motion.div
+                                whileHover={{ scale: 1.15 }}
+                                whileTap={{ scale: 0.9 }}
                               >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            </motion.div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-400 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                                  onClick={() => {
+                                    console.log('✏️ Click en editar:', sol);
+                                    handleEditar(sol);
+                                  }}
+                                  title="Editar solicitud"
+                                >
+                                  <Pencil className="w-5 h-5" strokeWidth={2.5} />
+                                </Button>
+                              </motion.div>
+                            )}
 
-                            {/* Botones APROBAR/RECHAZAR - Solo para ADMIN */}
-                            {isAdmin && (sol.estado === 'Pendiente' || sol.estado === 'En revisión') && (
+                            {/* Botones APROBAR/RECHAZAR - Para usuarios con permiso */}
+                            {canAprobar && (sol.estado === 'Pendiente' || sol.estado === 'En revisión') && (
                               <>
                                 <motion.div
-                                  whileHover={{ scale: 1.2, rotate: 5 }}
+                                  whileHover={{ scale: 1.15 }}
                                   whileTap={{ scale: 0.9 }}
                                 >
                                   <Button
                                     size="sm"
-                                    variant="ghost"
-                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 transition-all duration-300"
-                                    onClick={() => {
-                                      setSelectedSolicitud(sol);
-                                      setAccion('aprobar');
-                                      setShowModal(true);
-                                    }}
-                                    title="Aprobar (Solo Admin)"
+                                    variant="outline"
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-100 border-2 border-green-200 hover:border-green-400 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                                    onClick={() => handleAbrirModalAccion(sol, 'aprobar')}
+                                    title="Aprobar solicitud"
                                   >
-                                    <CheckCircle2 className="w-4 h-4" />
+                                    <CheckCircle2 className="w-5 h-5" strokeWidth={2.5} />
                                   </Button>
                                 </motion.div>
                                 <motion.div
-                                  whileHover={{ scale: 1.2, rotate: -5 }}
+                                  whileHover={{ scale: 1.15 }}
                                   whileTap={{ scale: 0.9 }}
                                 >
                                   <Button
                                     size="sm"
-                                    variant="ghost"
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 transition-all duration-300"
-                                    onClick={() => {
-                                      setSelectedSolicitud(sol);
-                                      setAccion('rechazar');
-                                      setShowModal(true);
-                                    }}
-                                    title="Rechazar (Solo Admin)"
+                                    variant="outline"
+                                    className="text-red-600 hover:text-red-700 hover:bg-red-100 border-2 border-red-200 hover:border-red-400 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                                    onClick={() => handleAbrirModalAccion(sol, 'rechazar')}
+                                    title="Rechazar solicitud"
                                   >
-                                    <XCircle className="w-4 h-4" />
+                                    <XCircle className="w-5 h-5" strokeWidth={2.5} />
                                   </Button>
                                 </motion.div>
                               </>

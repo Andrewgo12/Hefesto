@@ -140,7 +140,7 @@ export default function RolesView() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <div className="p-2 bg-indigo-100 rounded-lg">
+                        <div className="p-2 bg-indigo-100 rounded-2xl">
                             <HiShieldCheck className="w-6 h-6 text-indigo-600" />
                         </div>
                         Matriz de Permisos
@@ -183,7 +183,7 @@ export default function RolesView() {
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Role Selector Sidebar */}
-                <Card className="p-0 lg:col-span-1 border-slate-200 h-fit overflow-hidden bg-white shadow-md">
+                <Card className="p-0 lg:col-span-1 border border-slate-200 h-fit overflow-hidden bg-white shadow-sm rounded-2xl">
                     <div className="p-4 bg-slate-50 border-b border-slate-100">
                         <h3 className="font-semibold text-slate-700">Roles del Sistema</h3>
                         <p className="text-xs text-slate-500 mt-1">Seleccione un rol para ver sus permisos</p>
@@ -215,7 +215,7 @@ export default function RolesView() {
                 </Card>
 
                 {/* Permission Matrix */}
-                <Card className="lg:col-span-3 border-slate-200 overflow-hidden shadow-md bg-white flex flex-col min-h-[500px]">
+                <Card className="lg:col-span-3 border border-slate-200 overflow-hidden shadow-sm bg-white flex flex-col min-h-[500px] rounded-2xl">
                     {currentRole ? (
                         <>
                             <div className={`p-6 border-b border-slate-100 flex justify-between items-center transition-colors duration-300 ${isEditing ? 'bg-indigo-50/50' : 'bg-white'}`}>

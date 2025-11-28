@@ -9,6 +9,7 @@ import { solicitudesAdministrativas } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { Save, X } from 'lucide-react';
 import logger from '@/lib/logger';
+import FirmaDigital from '@/components/FirmaDigital';
 
 interface ModalEditarSolicitudProps {
   open: boolean;
@@ -20,6 +21,7 @@ interface ModalEditarSolicitudProps {
 export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuccess }: ModalEditarSolicitudProps) {
   const [loading, setLoading] = useState(false);
   const [cargando, setCargando] = useState(true);
+  const [estadoSolicitud, setEstadoSolicitud] = useState<string>('');
   const [formData, setFormData] = useState<any>({
     modulos_administrativos: {},
     modulos_financieros: {},
@@ -32,11 +34,40 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
   const [anexosNivel, setAnexosNivel] = useState<'1' | '2' | '3' | ''>('');
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Verificar si la solicitud está bloqueada (Aprobado o Rechazado)
+  const solicitudBloqueada = estadoSolicitud === 'Aprobado' || estadoSolicitud === 'Rechazado';
+
   // Verificar si el usuario es admin
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     setIsAdmin(user.rol === 'Administrador' || user.rol === 'admin');
   }, []);
+
+  // Función para manejar firmas con el componente FirmaDigital
+  const handleFirma = (tipoFirma: string, firma: string, usuario: string) => {
+    if (solicitudBloqueada) {
+      toast.error('No permitido', 'Esta solicitud ya fue procesada');
+      return;
+    }
+    const cargoNombres: Record<string, string> = {
+      jefeInmediato: 'Jefe Inmediato',
+      coordinadorFacturacionOSubgerenteFinanciero: 'Coordinador de Facturación',
+      jefeTalentoHumano: 'Jefe de Talento Humano',
+      coordinadorTIC: 'Jefe de Gestión de la Información'
+    };
+    setFormData((prev: any) => ({
+      ...prev,
+      firmas: {
+        ...prev.firmas,
+        [tipoFirma]: {
+          firma: firma,
+          usuario: usuario,
+          fecha: new Date().toISOString()
+        }
+      }
+    }));
+    toast.success('Firma agregada', `${cargoNombres[tipoFirma] || tipoFirma} firmó correctamente`);
+  };
 
   const permisos = ['A', 'C', 'M', 'B'] as const;
 
@@ -53,6 +84,10 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
       const solicitud = response.data;
 
       logger.data('Datos cargados', solicitud);
+      
+      // Guardar el estado de la solicitud
+      setEstadoSolicitud(solicitud.estado || '');
+
       logger.debug('Solicitud parseada', {
         tipo_permiso: solicitud.tipo_permiso,
         perfil_de: solicitud.perfil_de,
@@ -170,6 +205,12 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
   };
 
   const handleGuardar = async () => {
+    // No permitir guardar si está bloqueada
+    if (solicitudBloqueada) {
+      toast.error('No permitido', 'Esta solicitud ya fue procesada y no puede modificarse');
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -222,9 +263,19 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>✏️ Editar Solicitud #{solicitudId}</DialogTitle>
+          <DialogTitle>
+            {solicitudBloqueada ? '👁️ Ver' : '✏️ Editar'} Solicitud #{solicitudId}
+            {solicitudBloqueada && (
+              <Badge className={`ml-2 ${estadoSolicitud === 'Aprobado' ? 'bg-green-500' : 'bg-red-500'}`}>
+                {estadoSolicitud}
+              </Badge>
+            )}
+          </DialogTitle>
           <DialogDescription>
-            Modifica los campos necesarios y guarda los cambios. Los campos en rojo están incompletos.
+            {solicitudBloqueada 
+              ? `Esta solicitud está ${estadoSolicitud.toLowerCase()} y solo puede visualizarse.`
+              : 'Modifica los campos necesarios y guarda los cambios. Los campos en rojo están incompletos.'
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -611,41 +662,21 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                 </div>
               </div>
 
-              {/* Firma Usuario Solicitante */}
-              <div className="mt-4 border-2 border-slate-300 rounded-lg p-3 bg-slate-50">
-                <h4 className="font-semibold text-slate-900 mb-2">Firma del usuario solicitante</h4>
-                {formData.firmas?.usuarioSolicitante ? (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">{formData.firmas.usuarioSolicitante.usuario}</p>
-                      <p className="text-xs text-slate-600">
-                        {formData.firmas.usuarioSolicitante.fecha ? new Date(formData.firmas.usuarioSolicitante.fecha).toLocaleString('es-CO') : 'Sin fecha'}
-                      </p>
-                    </div>
-                    <Badge className="bg-green-500">✓ Firmado</Badge>
+              {/* Firma Usuario Solicitante - Automática desde nombre del solicitante */}
+              <div className="mt-4 border-2 border-green-300 rounded-lg p-3 bg-green-50">
+                <h4 className="font-semibold text-green-900 mb-2">✓ Firma del usuario solicitante</h4>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">{formData.nombre_completo || 'Solicitante'}</p>
+                    <p className="text-xs text-slate-600">
+                      {formData.fecha_solicitud ? new Date(formData.fecha_solicitud).toLocaleString('es-CO') : 'Fecha de solicitud'}
+                    </p>
+                    <p className="text-[10px] text-green-600 mt-1">
+                      * La firma del usuario se toma automáticamente del nombre del solicitante
+                    </p>
                   </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const user = JSON.parse(localStorage.getItem('user') || '{}');
-                      setFormData({
-                        ...formData,
-                        firmas: {
-                          ...formData.firmas,
-                          usuarioSolicitante: {
-                            usuario: user.nombre || 'Usuario',
-                            fecha: new Date().toISOString()
-                          }
-                        }
-                      });
-                      toast.success('Firma agregada', 'Usuario solicitante firmó correctamente');
-                    }}
-                    className="w-full"
-                  >
-                    ✍️ Firmar
-                  </Button>
-                )}
+                  <Badge className="bg-green-500">✓ Firmado automáticamente</Badge>
+                </div>
               </div>
             </div>
 
@@ -656,7 +687,7 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
               {/* Firma Jefe Inmediato */}
               <div className="mb-4 border-2 border-blue-200 rounded-lg p-3 bg-blue-50">
                 <h4 className="font-semibold text-blue-900 mb-2">Jefe Inmediato</h4>
-                {formData.firmas?.jefeInmediato ? (
+                {formData.firmas?.jefeInmediato?.firma ? (
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">{formData.firmas.jefeInmediato.usuario}</p>
@@ -667,33 +698,19 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const user = JSON.parse(localStorage.getItem('user') || '{}');
-                      setFormData({
-                        ...formData,
-                        firmas: {
-                          ...formData.firmas,
-                          jefeInmediato: {
-                            usuario: user.nombre || 'Usuario',
-                            fecha: new Date().toISOString()
-                          }
-                        }
-                      });
-                      toast.success('Firma agregada', 'Jefe Inmediato firmó correctamente');
-                    }}
-                    className="w-full"
-                  >
-                    ✍️ Firmar como Jefe Inmediato
-                  </Button>
+                  <FirmaDigital
+                    cargo="Jefe Inmediato"
+                    credencialRequerida="Jefe Inmediato"
+                    onFirmaCompleta={(firma, usuario) => handleFirma('jefeInmediato', firma, usuario)}
+                    firmaActual={formData.firmas?.jefeInmediato?.firma}
+                  />
                 )}
               </div>
 
               {/* Firma Coordinador Financiero */}
               <div className="mb-4 border-2 border-green-200 rounded-lg p-3 bg-green-50">
                 <h4 className="font-semibold text-green-900 mb-2">Coordinador de Facturación o Subgerente Financiero</h4>
-                {formData.firmas?.coordinadorFacturacionOSubgerenteFinanciero ? (
+                {formData.firmas?.coordinadorFacturacionOSubgerenteFinanciero?.firma ? (
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">{formData.firmas.coordinadorFacturacionOSubgerenteFinanciero.usuario}</p>
@@ -704,33 +721,19 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const user = JSON.parse(localStorage.getItem('user') || '{}');
-                      setFormData({
-                        ...formData,
-                        firmas: {
-                          ...formData.firmas,
-                          coordinadorFacturacionOSubgerenteFinanciero: {
-                            usuario: user.nombre || 'Usuario',
-                            fecha: new Date().toISOString()
-                          }
-                        }
-                      });
-                      toast.success('Firma agregada', 'Coordinador Financiero firmó correctamente');
-                    }}
-                    className="w-full"
-                  >
-                    ✍️ Firmar como Coordinador Financiero
-                  </Button>
+                  <FirmaDigital
+                    cargo="Coordinador Financiero"
+                    credencialRequerida="Coordinador de Facturación"
+                    onFirmaCompleta={(firma, usuario) => handleFirma('coordinadorFacturacionOSubgerenteFinanciero', firma, usuario)}
+                    firmaActual={formData.firmas?.coordinadorFacturacionOSubgerenteFinanciero?.firma}
+                  />
                 )}
               </div>
 
               {/* Firma Jefe Talento Humano */}
               <div className="mb-4 border-2 border-orange-200 rounded-lg p-3 bg-orange-50">
                 <h4 className="font-semibold text-orange-900 mb-2">Jefe de Talento Humano</h4>
-                {formData.firmas?.jefeTalentoHumano ? (
+                {formData.firmas?.jefeTalentoHumano?.firma ? (
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">{formData.firmas.jefeTalentoHumano.usuario}</p>
@@ -741,33 +744,19 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const user = JSON.parse(localStorage.getItem('user') || '{}');
-                      setFormData({
-                        ...formData,
-                        firmas: {
-                          ...formData.firmas,
-                          jefeTalentoHumano: {
-                            usuario: user.nombre || 'Usuario',
-                            fecha: new Date().toISOString()
-                          }
-                        }
-                      });
-                      toast.success('Firma agregada', 'Jefe de Talento Humano firmó correctamente');
-                    }}
-                    className="w-full"
-                  >
-                    ✍️ Firmar como Jefe de Talento Humano
-                  </Button>
+                  <FirmaDigital
+                    cargo="Jefe de Talento Humano"
+                    credencialRequerida="Jefe de Talento Humano"
+                    onFirmaCompleta={(firma, usuario) => handleFirma('jefeTalentoHumano', firma, usuario)}
+                    firmaActual={formData.firmas?.jefeTalentoHumano?.firma}
+                  />
                 )}
               </div>
 
               {/* Firma Jefe Gestión Información */}
               <div className="border-2 border-purple-200 rounded-lg p-3 bg-purple-50">
                 <h4 className="font-semibold text-purple-900 mb-2">Jefe de Gestión de la Información</h4>
-                {formData.firmas?.coordinadorTIC ? (
+                {formData.firmas?.coordinadorTIC?.firma ? (
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">{formData.firmas.coordinadorTIC.usuario}</p>
@@ -778,37 +767,24 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
                     <Badge className="bg-green-500">✓ Firmado</Badge>
                   </div>
                 ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      const user = JSON.parse(localStorage.getItem('user') || '{}');
-                      setFormData({
-                        ...formData,
-                        firmas: {
-                          ...formData.firmas,
-                          coordinadorTIC: {
-                            usuario: user.nombre || 'Usuario',
-                            fecha: new Date().toISOString()
-                          }
-                        }
-                      });
-                      toast.success('Firma agregada', 'Jefe de Gestión de la Información firmó correctamente');
-                    }}
-                    className="w-full"
-                  >
-                    ✍️ Firmar como Jefe de Gestión de la Información
-                  </Button>
+                  <FirmaDigital
+                    cargo="Coordinador TIC"
+                    credencialRequerida="Coordinador TIC"
+                    onFirmaCompleta={(firma, usuario) => handleFirma('coordinadorTIC', firma, usuario)}
+                    firmaActual={formData.firmas?.coordinadorTIC?.firma}
+                  />
                 )}
               </div>
             </div>
 
             {/* Aceptación de Responsabilidad */}
-            <label className="flex items-center gap-2 cursor-pointer border-2 border-amber-200 rounded-lg p-3 bg-amber-50">
+            <label className={`flex items-center gap-2 cursor-pointer border-2 border-amber-200 rounded-lg p-3 bg-amber-50 ${solicitudBloqueada ? 'opacity-60 pointer-events-none' : ''}`}>
               <input
                 type="checkbox"
                 checked={formData.acepta_responsabilidad === true}
                 onChange={(e) => setFormData({ ...formData, acepta_responsabilidad: e.target.checked })}
                 className="w-4 h-4 cursor-pointer accent-amber-600"
+                disabled={solicitudBloqueada}
               />
               <span className="font-medium text-amber-900">Acepta la responsabilidad de hacer buen uso del usuario y contraseña</span>
             </label>
@@ -817,12 +793,14 @@ export default function ModalEditarSolicitud({ open, onClose, solicitudId, onSuc
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={onClose} disabled={loading}>
                 <X className="mr-2 h-4 w-4" />
-                Cancelar
+                {solicitudBloqueada ? 'Cerrar' : 'Cancelar'}
               </Button>
-              <Button onClick={handleGuardar} disabled={loading}>
-                <Save className="mr-2 h-4 w-4" />
-                {loading ? 'Guardando...' : 'Guardar Cambios'}
-              </Button>
+              {!solicitudBloqueada && (
+                <Button onClick={handleGuardar} disabled={loading}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {loading ? 'Guardando...' : 'Guardar Cambios'}
+                </Button>
+              )}
             </div>
           </div>
         )}

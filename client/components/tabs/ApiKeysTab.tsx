@@ -246,7 +246,7 @@ export default function ApiKeysTab() {
                     <DialogHeader>
                         <DialogTitle>Generar Nuevo Token API</DialogTitle>
                         <DialogDescription>
-                            Cree un token para acceder a la API de Hefesto desde aplicaciones externas.
+                            Cree un token para acceder a la API de Kaizen desde aplicaciones externas.
                         </DialogDescription>
                     </DialogHeader>
 
